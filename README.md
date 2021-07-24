@@ -1,7 +1,7 @@
 # catalogue-it
 Simple cataloguing site made with Vite
 
-# Run with
+### Run with
  * npm install
  * npm run dev
 

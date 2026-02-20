@@ -11,6 +11,7 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Catalogue.createdDate) private var catalogues: [Catalogue]
+    @State private var showingAddCatalogue = false
 
     var body: some View {
         NavigationSplitView {
@@ -25,6 +26,15 @@ struct ContentView: View {
                 .onDelete(perform: deleteCatalogues)
             }
             .navigationTitle("My Catalogues")
+            .overlay {
+                if catalogues.isEmpty {
+                    ContentUnavailableView(
+                        "No Catalogues",
+                        systemImage: "square.grid.2x2",
+                        description: Text("Create your first catalogue to start organizing your collections")
+                    )
+                }
+            }
 #if os(macOS)
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
 #endif
@@ -35,39 +45,17 @@ struct ContentView: View {
                 }
 #endif
                 ToolbarItem {
-                    Button(action: addSampleCatalogue) {
+                    Button(action: { showingAddCatalogue = true }) {
                         Label("Add Catalogue", systemImage: "plus")
                     }
                 }
             }
+            .sheet(isPresented: $showingAddCatalogue) {
+                AddEditCatalogueView()
+            }
         } detail: {
             Text("Select a catalogue")
                 .foregroundStyle(.secondary)
-        }
-    }
-
-    private func addSampleCatalogue() {
-        withAnimation {
-            // Create a sample catalogue with some fields
-            let newCatalogue = Catalogue(name: "My Collection", iconName: "star.fill", colorHex: "#FF9500")
-            modelContext.insert(newCatalogue)
-            
-            // Add some sample field definitions
-            let nameField = FieldDefinition(name: "Name", fieldType: .text, sortOrder: 0)
-            nameField.catalogue = newCatalogue
-            modelContext.insert(nameField)
-            
-            let yearField = FieldDefinition(name: "Year", fieldType: .number, sortOrder: 1)
-            yearField.catalogue = newCatalogue
-            modelContext.insert(yearField)
-            
-            let purchasedField = FieldDefinition(name: "Purchase Date", fieldType: .date, sortOrder: 2)
-            purchasedField.catalogue = newCatalogue
-            modelContext.insert(purchasedField)
-            
-            let mintConditionField = FieldDefinition(name: "Mint Condition", fieldType: .boolean, sortOrder: 3)
-            mintConditionField.catalogue = newCatalogue
-            modelContext.insert(mintConditionField)
         }
     }
 
@@ -118,6 +106,7 @@ struct CatalogueRow: View {
 
 struct CatalogueDetailPlaceholder: View {
     let catalogue: Catalogue
+    @State private var showingEditCatalogue = false
     
     var body: some View {
         VStack(spacing: 20) {
@@ -154,6 +143,19 @@ struct CatalogueDetailPlaceholder: View {
                 .foregroundStyle(.secondary)
         }
         .padding()
+        .navigationTitle(catalogue.name)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showingEditCatalogue = true
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+            }
+        }
+        .sheet(isPresented: $showingEditCatalogue) {
+            AddEditCatalogueView(catalogue: catalogue)
+        }
     }
 }
 

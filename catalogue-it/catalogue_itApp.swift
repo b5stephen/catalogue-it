@@ -12,7 +12,11 @@ import SwiftData
 struct catalogue_itApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Catalogue.self,
+            FieldDefinition.self,
+            CatalogueItem.self,
+            FieldValue.self,
+            ItemPhoto.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

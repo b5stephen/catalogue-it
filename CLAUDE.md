@@ -4,7 +4,7 @@ A multi-platform SwiftUI collection management app for iOS, iPadOS, and macOS. U
 
 ## Tech Stack
 
-- **Language:** Swift
+- **Language:** Swift 6
 - **UI:** SwiftUI
 - **Persistence:** SwiftData (with iCloud sync)
 - **Platform targets:** iOS 26+, iPadOS 26+, macOS 26+

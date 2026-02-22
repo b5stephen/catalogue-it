@@ -7,7 +7,7 @@ A multi-platform SwiftUI collection management app for iOS, iPadOS, and macOS. U
 - **Language:** Swift
 - **UI:** SwiftUI
 - **Persistence:** SwiftData (with iCloud sync)
-- **Platform targets:** iOS 17+, iPadOS 17+, macOS 14+
+- **Platform targets:** iOS 26+, iPadOS 26+, macOS 26+
 - **No external dependencies** — all frameworks are Apple built-ins
 
 ## Project Structure

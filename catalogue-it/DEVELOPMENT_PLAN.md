@@ -252,9 +252,9 @@ Catalogue
 ## 📱 Platform Support
 
 ### Target Platforms:
-- ✅ iOS 17.0+
-- ✅ iPadOS 17.0+
-- ✅ macOS 14.0+
+- ✅ iOS 26.0+
+- ✅ iPadOS 26.0+
+- ✅ macOS 26.0+
 
 ### Testing Matrix:
 - [ ] iPhone (various sizes)

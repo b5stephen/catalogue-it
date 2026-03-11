@@ -3,7 +3,7 @@
 **App Overview:** A multi-platform catalogue app that lets users create custom catalogues with flexible field definitions, photos, and wishlist support. Built with SwiftUI and SwiftData with iCloud sync.
 
 **Created:** February 20, 2026  
-**Last Updated:** February 20, 2026
+**Last Updated:** March 11, 2026
 
 ---
 
@@ -68,40 +68,32 @@
 
 ## 🚀 Next Steps
 
-### 📌 Phase 3: Catalogue Detail Screen (NEXT)
-**Status:** 🔜 Not Started
+### ✅ Phase 3: Catalogue Detail Screen (COMPLETE)
+**Status:** ✅ Done
 
-#### What to Build:
-1. **CatalogueDetailView** - Replace `CatalogueDetailPlaceholder`
-   - Tabs for "Owned" and "Wishlist"
-   - Toggle between grid and list layout
-   - Display items with primary photo thumbnails
-   - Show key field values (e.g., name, year)
-   - Empty state when no items exist
-   - Add item button
+#### What's Built:
+- **`CatalogueDetailView.swift`** — Owned/Wishlist tabs (segmented picker), grid/list toggle with `@AppStorage` persistence, empty state, platform-aware toolbar, navigation to Phase 4/5 placeholders
+- **`ItemCardView.swift`** — 160px fixed-width grid card with photo thumbnail (150px) or placeholder, item name, rounded corners + shadow, cross-platform image handling
+- **`ItemRowView.swift`** — List row with 56×56 thumbnail, headline name, top-2 field summaries via `fieldSummaries` computed property, cross-platform image support
+- **`ContentView.swift`** — Simplified from 117 to 59 lines; removed placeholder detail, now navigates directly to `CatalogueDetailView`
 
-2. **Item Card Components**:
-   - Grid card view (photo + name)
-   - List row view (photo + multiple fields)
-   - Tap to view item detail
+#### Key Features:
+- ✅ Grid/list layout preference persisted via `@AppStorage("itemLayoutPreference")`
+- ✅ Tab filtering by `isWishlist`
+- ✅ Contextual empty states per tab
+- ✅ Cross-platform image handling (UIImage/NSImage)
+- ✅ Placeholder navigation for Phase 4 (Add Item) and Phase 5 (Item Detail)
 
-#### Technical Notes:
-- Use `@Query` to fetch items from catalogue
-- Filter by `isWishlist` for tabs
-- Store layout preference in `@AppStorage`
-- Use `AsyncImage` or custom image view for photos
-- Consider lazy loading for performance
-
-#### Estimated Complexity: Medium
-#### Files to Create:
+#### Files:
 - `CatalogueDetailView.swift`
-- `ItemCardView.swift` (grid)
-- `ItemRowView.swift` (list)
+- `ItemCardView.swift`
+- `ItemRowView.swift`
+- `ContentView.swift` (simplified)
 
 ---
 
-### 📌 Phase 4: Add/Edit Items (PLANNED)
-**Status:** ⏸️ Not Started
+### 📌 Phase 4: Add/Edit Items (NEXT)
+**Status:** 🔜 Up Next
 
 #### What to Build:
 1. **AddEditItemView**:
@@ -333,7 +325,7 @@ Catalogue
 - ✅ Edit catalogues
 - ⏸️ Add items with field values
 - ⏸️ Add photos to items
-- ⏸️ View items in grid/list
+- ✅ View items in grid/list
 - ⏸️ Mark items as wishlist
 - ⏸️ iCloud sync working
 
@@ -364,7 +356,16 @@ Catalogue
 - ✅ Made all code cross-platform (iOS/Mac)
 - ✅ Fixed all build errors
 
-**Next Session:** Begin Phase 3 - Catalogue Detail Screen
+### March 11, 2026:
+- ✅ Built CatalogueDetailView with Owned/Wishlist tabs and grid/list toggle
+- ✅ Implemented ItemCardView (grid layout) with photo thumbnails
+- ✅ Implemented ItemRowView (list layout) with field summaries
+- ✅ Simplified ContentView to navigate directly to CatalogueDetailView
+- ✅ Layout preference persisted via @AppStorage
+- ✅ Cross-platform image handling (iOS + macOS)
+- ✅ Placeholder navigation for Phase 4 and Phase 5
+
+**Next Session:** Begin Phase 4 - Add/Edit Items
 
 ---
 

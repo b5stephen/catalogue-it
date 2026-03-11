@@ -18,7 +18,7 @@ struct ContentView: View {
             List {
                 ForEach(catalogues) { catalogue in
                     NavigationLink {
-                        CatalogueDetailPlaceholder(catalogue: catalogue)
+                        CatalogueDetailView(catalogue: catalogue)
                     } label: {
                         CatalogueRow(catalogue: catalogue)
                     }
@@ -99,63 +99,6 @@ struct CatalogueRow: View {
             }
         }
         .padding(.vertical, 4)
-    }
-}
-
-// MARK: - Placeholder Detail View
-
-struct CatalogueDetailPlaceholder: View {
-    let catalogue: Catalogue
-    @State private var showingEditCatalogue = false
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: catalogue.iconName)
-                .font(.system(size: 60))
-                .foregroundStyle(Color(hex: catalogue.colorHex))
-            
-            Text(catalogue.name)
-                .font(.title)
-                .fontWeight(.bold)
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Field Definitions:")
-                    .font(.headline)
-                
-                ForEach(catalogue.fieldDefinitions.sorted(by: { $0.sortOrder < $1.sortOrder })) { field in
-                    HStack {
-                        Image(systemName: field.fieldType.icon)
-                            .foregroundStyle(.secondary)
-                        Text(field.name)
-                        Spacer()
-                        Text(field.fieldType.rawValue)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .padding()
-            .background(Color.secondary.opacity(0.1))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            
-            Text("Detail view coming in Phase 3! 🚀")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding()
-        .navigationTitle(catalogue.name)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showingEditCatalogue = true
-                } label: {
-                    Label("Edit", systemImage: "pencil")
-                }
-            }
-        }
-        .sheet(isPresented: $showingEditCatalogue) {
-            AddEditCatalogueView(catalogue: catalogue)
-        }
     }
 }
 

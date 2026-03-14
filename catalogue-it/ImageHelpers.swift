@@ -22,4 +22,19 @@ extension Data {
         return nil
 #endif
     }
+
+    /// Compresses image data to JPEG at the given quality (0–1), cross-platform.
+    func compressedAsJPEG(quality: CGFloat = 0.8) -> Data? {
+#if os(iOS)
+        UIImage(data: self)?.jpegData(compressionQuality: quality)
+#elseif os(macOS)
+        guard let nsImage = NSImage(data: self),
+              let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        else { return nil }
+        let rep = NSBitmapImageRep(cgImage: cgImage)
+        return rep.representation(using: .jpeg, properties: [.compressionFactor: quality])
+#else
+        nil
+#endif
+    }
 }

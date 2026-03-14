@@ -16,7 +16,7 @@ struct CatalogueDetailView: View {
     @AppStorage("itemLayoutPreference") private var isGridLayout: Bool = true
     @State private var selectedTab: ItemTab = .owned
     @State private var showingEditCatalogue = false
-    @State private var showingAddItemPlaceholder = false
+    @State private var showingAddItem = false
 
     private var currentItems: [CatalogueItem] {
         let items = selectedTab == .owned ? catalogue.ownedItems : catalogue.wishlistItems
@@ -80,18 +80,11 @@ struct CatalogueDetailView: View {
         .sheet(isPresented: $showingEditCatalogue) {
             AddEditCatalogueView(catalogue: catalogue)
         }
-        .sheet(isPresented: $showingAddItemPlaceholder) {
-            NavigationStack {
-                Text("Add Item — coming in Phase 4!")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-                    .navigationTitle("New Item")
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Cancel") { showingAddItemPlaceholder = false }
-                        }
-                    }
-            }
+        .sheet(isPresented: $showingAddItem) {
+            AddEditItemView(
+                catalogue: catalogue,
+                defaultIsWishlist: selectedTab == .wishlist
+            )
         }
     }
 
@@ -118,7 +111,7 @@ struct CatalogueDetailView: View {
 
     private var addItemButton: some View {
         Button {
-            showingAddItemPlaceholder = true
+            showingAddItem = true
         } label: {
             Label("Add Item", systemImage: "plus")
         }

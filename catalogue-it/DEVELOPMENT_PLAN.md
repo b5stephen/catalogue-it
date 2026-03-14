@@ -3,7 +3,7 @@
 **App Overview:** A multi-platform catalogue app that lets users create custom catalogues with flexible field definitions, photos, and wishlist support. Built with SwiftUI and SwiftData with iCloud sync.
 
 **Created:** February 20, 2026  
-**Last Updated:** March 11, 2026
+**Last Updated:** March 15, 2026
 
 ---
 
@@ -92,45 +92,40 @@
 
 ---
 
-### 📌 Phase 4: Add/Edit Items (NEXT)
-**Status:** 🔜 Up Next
+### ✅ Phase 4: Add/Edit Items (COMPLETE)
+**Status:** ✅ Done
 
-#### What to Build:
-1. **AddEditItemView**:
-   - Dynamic form based on catalogue's field definitions
-   - Input components for each field type:
-     - Text: TextField
-     - Number: TextField with number keyboard
-     - Date: DatePicker
-     - Boolean: Toggle
-   - Photo picker (multiple photos)
-   - Photo management (reorder, delete, add captions)
-   - Wishlist toggle
-   - Notes field
+#### What's Built:
+- **`AddEditItemView.swift`** — Dynamic form driven by the catalogue's field definitions; handles create and edit paths; `defaultIsWishlist` pre-selects the wishlist toggle when opened from the Wishlist tab
+- **`FieldInputView.swift`** — Reusable control that renders `TextField`, `DatePicker`, or `Toggle` based on `FieldType`; platform-specific keyboard and autocapitalisation modifiers
+- **`PhotoPickerView.swift`** — Form section with `PhotosPicker` (up to 10 images), horizontal thumbnail strip, per-photo caption `TextField`, delete button, JPEG compression via `compressedAsJPEG(quality:)`, `sortOrder` renumbering on delete
+- **`FieldDefinitionDraft.swift`** — Added `FieldValueDraft` (form state for a single field, `numberText: String` for partial input) and `PhotoDraft` (form state for a photo)
+- **`ImageHelpers.swift`** — Added cross-platform `compressedAsJPEG(quality:)` extension on `Data`
+- **`CatalogueDetailView.swift`** — Replaced placeholder sheet with `AddEditItemView`, wiring `defaultIsWishlist: selectedTab == .wishlist`
 
-2. **Photo Management**:
-   - `PhotosPicker` for selecting images
-   - Convert to Data for SwiftData storage
-   - Thumbnail generation
-   - Sortable photo grid
+#### Key Features:
+- ✅ Dynamic form — renders one row per field definition in `sortOrder` order
+- ✅ All four field types: text, number (string binding, parsed on save), date, boolean
+- ✅ Number display strips trailing `.0` (e.g. `1969.0` → `"1969"`)
+- ✅ Photo management: pick, thumbnail, caption, delete, compressed JPEG storage
+- ✅ Wishlist toggle with tab-aware default
+- ✅ Notes field (multi-line, saves as `nil` when empty)
+- ✅ Edit mode pre-populates all fields and photos from the existing item
+- ✅ Save deletes-and-recreates field values and photos (mirrors catalogue edit pattern)
+- ✅ Cross-platform (iOS + macOS)
 
-#### Technical Notes:
-- Use `PhotosUI` framework for photo picking
-- Compress images before storing
-- Validate required fields
-- Auto-save or manual save?
-- Consider photo size limits
-
-#### Estimated Complexity: High
-#### Files to Create:
-- `AddEditItemView.swift`
-- `PhotoPickerView.swift`
-- `FieldInputView.swift` (reusable field input component)
+#### Files Created/Modified:
+- `AddEditItemView.swift` (new)
+- `FieldInputView.swift` (new)
+- `PhotoPickerView.swift` (new)
+- `FieldDefinitionDraft.swift` (added `FieldValueDraft`, `PhotoDraft`)
+- `ImageHelpers.swift` (added `compressedAsJPEG`)
+- `CatalogueDetailView.swift` (wired sheet)
 
 ---
 
-### 📌 Phase 5: Item Detail Screen (PLANNED)
-**Status:** ⏸️ Not Started
+### 📌 Phase 5: Item Detail Screen (NEXT)
+**Status:** 🔜 Up Next
 
 #### What to Build:
 1. **ItemDetailView**:
@@ -231,7 +226,7 @@ Catalogue
 ### Future Considerations:
 1. **Field Definition Changes**: Current edit flow deletes and recreates field definitions. Need smarter migration that preserves existing field values.
 
-2. **Photo Compression**: Need to implement image compression before storage to prevent database bloat.
+2. **Photo Compression**: ✅ Implemented — `compressedAsJPEG(quality: 0.8)` applied on photo import.
 
 3. **Performance**: For large catalogues (1000+ items), may need pagination or virtualization.
 
@@ -323,10 +318,10 @@ Catalogue
 ### MVP (Minimum Viable Product):
 - ✅ Create catalogues with custom fields
 - ✅ Edit catalogues
-- ⏸️ Add items with field values
-- ⏸️ Add photos to items
+- ✅ Add items with field values
+- ✅ Add photos to items
 - ✅ View items in grid/list
-- ⏸️ Mark items as wishlist
+- ✅ Mark items as wishlist
 - ⏸️ iCloud sync working
 
 ### Version 1.0:
@@ -365,7 +360,15 @@ Catalogue
 - ✅ Cross-platform image handling (iOS + macOS)
 - ✅ Placeholder navigation for Phase 4 and Phase 5
 
-**Next Session:** Begin Phase 4 - Add/Edit Items
+### March 15, 2026:
+- ✅ Built AddEditItemView with dynamic form driven by field definitions
+- ✅ Implemented FieldInputView — per-type controls with platform-specific keyboard/autocapitalisation
+- ✅ Implemented PhotoPickerView — PhotosPicker, thumbnail strip, captions, JPEG compression, sortOrder renumbering
+- ✅ Added FieldValueDraft and PhotoDraft structs to FieldDefinitionDraft.swift
+- ✅ Added compressedAsJPEG(quality:) to ImageHelpers.swift
+- ✅ Wired CatalogueDetailView "+" button to AddEditItemView with defaultIsWishlist support
+
+**Next Session:** Begin Phase 5 - Item Detail Screen
 
 ---
 

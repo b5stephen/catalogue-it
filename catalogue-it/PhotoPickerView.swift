@@ -11,6 +11,7 @@ import PhotosUI
 // MARK: - Photo Picker View
 
 /// A Form Section component that manages photo selection and display for an item.
+@MainActor
 struct PhotoPickerView: View {
     @Binding var photos: [PhotoDraft]
 
@@ -18,6 +19,7 @@ struct PhotoPickerView: View {
     @State private var isLoadingPhotos: Bool = false
 
     var body: some View {
+        let loading = isLoadingPhotos
         Section("Photos") {
             photoScrollView
 
@@ -27,8 +29,8 @@ struct PhotoPickerView: View {
                 matching: .images
             ) {
                 Label(
-                    isLoadingPhotos ? "Loading…" : "Add Photos",
-                    systemImage: isLoadingPhotos ? "hourglass" : "photo.badge.plus"
+                    loading ? "Loading…" : "Add Photos",
+                    systemImage: loading ? "hourglass" : "photo.badge.plus"
                 )
             }
             .disabled(isLoadingPhotos)

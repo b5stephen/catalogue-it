@@ -124,35 +124,33 @@
 
 ---
 
-### 📌 Phase 5: Item Detail Screen (NEXT)
-**Status:** 🔜 Up Next
+### ✅ Phase 5: Item Detail Screen (COMPLETE)
+**Status:** ✅ Done
 
-#### What to Build:
-1. **ItemDetailView**:
-   - Photo carousel/gallery
-   - All field values displayed
-   - Notes section
-   - Edit button → opens AddEditItemView
-   - Delete button with confirmation
-   - Move to wishlist/owned button
-   - Share functionality
+#### What's Built:
+- **`ItemDetailView.swift`** — Scrollable detail view with photo carousel (when photos exist), field values displayed with colour-coded type icons, notes section; toolbar with Edit, Share (`ShareLink` with computed text), Delete (confirmation dialog), and Move to Owned/Wishlist toggle; delete cascades via `modelContext.delete` and dismisses
+- **`PhotoCarouselView.swift`** — `TabView` with `.page` style (iOS) / default (macOS), caption overlay per page, tap to open full-screen viewer; `fullScreenCover` on iOS, `sheet` on macOS
+- **`FullScreenPhotoView.swift`** — Black background full-screen viewer with paged `TabView`, caption overlay per photo, dismiss button and per-photo `ShareLink` via `PhotoTransferable` (`DataRepresentation` exporting JPEG data); `.preferredColorScheme(.dark)` for automatic toolbar tinting
+- **`ContentView.swift`** — Restructured to use `@State var selectedCatalogue` + `List(selection:)` with an explicit `NavigationStack` in the detail closure, fixing a NavigationSplitView "no next column" error when pushing item detail
 
-2. **Photo Viewer**:
-   - Full-screen photo viewing
-   - Swipe between photos
-   - Show captions
-   - Share photo
+#### Key Features:
+- ✅ Photo carousel with page dots and tap-to-expand
+- ✅ Full-screen photo viewer with swipe-between-photos and share
+- ✅ All field types displayed with colour-coded SF Symbol icons
+- ✅ Empty fields skipped (only non-empty values shown)
+- ✅ Notes section shown only when present
+- ✅ Edit sheet pre-populates via existing `AddEditItemView(catalogue:item:)`
+- ✅ Delete with `confirmationDialog` + automatic dismiss
+- ✅ Wishlist/Owned toggle mutates `item.isWishlist` directly (SwiftData auto-saves)
+- ✅ Share text includes item name, all field values, and notes
+- ✅ Cross-platform toolbar placements (iOS `.topBarTrailing`/`.topBarLeading` vs macOS `.primaryAction`)
+- ✅ NavigationSplitView detail column correctly uses `NavigationStack` to enable push navigation
 
-#### Technical Notes:
-- Use `TabView` with `PageTabViewStyle` for photo carousel
-- Formatting for each field type
-- Confirmation dialog for destructive actions
-
-#### Estimated Complexity: Medium
-#### Files to Create:
-- `ItemDetailView.swift`
-- `PhotoCarouselView.swift`
-- `FullScreenPhotoView.swift`
+#### Files Created/Modified:
+- `ItemDetailView.swift` (new)
+- `PhotoCarouselView.swift` (new)
+- `FullScreenPhotoView.swift` (new)
+- `ContentView.swift` (restructured detail column)
 
 ---
 
@@ -321,6 +319,7 @@ Catalogue
 - ✅ Add items with field values
 - ✅ Add photos to items
 - ✅ View items in grid/list
+- ✅ View item detail with photos and field values
 - ✅ Mark items as wishlist
 - ⏸️ iCloud sync working
 
@@ -368,7 +367,13 @@ Catalogue
 - ✅ Added compressedAsJPEG(quality:) to ImageHelpers.swift
 - ✅ Wired CatalogueDetailView "+" button to AddEditItemView with defaultIsWishlist support
 
-**Next Session:** Begin Phase 5 - Item Detail Screen
+**Next Session:** Begin Phase 6 - Polish & Platform Optimization
+
+### March 15, 2026 (Phase 5):
+- ✅ Built ItemDetailView with field display, notes, and full toolbar (edit/share/delete/move)
+- ✅ Built PhotoCarouselView — paged TabView with caption overlay, tap-to-expand
+- ✅ Built FullScreenPhotoView — full-screen paged viewer, per-photo share via PhotoTransferable
+- ✅ Restructured ContentView detail column to use NavigationStack, fixing NavigationSplitView push navigation
 
 ---
 

@@ -12,10 +12,11 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Catalogue.createdDate) private var catalogues: [Catalogue]
     @State private var showingAddCatalogue = false
+    @State private var selectedCatalogue: Catalogue?
 
     var body: some View {
         NavigationSplitView {
-            List {
+            List(selection: $selectedCatalogue) {
                 ForEach(catalogues) { catalogue in
                     NavigationLink(value: catalogue) {
                         CatalogueRow(catalogue: catalogue)
@@ -24,9 +25,6 @@ struct ContentView: View {
                 .onDelete(perform: deleteCatalogues)
             }
             .navigationTitle("My Catalogues")
-            .navigationDestination(for: Catalogue.self) { catalogue in
-                CatalogueDetailView(catalogue: catalogue)
-            }
             .overlay {
                 if catalogues.isEmpty {
                     ContentUnavailableView(
@@ -55,8 +53,14 @@ struct ContentView: View {
                 AddEditCatalogueView()
             }
         } detail: {
-            Text("Select a catalogue")
-                .foregroundStyle(.secondary)
+            if let catalogue = selectedCatalogue {
+                NavigationStack {
+                    CatalogueDetailView(catalogue: catalogue)
+                }
+            } else {
+                Text("Select a catalogue")
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 

@@ -49,10 +49,8 @@ struct CatalogueDetailView: View {
             }
         }
         .navigationTitle(catalogue.name)
-        .navigationDestination(for: CatalogueItem.self) { _ in
-            Text("Item detail — coming in Phase 5")
-                .font(.title2)
-                .foregroundStyle(.secondary)
+        .navigationDestination(for: CatalogueItem.self) { item in
+            ItemDetailView(catalogue: catalogue, item: item)
         }
         .toolbar {
 #if os(iOS)

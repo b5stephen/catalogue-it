@@ -11,16 +11,20 @@ import SwiftData
 // MARK: - Catalogue Stats View
 
 struct CatalogueStatsView: View {
-    let catalogue: Catalogue
+    @Bindable var catalogue: Catalogue
     @Environment(\.dismiss) private var dismiss
 
     private var totalPhotos: Int {
         catalogue.items.reduce(0) { $0 + $1.photos.count }
     }
 
+    private var sortedFields: [FieldDefinition] {
+        catalogue.fieldDefinitions.sorted { $0.sortOrder < $1.sortOrder }
+    }
+
     var body: some View {
         NavigationStack {
-            List {
+            Form {
                 Section("Items") {
                     LabeledContent("Total", value: catalogue.items.count.formatted())
                     LabeledContent("Owned", value: catalogue.ownedItemCount.formatted())
@@ -28,10 +32,9 @@ struct CatalogueStatsView: View {
                     LabeledContent("Photos", value: totalPhotos.formatted())
                 }
 
-                let fields = catalogue.fieldDefinitions.sorted { $0.sortOrder < $1.sortOrder }
-                if !fields.isEmpty {
+                if !sortedFields.isEmpty {
                     Section("Field Completion") {
-                        ForEach(fields) { field in
+                        ForEach(sortedFields) { field in
                             FieldCompletionRow(field: field, items: catalogue.items)
                         }
                     }

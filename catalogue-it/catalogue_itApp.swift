@@ -10,7 +10,7 @@ import SwiftData
 
 @main
 struct catalogue_itApp: App {
-    var sharedModelContainer: ModelContainer = {
+    let sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Catalogue.self,
             FieldDefinition.self,

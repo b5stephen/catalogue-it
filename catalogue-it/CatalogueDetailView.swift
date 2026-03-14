@@ -13,23 +13,85 @@ import SwiftData
 struct CatalogueDetailView: View {
     let catalogue: Catalogue
 
-    @AppStorage("itemLayoutPreference") private var isGridLayout: Bool = true
+    @AppStorage("itemLayoutPreference")  private var isGridLayout: Bool = true
+    @AppStorage("itemSortField")         private var sortFieldKey: String = ItemSortField.dateAdded.rawValue
+    @AppStorage("itemSortDirection")     private var sortDirection: String = ItemSortDirection.ascending.rawValue
+
     @State private var selectedTab: ItemTab = .owned
     @State private var showingEditCatalogue = false
     @State private var showingAddItem = false
-
-    private var currentItems: [CatalogueItem] {
-        let items = selectedTab == .owned ? catalogue.ownedItems : catalogue.wishlistItems
-        return items.sorted { $0.createdDate < $1.createdDate }
-    }
+    @State private var showingStats = false
+    @State private var searchText: String = ""
 
     private let gridColumns = [
         GridItem(.adaptive(minimum: 160), spacing: 16)
     ]
 
+    // MARK: - Computed Items
+
+    private var currentItems: [CatalogueItem] {
+        let tabItems = selectedTab == .owned ? catalogue.ownedItems : catalogue.wishlistItems
+        let searched = searchText.isEmpty ? tabItems : tabItems.filter { item in
+            item.displayName.localizedCaseInsensitiveContains(searchText) ||
+            item.fieldValues.contains { $0.displayValue.localizedCaseInsensitiveContains(searchText) }
+        }
+        return sortedItems(searched)
+    }
+
+    // MARK: - Sort Logic
+
+    private func sortedItems(_ items: [CatalogueItem]) -> [CatalogueItem] {
+        let field = ItemSortField(rawValue: sortFieldKey)
+        let asc = (ItemSortDirection(rawValue: sortDirection) ?? .ascending) == .ascending
+
+        return items.sorted { a, b in
+            let result: Bool
+            switch field {
+            case .dateAdded:
+                result = a.createdDate < b.createdDate
+            case .name:
+                result = a.displayName.localizedCompare(b.displayName) == .orderedAscending
+            case .field(let name):
+                let va = a.value(for: name)
+                let vb = b.value(for: name)
+                // nil sorts last regardless of direction
+                guard let va else { return false }
+                guard let vb else { return true }
+                switch va.fieldType {
+                case .text:
+                    let ta = va.textValue ?? "", tb = vb.textValue ?? ""
+                    result = ta.localizedCompare(tb) == .orderedAscending
+                case .number:
+                    result = (va.numberValue ?? 0) < (vb.numberValue ?? 0)
+                case .date:
+                    guard let da = va.dateValue, let db = vb.dateValue else {
+                        return va.dateValue != nil
+                    }
+                    result = da < db
+                case .boolean:
+                    // false < true (unchecked first when ascending)
+                    result = (va.boolValue == false) && (vb.boolValue == true)
+                }
+            }
+            return asc ? result : !result
+        }
+    }
+
+    // MARK: - CSV Export
+
+    private var csvFile: CatalogueCSVFile {
+        CatalogueCSVFile(
+            content: CatalogueExporter.csvString(for: catalogue),
+            filename: "\(catalogue.name).csv"
+        )
+    }
+
+    // MARK: - Body
+
     var body: some View {
+        let tabItems = selectedTab == .owned ? catalogue.ownedItems : catalogue.wishlistItems
+
         VStack(spacing: 0) {
-            // Segmented picker
             Picker("Tab", selection: $selectedTab) {
                 ForEach(ItemTab.allCases, id: \.self) { tab in
                     Label(tab.rawValue, systemImage: tab.systemImage)
@@ -41,7 +103,10 @@ struct CatalogueDetailView: View {
             .padding(.vertical, 8)
 
             if currentItems.isEmpty {
-                CatalogueEmptyStateView(selectedTab: selectedTab)
+                CatalogueEmptyStateView(
+                    selectedTab: selectedTab,
+                    isFiltered: !searchText.isEmpty && !tabItems.isEmpty
+                )
             } else if isGridLayout {
                 CatalogueItemGridView(items: currentItems, gridColumns: gridColumns)
             } else {
@@ -52,16 +117,42 @@ struct CatalogueDetailView: View {
         .navigationDestination(for: CatalogueItem.self) { item in
             ItemDetailView(catalogue: catalogue, item: item)
         }
+        .searchable(text: $searchText)
+        .sheet(isPresented: $showingEditCatalogue) {
+            AddEditCatalogueView(catalogue: catalogue)
+        }
+        .sheet(isPresented: $showingAddItem) {
+            AddEditItemView(
+                catalogue: catalogue,
+                defaultIsWishlist: selectedTab == .wishlist
+            )
+        }
+        .sheet(isPresented: $showingStats) {
+            CatalogueStatsView(catalogue: catalogue)
+        }
         .toolbar {
 #if os(iOS)
+            ToolbarItem(placement: .topBarLeading) {
+                Menu {
+                    editCatalogueButton
+                    Button {
+                        showingStats = true
+                    } label: {
+                        Label("Statistics", systemImage: "chart.bar")
+                    }
+                    ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                sortMenuButton
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 layoutToggleButton
             }
             ToolbarItem(placement: .topBarTrailing) {
                 addItemButton
-            }
-            ToolbarItem(placement: .topBarLeading) {
-                editCatalogueButton
             }
 #else
             ToolbarItem(placement: .primaryAction) {
@@ -71,18 +162,22 @@ struct CatalogueDetailView: View {
                 layoutToggleButton
             }
             ToolbarItem(placement: .primaryAction) {
+                sortMenuButton
+            }
+            ToolbarItem(placement: .primaryAction) {
+                ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showingStats = true
+                } label: {
+                    Label("Statistics", systemImage: "chart.bar")
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
                 editCatalogueButton
             }
 #endif
-        }
-        .sheet(isPresented: $showingEditCatalogue) {
-            AddEditCatalogueView(catalogue: catalogue)
-        }
-        .sheet(isPresented: $showingAddItem) {
-            AddEditItemView(
-                catalogue: catalogue,
-                defaultIsWishlist: selectedTab == .wishlist
-            )
         }
     }
 
@@ -113,6 +208,34 @@ struct CatalogueDetailView: View {
         } label: {
             Label("Add Item", systemImage: "plus")
         }
+        .keyboardShortcut("n", modifiers: .command)
+    }
+
+    private var sortMenuButton: some View {
+        // The built-in "Name" sort uses displayName, which is derived from the first text
+        // field. Exclude that field from the custom list to avoid showing it twice.
+        let firstTextField = catalogue.fieldDefinitions
+            .filter { $0.fieldType == .text }
+            .min(by: { $0.sortOrder < $1.sortOrder })
+        let customFields = catalogue.fieldDefinitions
+            .filter { $0.persistentModelID != firstTextField?.persistentModelID }
+            .sorted { $0.sortOrder < $1.sortOrder }
+
+        return Menu {
+            Picker("Sort By", selection: $sortFieldKey) {
+                Text("Date Added").tag(ItemSortField.dateAdded.rawValue)
+                Text("Name").tag(ItemSortField.name.rawValue)
+                ForEach(customFields) { field in
+                    Text(field.name).tag(ItemSortField.field(field.name).rawValue)
+                }
+            }
+            Picker("Direction", selection: $sortDirection) {
+                Text("Ascending").tag(ItemSortDirection.ascending.rawValue)
+                Text("Descending").tag(ItemSortDirection.descending.rawValue)
+            }
+        } label: {
+            Label("Sort", systemImage: "arrow.up.arrow.down")
+        }
     }
 }
 
@@ -120,18 +243,23 @@ struct CatalogueDetailView: View {
 
 private struct CatalogueEmptyStateView: View {
     let selectedTab: ItemTab
+    let isFiltered: Bool
 
     var body: some View {
-        ContentUnavailableView(
-            "No Items Yet",
-            systemImage: selectedTab == .owned ? "checkmark.circle" : "heart",
-            description: Text(
-                selectedTab == .owned
-                    ? "Tap + to add your first owned item"
-                    : "Tap + to add your first wishlist item"
+        if isFiltered {
+            ContentUnavailableView.search
+        } else {
+            ContentUnavailableView(
+                "No Items Yet",
+                systemImage: selectedTab == .owned ? "checkmark.circle" : "heart",
+                description: Text(
+                    selectedTab == .owned
+                        ? "Tap + to add your first owned item"
+                        : "Tap + to add your first wishlist item"
+                )
             )
-        )
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 }
 

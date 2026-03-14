@@ -154,41 +154,46 @@
 
 ---
 
-### 📌 Phase 6: Polish & Platform Optimization (PLANNED)
-**Status:** ⏸️ Not Started
+### ✅ Phase 6: Polish & Platform Optimization (COMPLETE)
+**Status:** ✅ Done
 
-#### What to Add:
+#### What's Built:
 
-**Search & Filter:**
-- Search items by field values
-- Filter by field criteria
-- Saved searches/filters
+**Search:**
+- `.searchable(text:)` on `CatalogueDetailView` — real-time filtering across item names and all field values
+- Empty search results show `ContentUnavailableView.search` (distinct from "no items" empty state)
 
-**Sorting:**
-- Sort by any field
-- Multiple sort criteria
-- Save sort preferences
+**Sort:**
+- Sort by Date Added, Name, or any custom field (type-aware comparisons)
+- Ascending/descending direction
+- Both selections persisted via `@AppStorage("itemSortField")` / `@AppStorage("itemSortDirection")`
+- nil-last logic for items missing a value for the sorted field
+- First text field excluded from the custom field list (already covered by built-in "Name" sort)
 
-**Platform-Specific:**
-- iPad: Optimized layouts, drag & drop
-- Mac: Menu bar commands, keyboard shortcuts, toolbar customization
-- Widgets: Show catalogue summaries on home screen
+**CSV Export:**
+- `CatalogueExporter.csvString(for:)` — columns: Tab, Name, custom fields (by sortOrder), Notes, Photo Count
+- Locale-invariant number formatting; proper CSV escaping (quotes, commas, newlines)
+- `CatalogueCSVFile: Transferable` exposed via `ShareLink` in the toolbar
 
-**Export/Sharing:**
-- Export catalogue to CSV/JSON
-- Share items
-- Print support
-- Backup/restore
+**Statistics:**
+- `CatalogueStatsView` sheet — item counts (Total, Owned, Wishlist, Photos) and per-field completion %
+- Completion rate shown in green at 100%, secondary colour otherwise
 
-**Advanced Features:**
-- Statistics view (total value, count by type, etc.)
-- Charts and graphs
-- Tags/categories across catalogues
-- Duplicate item detection
-- Bulk edit
+**Keyboard Shortcuts:**
+- Cmd+N opens Add Item sheet (`.keyboardShortcut("n", modifiers: .command)`)
 
-#### Estimated Complexity: High
-#### Multiple files to create
+**Toolbar Reorganisation:**
+- iOS: "…" leading menu (Edit Catalogue, Statistics, Export CSV); sort/layout/add trailing
+- macOS: all items as `.primaryAction`
+
+#### Files Created/Modified:
+- `ItemSortOrder.swift` (new) — `ItemSortField` and `ItemSortDirection` enums
+- `CatalogueExporter.swift` (new) — CSV generation + `CatalogueCSVFile: Transferable`
+- `CatalogueStatsView.swift` (new) — statistics sheet
+- `CatalogueDetailView.swift` (updated) — search, sort, export, stats, toolbar, empty state, Cmd+N
+
+#### Deferred to future phases:
+- Widgets, charts, tags/categories, duplicate detection, bulk edit, advanced filtering, print support
 
 ---
 
@@ -325,9 +330,10 @@ Catalogue
 
 ### Version 1.0:
 - All MVP features
-- Search and filter
-- Basic statistics
-- Export functionality
+- ✅ Search items by name and field values
+- ✅ Sort by any field (persisted)
+- ✅ Basic statistics (counts + field completion)
+- ✅ Export to CSV via share sheet
 
 ### Future Versions:
 - Advanced filtering
@@ -367,13 +373,21 @@ Catalogue
 - ✅ Added compressedAsJPEG(quality:) to ImageHelpers.swift
 - ✅ Wired CatalogueDetailView "+" button to AddEditItemView with defaultIsWishlist support
 
-**Next Session:** Begin Phase 6 - Polish & Platform Optimization
-
 ### March 15, 2026 (Phase 5):
 - ✅ Built ItemDetailView with field display, notes, and full toolbar (edit/share/delete/move)
 - ✅ Built PhotoCarouselView — paged TabView with caption overlay, tap-to-expand
 - ✅ Built FullScreenPhotoView — full-screen paged viewer, per-photo share via PhotoTransferable
 - ✅ Restructured ContentView detail column to use NavigationStack, fixing NavigationSplitView push navigation
+
+### March 15, 2026 (Phase 6):
+- ✅ Implemented real-time search via `.searchable` across item names and field values
+- ✅ Added type-aware sort (Date Added, Name, any custom field) with ascending/descending, persisted via @AppStorage
+- ✅ Built CatalogueExporter with locale-invariant CSV generation and proper escaping
+- ✅ Exposed CSV export as ShareLink via CatalogueCSVFile: Transferable
+- ✅ Built CatalogueStatsView — item counts and per-field completion rates
+- ✅ Reorganised toolbar (iOS: "…" menu for secondary actions; macOS: all primary)
+- ✅ Added Cmd+N keyboard shortcut for Add Item
+- ✅ Fixed duplicate sort option — first text field excluded from custom field list (covered by built-in "Name")
 
 ---
 

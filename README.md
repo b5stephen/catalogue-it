@@ -14,8 +14,8 @@ A multi-platform SwiftUI app for managing personal collections. Create custom ca
 
 ## Requirements
 
-- Xcode 15+
-- iOS 17+ / iPadOS 17+ / macOS 14+
+- Xcode 26+
+- iOS 26+ / iPadOS 26+ / macOS 26+
 - An Apple Developer account (for iCloud entitlements)
 
 ## Getting Started
@@ -35,13 +35,19 @@ Select your target device or simulator, then press **Cmd+R** to build and run. N
 
 ```
 catalogue-it/
-├── catalogue_itApp.swift       # App entry point, SwiftData ModelContainer setup
-├── ContentView.swift           # Home screen with catalogue list
-├── AddEditCatalogueView.swift  # Catalogue creation/editing UI
-├── Item.swift                  # All SwiftData models
-├── DEVELOPMENT_PLAN.md         # Phased feature roadmap
-└── Assets.xcassets/            # App icons and color assets
-catalogue-it.xcodeproj/         # Xcode project configuration
+├── catalogue_itApp.swift          # App entry point, SwiftData ModelContainer setup
+├── ContentView.swift              # Home screen with catalogue list
+├── CatalogueDetailView.swift      # Detail screen: grid/list item browser
+├── AddEditCatalogueView.swift     # Catalogue creation/editing UI
+├── Catalogue.swift                # Catalogue SwiftData model
+├── CatalogueItem.swift            # CatalogueItem SwiftData model
+├── FieldDefinition.swift          # FieldDefinition + FieldType + FieldValue models
+├── ItemPhoto.swift                # ItemPhoto SwiftData model
+├── Color+Hex.swift                # Color hex helpers
+├── ImageHelpers.swift             # Shared image utilities
+├── DEVELOPMENT_PLAN.md            # Phased feature roadmap
+└── Assets.xcassets/               # App icons and color assets
+catalogue-it.xcodeproj/            # Xcode project configuration
 ```
 
 ## Data Model
@@ -73,9 +79,9 @@ See [DEVELOPMENT_PLAN.md](catalogue-it/DEVELOPMENT_PLAN.md) for the full roadmap
 - Catalogue list with empty state
 - Add/edit catalogue sheet (name, icon, color)
 - Field definition editor with drag-to-reorder
+- Catalogue detail screen (grid + list views)
 
 **Planned:**
-- Catalogue detail screen and item cards
 - Add/edit items with dynamic field forms
 - Photo picking and management
 - Search, filter, and sort

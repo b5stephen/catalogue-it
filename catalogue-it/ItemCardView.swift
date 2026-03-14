@@ -16,7 +16,7 @@ struct ItemCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Photo or placeholder
-            photoView
+            ItemCardPhotoView(photo: item.primaryPhoto)
                 .frame(height: 150)
                 .clipped()
 
@@ -30,19 +30,24 @@ struct ItemCardView: View {
                 .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(width: 160)
+        .frame(maxWidth: .infinity)
         .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(.rect(cornerRadius: 12))
         .overlay {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.secondary.opacity(0.3), lineWidth: 0.5)
         }
         .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
     }
+}
 
-    @ViewBuilder
-    private var photoView: some View {
-        if let photo = item.primaryPhoto, let image = makeImage(from: photo.imageData) {
+// MARK: - Item Card Photo View
+
+private struct ItemCardPhotoView: View {
+    let photo: ItemPhoto?
+
+    var body: some View {
+        if let photo, let image = photo.imageData.asImage() {
             image
                 .resizable()
                 .scaledToFill()
@@ -53,20 +58,9 @@ struct ItemCardView: View {
                     Image(systemName: "photo")
                         .font(.largeTitle)
                         .foregroundStyle(Color.secondary.opacity(0.6))
+                        .accessibilityHidden(true)
                 }
         }
-    }
-
-    private func makeImage(from data: Data) -> Image? {
-#if os(iOS)
-        guard let uiImage = UIImage(data: data) else { return nil }
-        return Image(uiImage: uiImage)
-#elseif os(macOS)
-        guard let nsImage = NSImage(data: data) else { return nil }
-        return Image(nsImage: nsImage)
-#else
-        return nil
-#endif
     }
 }
 

@@ -14,16 +14,33 @@ A multi-platform SwiftUI collection management app for iOS, iPadOS, and macOS. U
 
 ```
 catalogue-it/
-├── catalogue_itApp.swift       # App entry point, SwiftData ModelContainer setup
-├── ContentView.swift           # Home screen with catalogue list
-├── AddEditCatalogueView.swift  # Catalogue creation/editing UI
-├── Item.swift                  # All SwiftData models
-├── DEVELOPMENT_PLAN.md         # Phased feature roadmap
-└── Assets.xcassets/            # App resources
-catalogue-it.xcodeproj/         # Xcode project configuration
+├── catalogue_itApp.swift          # App entry point, SwiftData ModelContainer setup
+├── ContentView.swift              # Home screen with catalogue list
+├── CatalogueRow.swift             # List row component for a catalogue
+├── CatalogueDetailView.swift      # Detail screen: grid/list item browser
+├── AddEditCatalogueView.swift     # Catalogue creation/editing UI
+├── AddFieldView.swift             # Sheet for adding a custom field
+├── FieldDefinitionRow.swift       # Row component for a field definition
+├── IconPickerView.swift           # Icon picker sheet
+├── ItemCardView.swift             # Grid card for an item
+├── ItemRowView.swift              # List row for an item
+├── Catalogue.swift                # Catalogue SwiftData model
+├── CatalogueItem.swift            # CatalogueItem SwiftData model
+├── FieldDefinition.swift          # FieldDefinition SwiftData model
+├── FieldValue.swift               # FieldValue SwiftData model
+├── FieldType.swift                # FieldType enum + icon/color extensions
+├── ItemPhoto.swift                # ItemPhoto SwiftData model
+├── FieldDefinitionDraft.swift     # Lightweight draft for field editing
+├── ItemTab.swift                  # ItemTab enum (Owned / Wishlist)
+├── Color+Hex.swift                # Color(hex:) and Color.toHex() extensions
+├── ImageHelpers.swift             # Data.asImage() shared helper
+├── Item.swift                     # (redirect comment — models split above)
+├── DEVELOPMENT_PLAN.md            # Phased feature roadmap
+└── Assets.xcassets/               # App resources
+catalogue-it.xcodeproj/            # Xcode project configuration
 ```
 
-## Data Models (`Item.swift`)
+## Data Models
 
 | Model | Purpose |
 |-------|---------|
@@ -99,5 +116,5 @@ Configured in `catalogue_itApp.swift` via `ModelConfiguration(isStoredInMemoryOn
 
 See `DEVELOPMENT_PLAN.md` for the full phased roadmap. As of Feb 2026:
 
-- **Complete:** Data models, catalogue list view, add/edit catalogue sheet, icon picker, field definition editor with drag-to-reorder
-- **Planned:** Catalogue detail screen, item management, photo picking, search/filter/sort, export/sharing
+- **Complete:** Data models, catalogue list view, add/edit catalogue sheet, icon picker, field definition editor with drag-to-reorder, catalogue detail screen (grid + list item browser), code review refactor (file splitting, Swift 6 best practices)
+- **Planned:** Item management, photo picking, search/filter/sort, export/sharing

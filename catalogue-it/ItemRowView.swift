@@ -28,9 +28,9 @@ struct ItemRowView: View {
     var body: some View {
         HStack(spacing: 12) {
             // Thumbnail
-            thumbnailView
+            ItemThumbnailView(photo: item.primaryPhoto)
                 .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(.rect(cornerRadius: 8))
 
             // Text content
             VStack(alignment: .leading, spacing: 4) {
@@ -50,10 +50,15 @@ struct ItemRowView: View {
         }
         .padding(.vertical, 4)
     }
+}
 
-    @ViewBuilder
-    private var thumbnailView: some View {
-        if let photo = item.primaryPhoto, let image = makeImage(from: photo.imageData) {
+// MARK: - Item Thumbnail View
+
+private struct ItemThumbnailView: View {
+    let photo: ItemPhoto?
+
+    var body: some View {
+        if let photo, let image = photo.imageData.asImage() {
             image
                 .resizable()
                 .scaledToFill()
@@ -63,20 +68,9 @@ struct ItemRowView: View {
                 .overlay {
                     Image(systemName: "photo")
                         .foregroundStyle(Color.secondary.opacity(0.6))
+                        .accessibilityHidden(true)
                 }
         }
-    }
-
-    private func makeImage(from data: Data) -> Image? {
-#if os(iOS)
-        guard let uiImage = UIImage(data: data) else { return nil }
-        return Image(uiImage: uiImage)
-#elseif os(macOS)
-        guard let nsImage = NSImage(data: data) else { return nil }
-        return Image(nsImage: nsImage)
-#else
-        return nil
-#endif
     }
 }
 

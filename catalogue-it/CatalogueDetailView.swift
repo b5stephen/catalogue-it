@@ -8,20 +8,6 @@
 import SwiftUI
 import SwiftData
 
-// MARK: - Item Tab
-
-enum ItemTab: String, CaseIterable {
-    case owned = "Owned"
-    case wishlist = "Wishlist"
-
-    var systemImage: String {
-        switch self {
-        case .owned: return "checkmark.circle.fill"
-        case .wishlist: return "heart.fill"
-        }
-    }
-}
-
 // MARK: - Catalogue Detail View
 
 struct CatalogueDetailView: View {
@@ -55,23 +41,28 @@ struct CatalogueDetailView: View {
             .padding(.vertical, 8)
 
             if currentItems.isEmpty {
-                emptyStateView
+                CatalogueEmptyStateView(selectedTab: selectedTab)
             } else if isGridLayout {
-                gridView
+                CatalogueItemGridView(items: currentItems, gridColumns: gridColumns)
             } else {
-                listView
+                CatalogueItemListView(items: currentItems, catalogue: catalogue)
             }
         }
         .navigationTitle(catalogue.name)
+        .navigationDestination(for: CatalogueItem.self) { _ in
+            Text("Item detail — coming in Phase 5")
+                .font(.title2)
+                .foregroundStyle(.secondary)
+        }
         .toolbar {
 #if os(iOS)
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItem(placement: .topBarTrailing) {
                 layoutToggleButton
             }
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItem(placement: .topBarTrailing) {
                 addItemButton
             }
-            ToolbarItem(placement: .navigationBarLeading) {
+            ToolbarItem(placement: .topBarLeading) {
                 editCatalogueButton
             }
 #else
@@ -104,54 +95,6 @@ struct CatalogueDetailView: View {
         }
     }
 
-    // MARK: - Subviews
-
-    private var emptyStateView: some View {
-        ContentUnavailableView(
-            "No Items Yet",
-            systemImage: selectedTab == .owned ? "checkmark.circle" : "heart",
-            description: Text(
-                selectedTab == .owned
-                    ? "Tap + to add your first owned item"
-                    : "Tap + to add your first wishlist item"
-            )
-        )
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var gridView: some View {
-        ScrollView {
-            LazyVGrid(columns: gridColumns, spacing: 16) {
-                ForEach(currentItems) { item in
-                    NavigationLink {
-                        Text("Item detail — coming in Phase 5")
-                            .font(.title2)
-                            .foregroundStyle(.secondary)
-                    } label: {
-                        ItemCardView(item: item)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding()
-        }
-    }
-
-    private var listView: some View {
-        List {
-            ForEach(currentItems) { item in
-                NavigationLink {
-                    Text("Item detail — coming in Phase 5")
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
-                } label: {
-                    ItemRowView(item: item, catalogue: catalogue)
-                }
-            }
-        }
-        .listStyle(.plain)
-    }
-
     // MARK: - Toolbar Buttons
 
     private var editCatalogueButton: some View {
@@ -179,6 +122,64 @@ struct CatalogueDetailView: View {
         } label: {
             Label("Add Item", systemImage: "plus")
         }
+    }
+}
+
+// MARK: - Empty State View
+
+private struct CatalogueEmptyStateView: View {
+    let selectedTab: ItemTab
+
+    var body: some View {
+        ContentUnavailableView(
+            "No Items Yet",
+            systemImage: selectedTab == .owned ? "checkmark.circle" : "heart",
+            description: Text(
+                selectedTab == .owned
+                    ? "Tap + to add your first owned item"
+                    : "Tap + to add your first wishlist item"
+            )
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Item Grid View
+
+private struct CatalogueItemGridView: View {
+    let items: [CatalogueItem]
+    let gridColumns: [GridItem]
+
+    var body: some View {
+        ScrollView {
+            LazyVGrid(columns: gridColumns, spacing: 16) {
+                ForEach(items) { item in
+                    NavigationLink(value: item) {
+                        ItemCardView(item: item)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding()
+        }
+    }
+}
+
+// MARK: - Item List View
+
+private struct CatalogueItemListView: View {
+    let items: [CatalogueItem]
+    let catalogue: Catalogue
+
+    var body: some View {
+        List {
+            ForEach(items) { item in
+                NavigationLink(value: item) {
+                    ItemRowView(item: item, catalogue: catalogue)
+                }
+            }
+        }
+        .listStyle(.plain)
     }
 }
 

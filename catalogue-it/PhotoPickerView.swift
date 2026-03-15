@@ -45,7 +45,7 @@ struct PhotoPickerView: View {
     @ViewBuilder
     private var photoScrollView: some View {
         if !photos.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 12) {
                     ForEach($photos) { $photo in
                         PhotoThumbnailView(photo: $photo) {
@@ -55,6 +55,7 @@ struct PhotoPickerView: View {
                 }
                 .padding(.vertical, 4)
             }
+            .scrollIndicators(.hidden)
         }
     }
 
@@ -109,6 +110,7 @@ private struct PhotoThumbnailView: View {
                         .foregroundStyle(.white, .black.opacity(0.6))
                         .font(.system(size: 18))
                 }
+                .accessibilityLabel("Delete Photo")
                 .padding(4)
             }
 

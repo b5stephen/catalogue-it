@@ -23,7 +23,7 @@ struct AddEditCatalogueView: View {
     @State private var showingIconPicker = false
     @State private var showingAddField = false
 
-    var isEditing: Bool {
+    private var isEditing: Bool {
         catalogue != nil
     }
 

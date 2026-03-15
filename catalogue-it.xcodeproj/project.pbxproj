@@ -10,12 +10,18 @@
 		DC0448C52F65FED7001B4707 /* ItemDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0448C42F65FED7001B4707 /* ItemDetailView.swift */; };
 		DC0448C72F65FEE2001B4707 /* PhotoCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0448C62F65FEE2001B4707 /* PhotoCarouselView.swift */; };
 		DC0448C92F65FEEC001B4707 /* FullScreenPhotoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0448C82F65FEEC001B4707 /* FullScreenPhotoView.swift */; };
+		DC0449052F662C4C001B4707 /* CatalogueEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0449042F662C4C001B4707 /* CatalogueEmptyStateView.swift */; };
+		DC0449072F662C4F001B4707 /* CatalogueItemGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0449062F662C4F001B4707 /* CatalogueItemGridView.swift */; };
+		DC0449092F662C50001B4707 /* CatalogueItemListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0449082F662C50001B4707 /* CatalogueItemListView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		DC0448C42F65FED7001B4707 /* ItemDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemDetailView.swift; sourceTree = "<group>"; };
 		DC0448C62F65FEE2001B4707 /* PhotoCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoCarouselView.swift; sourceTree = "<group>"; };
 		DC0448C82F65FEEC001B4707 /* FullScreenPhotoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScreenPhotoView.swift; sourceTree = "<group>"; };
+		DC0449042F662C4C001B4707 /* CatalogueEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogueEmptyStateView.swift; sourceTree = "<group>"; };
+		DC0449062F662C4F001B4707 /* CatalogueItemGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogueItemGridView.swift; sourceTree = "<group>"; };
+		DC0449082F662C50001B4707 /* CatalogueItemListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogueItemListView.swift; sourceTree = "<group>"; };
 		DCD9C7EE2F4858BC0026F739 /* catalogue-it.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "catalogue-it.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -46,6 +52,9 @@
 				DC0448C42F65FED7001B4707 /* ItemDetailView.swift */,
 				DC0448C62F65FEE2001B4707 /* PhotoCarouselView.swift */,
 				DC0448C82F65FEEC001B4707 /* FullScreenPhotoView.swift */,
+				DC0449042F662C4C001B4707 /* CatalogueEmptyStateView.swift */,
+				DC0449062F662C4F001B4707 /* CatalogueItemGridView.swift */,
+				DC0449082F662C50001B4707 /* CatalogueItemListView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -133,6 +142,9 @@
 			files = (
 				DC0448C72F65FEE2001B4707 /* PhotoCarouselView.swift in Sources */,
 				DC0448C52F65FED7001B4707 /* ItemDetailView.swift in Sources */,
+				DC0449092F662C50001B4707 /* CatalogueItemListView.swift in Sources */,
+				DC0449052F662C4C001B4707 /* CatalogueEmptyStateView.swift in Sources */,
+				DC0449072F662C4F001B4707 /* CatalogueItemGridView.swift in Sources */,
 				DC0448C92F65FEEC001B4707 /* FullScreenPhotoView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -261,6 +273,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -303,6 +316,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;

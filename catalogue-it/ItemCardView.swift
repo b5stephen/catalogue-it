@@ -34,7 +34,7 @@ struct ItemCardView: View {
         .background(.background)
         .clipShape(.rect(cornerRadius: 12))
         .overlay {
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Color.secondary.opacity(0.3), lineWidth: 0.5)
         }
         .shadow(color: .black.opacity(0.06), radius: 4, y: 2)

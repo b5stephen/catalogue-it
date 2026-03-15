@@ -32,8 +32,8 @@ struct CatalogueDetailView: View {
     private var currentItems: [CatalogueItem] {
         let tabItems = selectedTab == .owned ? catalogue.ownedItems : catalogue.wishlistItems
         let searched = searchText.isEmpty ? tabItems : tabItems.filter { item in
-            item.displayName.localizedCaseInsensitiveContains(searchText) ||
-            item.fieldValues.contains { $0.displayValue.localizedCaseInsensitiveContains(searchText) }
+            item.displayName.localizedStandardContains(searchText) ||
+            item.fieldValues.contains { $0.displayValue.localizedStandardContains(searchText) }
         }
         return sortedItems(searched)
     }
@@ -133,7 +133,7 @@ struct CatalogueDetailView: View {
         .toolbar {
 #if os(iOS)
             ToolbarItem(placement: .topBarLeading) {
-                Menu {
+                Menu("More Options", systemImage: "ellipsis.circle") {
                     editCatalogueButton
                     Button {
                         showingStats = true
@@ -141,8 +141,6 @@ struct CatalogueDetailView: View {
                         Label("Statistics", systemImage: "chart.bar")
                     }
                     ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
-                } label: {
-                    Image(systemName: "ellipsis.circle")
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
@@ -236,69 +234,6 @@ struct CatalogueDetailView: View {
         } label: {
             Label("Sort", systemImage: "arrow.up.arrow.down")
         }
-    }
-}
-
-// MARK: - Empty State View
-
-private struct CatalogueEmptyStateView: View {
-    let selectedTab: ItemTab
-    let isFiltered: Bool
-
-    var body: some View {
-        if isFiltered {
-            ContentUnavailableView.search
-        } else {
-            ContentUnavailableView(
-                "No Items Yet",
-                systemImage: selectedTab == .owned ? "checkmark.circle" : "heart",
-                description: Text(
-                    selectedTab == .owned
-                        ? "Tap + to add your first owned item"
-                        : "Tap + to add your first wishlist item"
-                )
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-    }
-}
-
-// MARK: - Item Grid View
-
-private struct CatalogueItemGridView: View {
-    let items: [CatalogueItem]
-    let gridColumns: [GridItem]
-
-    var body: some View {
-        ScrollView {
-            LazyVGrid(columns: gridColumns, spacing: 16) {
-                ForEach(items) { item in
-                    NavigationLink(value: item) {
-                        ItemCardView(item: item)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding()
-        }
-    }
-}
-
-// MARK: - Item List View
-
-private struct CatalogueItemListView: View {
-    let items: [CatalogueItem]
-    let catalogue: Catalogue
-
-    var body: some View {
-        List {
-            ForEach(items) { item in
-                NavigationLink(value: item) {
-                    ItemRowView(item: item, catalogue: catalogue)
-                }
-            }
-        }
-        .listStyle(.plain)
     }
 }
 

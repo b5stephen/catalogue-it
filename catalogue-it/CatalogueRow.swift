@@ -21,6 +21,7 @@ struct CatalogueRow: View {
                 .frame(width: 40, height: 40)
                 .background(Color(hex: catalogue.colorHex).opacity(0.15))
                 .clipShape(.rect(cornerRadius: 8))
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(catalogue.name)

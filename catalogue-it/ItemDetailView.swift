@@ -56,16 +56,16 @@ struct ItemDetailView: View {
             VStack(alignment: .leading, spacing: 0) {
                 if !sortedPhotos.isEmpty {
                     PhotoCarouselView(photos: sortedPhotos)
-                        .frame(height: 280)
+                        .frame(height: AppConstants.PhotoHeight.detail)
                 }
 
                 VStack(alignment: .leading, spacing: 16) {
                     if !displayFields.isEmpty {
-                        fieldsSection
+                        ItemFieldsSection(fields: displayFields)
                     }
 
                     if let notes = item.notes, !notes.isEmpty {
-                        notesSection(notes: notes)
+                        ItemNotesSection(notes: notes)
                     }
                 }
                 .padding()
@@ -98,6 +98,19 @@ struct ItemDetailView: View {
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
+                .confirmationDialog(
+                    "Delete \"\(item.displayName)\"?",
+                    isPresented: $showingDeleteConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Delete", role: .destructive) {
+                        modelContext.delete(item)
+                        dismiss()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This action cannot be undone.")
+                }
             }
 #else
             ToolbarItem(placement: .primaryAction) {
@@ -118,67 +131,28 @@ struct ItemDetailView: View {
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
+                .confirmationDialog(
+                    "Delete \"\(item.displayName)\"?",
+                    isPresented: $showingDeleteConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Delete", role: .destructive) {
+                        modelContext.delete(item)
+                        dismiss()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This action cannot be undone.")
+                }
             }
             ToolbarItem(placement: .primaryAction) {
                 moveButton
             }
 #endif
         }
-        .confirmationDialog(
-            "Delete \"\(item.displayName)\"?",
-            isPresented: $showingDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Delete", role: .destructive) {
-                modelContext.delete(item)
-                dismiss()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This action cannot be undone.")
-        }
         .sheet(isPresented: $showingEditItem) {
             AddEditItemView(catalogue: catalogue, item: item)
         }
-    }
-
-    // MARK: - Fields Section
-
-    private var fieldsSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(displayFields, id: \.0.id) { def, val in
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(def.name)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(val.displayValue)
-                            .font(.body)
-                    }
-
-                    Spacer()
-                }
-                .padding(.vertical, 10)
-
-                Divider()
-            }
-        }
-    }
-
-    // MARK: - Notes Section
-
-    private func notesSection(notes: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Notes", systemImage: "note.text")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-
-            Text(notes)
-                .font(.body)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - Move Button

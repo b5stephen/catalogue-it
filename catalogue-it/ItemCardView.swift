@@ -17,13 +17,12 @@ struct ItemCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Photo or placeholder
             ItemCardPhotoView(photo: item.primaryPhoto)
-                .frame(height: 150)
+                .frame(height: AppConstants.PhotoHeight.card)
                 .clipped()
 
             // Item name
             Text(item.displayName)
                 .font(.subheadline)
-                .fontWeight(.medium)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
                 .padding(.horizontal, 10)
@@ -32,10 +31,10 @@ struct ItemCardView: View {
         }
         .frame(maxWidth: .infinity)
         .background(.background)
-        .clipShape(.rect(cornerRadius: 12))
+        .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.medium))
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.secondary.opacity(0.3), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: AppConstants.CornerRadius.medium)
+                .stroke(.tertiary, lineWidth: 0.5)
         }
         .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
     }
@@ -53,11 +52,11 @@ private struct ItemCardPhotoView: View {
                 .scaledToFill()
         } else {
             Rectangle()
-                .fill(Color.secondary.opacity(0.15))
+                .fill(.quaternary)
                 .overlay {
                     Image(systemName: "photo")
                         .font(.largeTitle)
-                        .foregroundStyle(Color.secondary.opacity(0.6))
+                        .foregroundStyle(.tertiary)
                         .accessibilityHidden(true)
                 }
         }

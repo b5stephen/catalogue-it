@@ -32,7 +32,7 @@ struct FieldInputView: View {
     }
 
     private var numberInput: some View {
-        TextField(draft.fieldName, text: $draft.numberText)
+        TextField(draft.fieldName, value: $draft.numberValue, format: .number)
 #if os(iOS)
             .keyboardType(.decimalPad)
 #endif

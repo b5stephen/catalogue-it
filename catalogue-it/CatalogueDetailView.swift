@@ -134,7 +134,7 @@ struct CatalogueDetailView: View {
 #if os(iOS)
             ToolbarItem(placement: .topBarLeading) {
                 Menu("More Options", systemImage: "ellipsis.circle") {
-                    editCatalogueButton
+                    CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
                     Button {
                         showingStats = true
                     } label: {
@@ -144,23 +144,23 @@ struct CatalogueDetailView: View {
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                sortMenuButton
+                SortMenuButton(catalogue: catalogue, sortFieldKey: $sortFieldKey, sortDirection: $sortDirection)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                layoutToggleButton
+                LayoutToggleButton(isGridLayout: $isGridLayout)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                addItemButton
+                AddItemButton(showingAddItem: $showingAddItem)
             }
 #else
             ToolbarItem(placement: .primaryAction) {
-                addItemButton
+                AddItemButton(showingAddItem: $showingAddItem)
             }
             ToolbarItem(placement: .primaryAction) {
-                layoutToggleButton
+                LayoutToggleButton(isGridLayout: $isGridLayout)
             }
             ToolbarItem(placement: .primaryAction) {
-                sortMenuButton
+                SortMenuButton(catalogue: catalogue, sortFieldKey: $sortFieldKey, sortDirection: $sortDirection)
             }
             ToolbarItem(placement: .primaryAction) {
                 ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
@@ -173,66 +173,9 @@ struct CatalogueDetailView: View {
                 }
             }
             ToolbarItem(placement: .primaryAction) {
-                editCatalogueButton
+                CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
             }
 #endif
-        }
-    }
-
-    // MARK: - Toolbar Buttons
-
-    private var editCatalogueButton: some View {
-        Button {
-            showingEditCatalogue = true
-        } label: {
-            Label("Edit Catalogue", systemImage: "pencil")
-        }
-    }
-
-    private var layoutToggleButton: some View {
-        Button {
-            isGridLayout.toggle()
-        } label: {
-            Label(
-                isGridLayout ? "Switch to List" : "Switch to Grid",
-                systemImage: isGridLayout ? "list.bullet" : "square.grid.2x2"
-            )
-        }
-    }
-
-    private var addItemButton: some View {
-        Button {
-            showingAddItem = true
-        } label: {
-            Label("Add Item", systemImage: "plus")
-        }
-        .keyboardShortcut("n", modifiers: .command)
-    }
-
-    private var sortMenuButton: some View {
-        // The built-in "Name" sort uses displayName, which is derived from the first field
-        // by sortOrder. Exclude that field from the custom list to avoid showing it twice.
-        let displayField = catalogue.fieldDefinitions
-            .sorted { $0.sortOrder < $1.sortOrder }
-            .first
-        let customFields = catalogue.fieldDefinitions
-            .filter { $0.persistentModelID != displayField?.persistentModelID }
-            .sorted { $0.sortOrder < $1.sortOrder }
-
-        return Menu {
-            Picker("Sort By", selection: $sortFieldKey) {
-                Text("Date Added").tag(ItemSortField.dateAdded.rawValue)
-                Text("Name").tag(ItemSortField.name.rawValue)
-                ForEach(customFields) { field in
-                    Text(field.name).tag(ItemSortField.field(field.name).rawValue)
-                }
-            }
-            Picker("Direction", selection: $sortDirection) {
-                Text("Ascending").tag(ItemSortDirection.ascending.rawValue)
-                Text("Descending").tag(ItemSortDirection.descending.rawValue)
-            }
-        } label: {
-            Label("Sort", systemImage: "arrow.up.arrow.down")
         }
     }
 }

@@ -30,8 +30,8 @@ struct ItemRowView: View {
         HStack(spacing: 12) {
             // Thumbnail
             ItemThumbnailView(photo: item.primaryPhoto)
-                .frame(width: 56, height: 56)
-                .clipShape(.rect(cornerRadius: 8))
+                .frame(width: AppConstants.ThumbnailSize.list, height: AppConstants.ThumbnailSize.list)
+                .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.small))
 
             // Text content
             VStack(alignment: .leading, spacing: 4) {
@@ -64,11 +64,11 @@ private struct ItemThumbnailView: View {
                 .resizable()
                 .scaledToFill()
         } else {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.secondary.opacity(0.15))
+            RoundedRectangle(cornerRadius: AppConstants.CornerRadius.small)
+                .fill(.quaternary)
                 .overlay {
                     Image(systemName: "photo")
-                        .foregroundStyle(Color.secondary.opacity(0.6))
+                        .foregroundStyle(.tertiary)
                         .accessibilityHidden(true)
                 }
         }

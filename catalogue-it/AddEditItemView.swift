@@ -95,7 +95,7 @@ struct AddEditItemView: View {
                     case .text:
                         draft.textValue = fv.textValue ?? ""
                     case .number:
-                        draft.numberText = fv.numberValue.map { formatNumber($0) } ?? ""
+                        draft.numberValue = fv.numberValue
                     case .date:
                         draft.dateValue = fv.dateValue ?? .now
                     case .boolean:
@@ -159,7 +159,7 @@ struct AddEditItemView: View {
             case .text:
                 fv.textValue = draft.textValue.isEmpty ? nil : draft.textValue
             case .number:
-                fv.numberValue = Double(draft.numberText)
+                fv.numberValue = draft.numberValue
             case .date:
                 fv.dateValue = draft.dateValue
             case .boolean:
@@ -181,16 +181,6 @@ struct AddEditItemView: View {
         }
 
         dismiss()
-    }
-
-    // MARK: - Helpers
-
-    /// Formats a Double for display in the number text field, stripping unnecessary trailing ".0".
-    private func formatNumber(_ value: Double) -> String {
-        if value.truncatingRemainder(dividingBy: 1) == 0 {
-            return String(Int(value))
-        }
-        return String(value)
     }
 }
 

@@ -27,7 +27,7 @@ struct FieldValueDraft: Identifiable {
     let sortOrder: Int
 
     var textValue: String = ""
-    var numberText: String = ""   // String binding; parsed to Double on save
+    var numberValue: Double? = nil
     var dateValue: Date = .now
     var boolValue: Bool = false
 }

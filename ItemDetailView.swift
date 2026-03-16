@@ -148,10 +148,6 @@ struct ItemDetailView: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(displayFields, id: \.0.id) { def, val in
                 HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: def.fieldType.icon)
-                        .foregroundStyle(def.fieldType.color)
-                        .frame(width: 20)
-
                     VStack(alignment: .leading, spacing: 2) {
                         Text(def.name)
                             .font(.caption)
@@ -165,7 +161,6 @@ struct ItemDetailView: View {
                 .padding(.vertical, 10)
 
                 Divider()
-                    .padding(.leading, 32)
             }
         }
     }

@@ -41,8 +41,6 @@ struct AddFieldView: View {
                             .foregroundStyle(.secondary)
 
                         HStack {
-                            Image(systemName: selectedType.icon)
-                                .foregroundStyle(selectedType.color)
                             Text(fieldName.isEmpty ? "Field Name" : fieldName)
                             Spacer()
                             Text(selectedType.rawValue)

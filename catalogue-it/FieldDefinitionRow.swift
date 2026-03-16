@@ -14,9 +14,6 @@ struct FieldDefinitionRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: field.fieldType.icon)
-                .foregroundStyle(field.fieldType.color)
-                .frame(width: 24)
             Text(field.name)
             Spacer()
             Text(field.fieldType.rawValue)

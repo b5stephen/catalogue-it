@@ -41,15 +41,15 @@ final class CatalogueItem {
         photos.min(by: { $0.sortOrder < $1.sortOrder })
     }
 
-    /// A computed display name based on the first text field, or "Untitled"
+    /// A computed display name based on the first field (by catalogue sortOrder), or "Untitled"
     var displayName: String {
-        if let firstText = fieldValues
-            .filter({ $0.fieldType == .text })
-            .sorted(by: { $0.sortOrder < $1.sortOrder })
-            .first?.textValue,
-           !firstText.isEmpty {
-            return firstText
-        }
-        return "Untitled Item"
+        guard let catalogue,
+              let firstField = catalogue.fieldDefinitions
+                  .sorted(by: { $0.sortOrder < $1.sortOrder })
+                  .first,
+              let value = fieldValues.first(where: { $0.fieldName == firstField.name }),
+              !value.displayValue.isEmpty
+        else { return "Untitled Item" }
+        return value.displayValue
     }
 }

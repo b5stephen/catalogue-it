@@ -34,6 +34,7 @@ struct AddEditCatalogueView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // editMode is set to .active so drag handles appear permanently on field rows
                 // MARK: - Basic Info Section
                 Section("Catalogue Details") {
                     TextField("Name", text: $name)
@@ -65,7 +66,10 @@ struct AddEditCatalogueView: View {
                 // MARK: - Field Definitions Section
                 Section {
                     ForEach(fieldDefinitions) { field in
-                        FieldDefinitionRow(field: field)
+                        FieldDefinitionRow(
+                            field: field,
+                            isDisplayField: field.id == fieldDefinitions.first?.id
+                        )
                     }
                     .onDelete(perform: deleteField)
                     .onMove(perform: moveField)
@@ -78,9 +82,10 @@ struct AddEditCatalogueView: View {
                 } header: {
                     Text("Custom Fields")
                 } footer: {
-                    Text("Define what information you want to track for items in this catalogue.")
+                    Text("Drag fields to reorder. The first field is used as each item's display name.")
                 }
             }
+            .environment(\.editMode, .constant(.active))
             .navigationTitle(isEditing ? "Edit Catalogue" : "New Catalogue")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

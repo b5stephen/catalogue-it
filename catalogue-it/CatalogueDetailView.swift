@@ -210,13 +210,13 @@ struct CatalogueDetailView: View {
     }
 
     private var sortMenuButton: some View {
-        // The built-in "Name" sort uses displayName, which is derived from the first text
-        // field. Exclude that field from the custom list to avoid showing it twice.
-        let firstTextField = catalogue.fieldDefinitions
-            .filter { $0.fieldType == .text }
-            .min(by: { $0.sortOrder < $1.sortOrder })
+        // The built-in "Name" sort uses displayName, which is derived from the first field
+        // by sortOrder. Exclude that field from the custom list to avoid showing it twice.
+        let displayField = catalogue.fieldDefinitions
+            .sorted { $0.sortOrder < $1.sortOrder }
+            .first
         let customFields = catalogue.fieldDefinitions
-            .filter { $0.persistentModelID != firstTextField?.persistentModelID }
+            .filter { $0.persistentModelID != displayField?.persistentModelID }
             .sorted { $0.sortOrder < $1.sortOrder }
 
         return Menu {

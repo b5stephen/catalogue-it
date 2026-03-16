@@ -11,6 +11,7 @@ import SwiftUI
 
 struct FieldDefinitionRow: View {
     let field: FieldDefinitionDraft
+    var isDisplayField: Bool = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -21,6 +22,16 @@ struct FieldDefinitionRow: View {
             Text(field.name)
 
             Spacer()
+
+            if isDisplayField {
+                Text("Display Name")
+                    .font(.caption2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.tint.opacity(0.15))
+                    .foregroundStyle(.tint)
+                    .clipShape(Capsule())
+            }
 
             Text(field.fieldType.rawValue)
                 .font(.caption)

@@ -17,6 +17,7 @@ struct ItemRowView: View {
     private var fieldSummaries: [(name: String, value: String)] {
         catalogue.fieldDefinitions
             .sorted { $0.sortOrder < $1.sortOrder }
+            .dropFirst()
             .prefix(2)
             .compactMap { field in
                 guard let fv = item.value(for: field.name),

@@ -66,10 +66,7 @@ struct AddEditCatalogueView: View {
                 // MARK: - Field Definitions Section
                 Section {
                     ForEach(fieldDefinitions) { field in
-                        FieldDefinitionRow(
-                            field: field,
-                            isDisplayField: field.id == fieldDefinitions.first?.id
-                        )
+                        FieldDefinitionRow(field: field)
                     }
                     .onDelete(perform: deleteField)
                     .onMove(perform: moveField)

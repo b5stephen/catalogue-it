@@ -29,9 +29,16 @@ struct CatalogueDetailView: View {
 
     // MARK: - Computed Items
 
+    private var baseItems: [CatalogueItem] {
+        switch selectedTab {
+        case .all:      catalogue.items
+        case .owned:    catalogue.ownedItems
+        case .wishlist: catalogue.wishlistItems
+        }
+    }
+
     private var currentItems: [CatalogueItem] {
-        let tabItems = selectedTab == .owned ? catalogue.ownedItems : catalogue.wishlistItems
-        let searched = searchText.isEmpty ? tabItems : tabItems.filter { item in
+        let searched = searchText.isEmpty ? baseItems : baseItems.filter { item in
             item.displayName.localizedStandardContains(searchText) ||
             item.fieldValues.contains { $0.displayValue.localizedStandardContains(searchText) }
         }
@@ -89,8 +96,6 @@ struct CatalogueDetailView: View {
     // MARK: - Body
 
     var body: some View {
-        let tabItems = selectedTab == .owned ? catalogue.ownedItems : catalogue.wishlistItems
-
         VStack(spacing: 0) {
             Picker("Tab", selection: $selectedTab) {
                 ForEach(ItemTab.allCases, id: \.self) { tab in
@@ -105,12 +110,12 @@ struct CatalogueDetailView: View {
             if currentItems.isEmpty {
                 CatalogueEmptyStateView(
                     selectedTab: selectedTab,
-                    isFiltered: !searchText.isEmpty && !tabItems.isEmpty
+                    isFiltered: !searchText.isEmpty && !baseItems.isEmpty
                 )
             } else if isGridLayout {
-                CatalogueItemGridView(items: currentItems, gridColumns: gridColumns)
+                CatalogueItemGridView(items: currentItems, gridColumns: gridColumns, showWishlistBadge: selectedTab == .all)
             } else {
-                CatalogueItemListView(items: currentItems, catalogue: catalogue)
+                CatalogueItemListView(items: currentItems, catalogue: catalogue, showWishlistBadge: selectedTab == .all)
             }
         }
         .navigationTitle(catalogue.name)

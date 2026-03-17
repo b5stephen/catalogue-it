@@ -13,6 +13,7 @@ import SwiftData
 struct ItemRowView: View {
     let item: CatalogueItem
     let catalogue: Catalogue
+    var showWishlistBadge: Bool = false
 
     private var fieldSummaries: [(name: String, value: String)] {
         catalogue.fieldDefinitions
@@ -48,6 +49,12 @@ struct ItemRowView: View {
             }
 
             Spacer(minLength: 0)
+
+            if showWishlistBadge && item.isWishlist {
+                Image(systemName: "heart.fill")
+                    .foregroundStyle(.pink)
+                    .font(.caption)
+            }
         }
         .padding(.vertical, 4)
     }

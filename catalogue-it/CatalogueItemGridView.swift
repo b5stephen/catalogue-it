@@ -12,13 +12,14 @@ import SwiftUI
 struct CatalogueItemGridView: View {
     let items: [CatalogueItem]
     let gridColumns: [GridItem]
+    let showWishlistBadge: Bool
 
     var body: some View {
         ScrollView {
             LazyVGrid(columns: gridColumns, spacing: 16) {
                 ForEach(items) { item in
                     NavigationLink(value: item) {
-                        ItemCardView(item: item)
+                        ItemCardView(item: item, showWishlistBadge: showWishlistBadge)
                     }
                     .buttonStyle(.plain)
                 }

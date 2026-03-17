@@ -12,12 +12,13 @@ import SwiftUI
 struct CatalogueItemListView: View {
     let items: [CatalogueItem]
     let catalogue: Catalogue
+    let showWishlistBadge: Bool
 
     var body: some View {
         List {
             ForEach(items) { item in
                 NavigationLink(value: item) {
-                    ItemRowView(item: item, catalogue: catalogue)
+                    ItemRowView(item: item, catalogue: catalogue, showWishlistBadge: showWishlistBadge)
                 }
             }
         }

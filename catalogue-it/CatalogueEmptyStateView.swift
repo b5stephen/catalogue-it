@@ -19,11 +19,13 @@ struct CatalogueEmptyStateView: View {
         } else {
             ContentUnavailableView(
                 "No Items Yet",
-                systemImage: selectedTab == .owned ? "checkmark.circle" : "heart",
+                systemImage: selectedTab == .owned ? "checkmark.circle" : selectedTab == .wishlist ? "heart" : "tray.2",
                 description: Text(
                     selectedTab == .owned
                         ? "Tap + to add your first owned item"
-                        : "Tap + to add your first wishlist item"
+                        : selectedTab == .wishlist
+                            ? "Tap + to add your first wishlist item"
+                            : "Tap + to add your first item"
                 )
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)

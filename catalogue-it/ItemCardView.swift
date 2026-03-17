@@ -12,6 +12,7 @@ import SwiftData
 
 struct ItemCardView: View {
     let item: CatalogueItem
+    var showWishlistBadge: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -19,6 +20,16 @@ struct ItemCardView: View {
             ItemCardPhotoView(photo: item.primaryPhoto)
                 .frame(height: AppConstants.PhotoHeight.card)
                 .clipped()
+                .overlay(alignment: .topTrailing) {
+                    if showWishlistBadge && item.isWishlist {
+                        Image(systemName: "heart.fill")
+                            .font(.caption)
+                            .foregroundStyle(.white)
+                            .padding(5)
+                            .background(.pink, in: Circle())
+                            .padding(6)
+                    }
+                }
 
             // Item name
             Text(item.displayName)

@@ -77,9 +77,6 @@ struct ItemDetailView: View {
 #endif
         .toolbar {
 #if os(iOS)
-            ToolbarItem(placement: .topBarLeading) {
-                moveButton
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showingEditItem = true
@@ -145,9 +142,6 @@ struct ItemDetailView: View {
                     Text("This action cannot be undone.")
                 }
             }
-            ToolbarItem(placement: .primaryAction) {
-                moveButton
-            }
 #endif
         }
         .sheet(isPresented: $showingEditItem) {
@@ -155,18 +149,6 @@ struct ItemDetailView: View {
         }
     }
 
-    // MARK: - Move Button
-
-    private var moveButton: some View {
-        Button {
-            item.isWishlist.toggle()
-        } label: {
-            Label(
-                item.isWishlist ? "Move to Owned" : "Move to Wishlist",
-                systemImage: item.isWishlist ? "checkmark.circle" : "heart"
-            )
-        }
-    }
 }
 
 // MARK: - Preview

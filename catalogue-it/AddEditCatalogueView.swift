@@ -82,7 +82,9 @@ struct AddEditCatalogueView: View {
                     Text("Drag fields to reorder. The first field is used as each item's display name.")
                 }
             }
+#if os(iOS)
             .environment(\.editMode, .constant(.active))
+#endif
             .navigationTitle(isEditing ? "Edit Catalogue" : "New Catalogue")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

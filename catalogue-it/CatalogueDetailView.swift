@@ -13,7 +13,7 @@ import SwiftData
 struct CatalogueDetailView: View {
     let catalogue: Catalogue
 
-    @AppStorage("itemLayoutPreference")  private var isGridLayout: Bool = true
+    @AppStorage("itemLayoutStyle")       private var layout: ItemLayout = .grid
     @AppStorage("itemSortField")         private var sortFieldKey: String = ItemSortField.dateAdded.rawValue
     @AppStorage("itemSortDirection")     private var sortDirection: String = ItemSortDirection.ascending.rawValue
 
@@ -112,10 +112,15 @@ struct CatalogueDetailView: View {
                     selectedTab: selectedTab,
                     isFiltered: !searchText.isEmpty && !baseItems.isEmpty
                 )
-            } else if isGridLayout {
-                CatalogueItemGridView(items: currentItems, gridColumns: gridColumns, showWishlistBadge: selectedTab == .all)
             } else {
-                CatalogueItemListView(items: currentItems, catalogue: catalogue, showWishlistBadge: selectedTab == .all)
+                switch layout {
+                case .grid:
+                    CatalogueItemGridView(items: currentItems, gridColumns: gridColumns, showWishlistBadge: selectedTab == .all)
+                case .list:
+                    CatalogueItemListView(items: currentItems, catalogue: catalogue, showWishlistBadge: selectedTab == .all)
+                case .table:
+                    CatalogueItemTableView(items: currentItems, catalogue: catalogue, showWishlistBadge: selectedTab == .all)
+                }
             }
         }
         .navigationTitle(catalogue.name)
@@ -152,7 +157,7 @@ struct CatalogueDetailView: View {
                 SortMenuButton(catalogue: catalogue, sortFieldKey: $sortFieldKey, sortDirection: $sortDirection)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                LayoutToggleButton(isGridLayout: $isGridLayout)
+                LayoutToggleButton(layout: $layout)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 AddItemButton(showingAddItem: $showingAddItem)
@@ -162,7 +167,7 @@ struct CatalogueDetailView: View {
                 AddItemButton(showingAddItem: $showingAddItem)
             }
             ToolbarItem(placement: .primaryAction) {
-                LayoutToggleButton(isGridLayout: $isGridLayout)
+                LayoutToggleButton(layout: $layout)
             }
             ToolbarItem(placement: .primaryAction) {
                 SortMenuButton(catalogue: catalogue, sortFieldKey: $sortFieldKey, sortDirection: $sortDirection)

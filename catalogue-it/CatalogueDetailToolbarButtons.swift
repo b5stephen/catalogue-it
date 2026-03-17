@@ -24,16 +24,13 @@ struct CatalogueEditButton: View {
 // MARK: - Layout Toggle Button
 
 struct LayoutToggleButton: View {
-    @Binding var isGridLayout: Bool
+    @Binding var layout: ItemLayout
 
     var body: some View {
         Button {
-            isGridLayout.toggle()
+            layout = layout.next
         } label: {
-            Label(
-                isGridLayout ? "Switch to List" : "Switch to Grid",
-                systemImage: isGridLayout ? "list.bullet" : "square.grid.2x2"
-            )
+            Label(layout.nextLayoutLabel, systemImage: layout.nextLayoutIcon)
         }
     }
 }

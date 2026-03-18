@@ -171,6 +171,8 @@ struct CatalogueDetailView: View {
             }
 #if os(macOS)
             .frame(minWidth: 360, minHeight: 480)
+#else
+            .frame(minWidth: 360, minHeight: 480)
 #endif
         }
         .toolbar {

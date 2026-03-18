@@ -14,6 +14,7 @@ struct ItemTableView: View {
     let items: [CatalogueItem]
     let catalogue: Catalogue
     let showWishlistBadge: Bool
+    @Binding var selectedItem: CatalogueItem?
 
     private var dynamicFields: [FieldDefinition] {
         Array(
@@ -23,8 +24,16 @@ struct ItemTableView: View {
         )
     }
 
+    // Bridges CatalogueItem? binding to the PersistentIdentifier? that Table requires.
+    private var tableSelection: Binding<PersistentIdentifier?> {
+        Binding(
+            get: { selectedItem?.id },
+            set: { id in selectedItem = id.flatMap { id in items.first { $0.id == id } } }
+        )
+    }
+
     var body: some View {
-        Table(items) {
+        Table(items, selection: tableSelection) {
             // Photo column (fixed width)
             TableColumn("") { item in
                 ItemTableThumbnailView(photo: item.primaryPhoto)
@@ -34,12 +43,9 @@ struct ItemTableView: View {
             }
             .width(AppConstants.ThumbnailSize.list + 16)
 
-            // Name column with NavigationLink
+            // Name column
             TableColumn("Name") { item in
-                NavigationLink(value: item) {
-                    Text(item.displayName).lineLimit(1)
-                }
-                .buttonStyle(.plain)
+                Text(item.displayName).lineLimit(1)
             }
 
             // Dynamic field columns

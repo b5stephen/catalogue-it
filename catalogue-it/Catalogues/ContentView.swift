@@ -13,6 +13,7 @@ struct ContentView: View {
     @Query(sort: \Catalogue.createdDate) private var catalogues: [Catalogue]
     @State private var showingAddCatalogue = false
     @State private var selectedCatalogue: Catalogue?
+    @State private var selectedItem: CatalogueItem?
 
     var body: some View {
         NavigationSplitView {
@@ -35,7 +36,7 @@ struct ContentView: View {
                 }
             }
 #if os(macOS)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
+            .navigationSplitViewColumnWidth(min: 180, ideal: 220)
 #endif
             .toolbar {
 #if os(iOS)
@@ -52,15 +53,21 @@ struct ContentView: View {
             .sheet(isPresented: $showingAddCatalogue) {
                 AddEditCatalogueView()
             }
-        } detail: {
+        } content: {
             if let catalogue = selectedCatalogue {
-                NavigationStack {
-                    CatalogueDetailView(catalogue: catalogue)
-                }
+                CatalogueDetailView(catalogue: catalogue, selectedItem: $selectedItem)
             } else {
-                Text("Select a catalogue")
-                    .foregroundStyle(.secondary)
+                ContentUnavailableView("Select a catalogue", systemImage: "square.grid.2x2")
             }
+        } detail: {
+            if let catalogue = selectedCatalogue, let item = selectedItem {
+                ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
+            } else {
+                ContentUnavailableView("Select an item", systemImage: "cube")
+            }
+        }
+        .onChange(of: selectedCatalogue) {
+            selectedItem = nil
         }
     }
 

@@ -16,6 +16,7 @@ struct ItemDetailView: View {
 
     let catalogue: Catalogue
     let item: CatalogueItem
+    @Binding var selectedItem: CatalogueItem?
 
     @State private var showingEditItem = false
     @State private var showingDeleteConfirmation = false
@@ -101,6 +102,7 @@ struct ItemDetailView: View {
                     titleVisibility: .visible
                 ) {
                     Button("Delete", role: .destructive) {
+                        selectedItem = nil
                         modelContext.delete(item)
                         dismiss()
                     }
@@ -134,8 +136,8 @@ struct ItemDetailView: View {
                     titleVisibility: .visible
                 ) {
                     Button("Delete", role: .destructive) {
+                        selectedItem = nil
                         modelContext.delete(item)
-                        dismiss()
                     }
                     Button("Cancel", role: .cancel) {}
                 } message: {
@@ -192,7 +194,7 @@ struct ItemDetailView: View {
     container.mainContext.insert(val3)
 
     return NavigationStack {
-        ItemDetailView(catalogue: catalogue, item: item)
+        ItemDetailView(catalogue: catalogue, item: item, selectedItem: .constant(nil))
     }
     .modelContainer(container)
 }

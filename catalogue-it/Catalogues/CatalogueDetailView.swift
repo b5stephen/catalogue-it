@@ -12,8 +12,13 @@ import SwiftData
 
 struct CatalogueDetailView: View {
     let catalogue: Catalogue
+    @Binding var selectedItem: CatalogueItem?
 
-    @AppStorage("itemLayoutStyle")       private var layout: ItemLayout = .grid
+#if os(macOS)
+    @AppStorage("itemLayoutStyle_mac")   private var layout: ItemLayout = .table
+#else
+    @AppStorage("itemLayoutStyle_ios")   private var layout: ItemLayout = .grid
+#endif
     @AppStorage("itemSortField")         private var sortFieldKey: String = ItemSortField.dateAdded.rawValue
     @AppStorage("itemSortDirection")     private var sortDirection: String = ItemSortDirection.ascending.rawValue
 
@@ -115,18 +120,18 @@ struct CatalogueDetailView: View {
             } else {
                 switch layout {
                 case .grid:
-                    ItemGridView(items: currentItems, gridColumns: gridColumns, showWishlistBadge: selectedTab == .all)
+                    ItemGridView(items: currentItems, gridColumns: gridColumns, showWishlistBadge: selectedTab == .all, selectedItem: $selectedItem)
                 case .list:
-                    ItemListView(items: currentItems, catalogue: catalogue, showWishlistBadge: selectedTab == .all)
+                    ItemListView(items: currentItems, catalogue: catalogue, showWishlistBadge: selectedTab == .all, selectedItem: $selectedItem)
                 case .table:
-                    ItemTableView(items: currentItems, catalogue: catalogue, showWishlistBadge: selectedTab == .all)
+                    ItemTableView(items: currentItems, catalogue: catalogue, showWishlistBadge: selectedTab == .all, selectedItem: $selectedItem)
                 }
             }
         }
         .navigationTitle(catalogue.name)
-        .navigationDestination(for: CatalogueItem.self) { item in
-            ItemDetailView(catalogue: catalogue, item: item)
-        }
+#if os(macOS)
+        .navigationSplitViewColumnWidth(min: 280, ideal: 360)
+#endif
         .searchable(text: $searchText)
         .sheet(isPresented: $showingEditCatalogue) {
             AddEditCatalogueView(catalogue: catalogue)
@@ -173,17 +178,15 @@ struct CatalogueDetailView: View {
                 SortMenuButton(catalogue: catalogue, sortFieldKey: $sortFieldKey, sortDirection: $sortDirection)
             }
             ToolbarItem(placement: .primaryAction) {
-                ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showingStats = true
-                } label: {
-                    Label("Statistics", systemImage: "chart.bar")
+                Menu("More", systemImage: "ellipsis.circle") {
+                    ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
+                    Button {
+                        showingStats = true
+                    } label: {
+                        Label("Statistics", systemImage: "chart.bar")
+                    }
+                    CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
                 }
-            }
-            ToolbarItem(placement: .primaryAction) {
-                CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
             }
 #endif
         }
@@ -226,7 +229,7 @@ struct CatalogueDetailView: View {
     container.mainContext.insert(val2)
 
     return NavigationStack {
-        CatalogueDetailView(catalogue: catalogue)
+        CatalogueDetailView(catalogue: catalogue, selectedItem: .constant(nil))
     }
     .modelContainer(container)
 }

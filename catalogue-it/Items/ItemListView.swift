@@ -13,13 +13,13 @@ struct ItemListView: View {
     let items: [CatalogueItem]
     let catalogue: Catalogue
     let showWishlistBadge: Bool
+    @Binding var selectedItem: CatalogueItem?
 
     var body: some View {
-        List {
+        List(selection: $selectedItem) {
             ForEach(items) { item in
-                NavigationLink(value: item) {
-                    ItemRowView(item: item, catalogue: catalogue, showWishlistBadge: showWishlistBadge)
-                }
+                ItemRowView(item: item, catalogue: catalogue, showWishlistBadge: showWishlistBadge)
+                    .tag(item)
             }
         }
         .listStyle(.plain)

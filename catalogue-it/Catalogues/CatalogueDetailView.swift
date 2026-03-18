@@ -22,11 +22,25 @@ struct CatalogueDetailView: View {
     @AppStorage("itemSortField")         private var sortFieldKey: String = ItemSortField.dateAdded.rawValue
     @AppStorage("itemSortDirection")     private var sortDirection: String = ItemSortDirection.ascending.rawValue
 
+#if !os(macOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+#endif
+
     @State private var selectedTab: ItemTab = .owned
     @State private var showingEditCatalogue = false
     @State private var showingAddItem = false
     @State private var showingStats = false
     @State private var searchText: String = ""
+    @State private var tableHighlightedItem: CatalogueItem?
+    @State private var tableSelectedItem: CatalogueItem?
+
+    private var isTableMode: Bool {
+#if os(macOS)
+        layout == .table
+#else
+        layout == .table && horizontalSizeClass == .regular
+#endif
+    }
 
     private let gridColumns = [
         GridItem(.adaptive(minimum: 160), spacing: 16)
@@ -124,7 +138,13 @@ struct CatalogueDetailView: View {
                 case .list:
                     ItemListView(items: currentItems, catalogue: catalogue, showWishlistBadge: selectedTab == .all, selectedItem: $selectedItem)
                 case .table:
-                    ItemTableView(items: currentItems, catalogue: catalogue, showWishlistBadge: selectedTab == .all, selectedItem: $selectedItem)
+                    ItemTableView(
+                        items: currentItems,
+                        catalogue: catalogue,
+                        showWishlistBadge: selectedTab == .all,
+                        selectedItem: isTableMode ? $tableHighlightedItem : $selectedItem,
+                        onViewDetails: isTableMode ? { item in tableSelectedItem = item } : nil
+                    )
                 }
             }
         }
@@ -144,6 +164,14 @@ struct CatalogueDetailView: View {
         }
         .sheet(isPresented: $showingStats) {
             CatalogueStatsView(catalogue: catalogue)
+        }
+        .popover(item: $tableSelectedItem) { item in
+            NavigationStack {
+                ItemDetailView(catalogue: catalogue, item: item, selectedItem: $tableSelectedItem)
+            }
+#if os(macOS)
+            .frame(minWidth: 360, minHeight: 480)
+#endif
         }
         .toolbar {
 #if os(iOS)

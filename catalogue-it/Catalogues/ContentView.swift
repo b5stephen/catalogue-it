@@ -15,59 +15,94 @@ struct ContentView: View {
     @State private var selectedCatalogue: Catalogue?
     @State private var selectedItem: CatalogueItem?
 
-    var body: some View {
-        NavigationSplitView {
-            List(selection: $selectedCatalogue) {
-                ForEach(catalogues) { catalogue in
-                    NavigationLink(value: catalogue) {
-                        CatalogueRow(catalogue: catalogue)
-                    }
-                }
-                .onDelete(perform: deleteCatalogues)
-            }
-            .navigationTitle("My Catalogues")
-            .overlay {
-                if catalogues.isEmpty {
-                    ContentUnavailableView(
-                        "No Catalogues",
-                        systemImage: "square.grid.2x2",
-                        description: Text("Create your first catalogue to start organizing your collections")
-                    )
-                }
-            }
 #if os(macOS)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 220)
+    @AppStorage("itemLayoutStyle_mac") private var layout: ItemLayout = .table
+#else
+    @AppStorage("itemLayoutStyle_ios") private var layout: ItemLayout = .grid
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
-            .toolbar {
-#if os(iOS)
-                ToolbarItem(placement: .topBarTrailing) {
-                    EditButton()
-                }
+
+    private var isTableMode: Bool {
+#if os(macOS)
+        layout == .table
+#else
+        layout == .table && horizontalSizeClass == .regular
 #endif
-                ToolbarItem {
-                    Button("Add Catalogue", systemImage: "plus") {
-                        showingAddCatalogue = true
-                    }
+    }
+
+    var body: some View {
+        if isTableMode {
+            NavigationSplitView {
+                sidebarContent
+            } detail: {
+                if let catalogue = selectedCatalogue {
+                    CatalogueDetailView(catalogue: catalogue, selectedItem: $selectedItem)
+                } else {
+                    ContentUnavailableView("Select a catalogue", systemImage: "square.grid.2x2")
                 }
             }
-            .sheet(isPresented: $showingAddCatalogue) {
-                AddEditCatalogueView()
+            .onChange(of: selectedCatalogue) {
+                selectedItem = nil
             }
-        } content: {
-            if let catalogue = selectedCatalogue {
-                CatalogueDetailView(catalogue: catalogue, selectedItem: $selectedItem)
-            } else {
-                ContentUnavailableView("Select a catalogue", systemImage: "square.grid.2x2")
+        } else {
+            NavigationSplitView {
+                sidebarContent
+            } content: {
+                if let catalogue = selectedCatalogue {
+                    CatalogueDetailView(catalogue: catalogue, selectedItem: $selectedItem)
+                } else {
+                    ContentUnavailableView("Select a catalogue", systemImage: "square.grid.2x2")
+                }
+            } detail: {
+                if let catalogue = selectedCatalogue, let item = selectedItem {
+                    ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
+                } else {
+                    ContentUnavailableView("Select an item", systemImage: "cube")
+                }
             }
-        } detail: {
-            if let catalogue = selectedCatalogue, let item = selectedItem {
-                ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
-            } else {
-                ContentUnavailableView("Select an item", systemImage: "cube")
+            .onChange(of: selectedCatalogue) {
+                selectedItem = nil
             }
         }
-        .onChange(of: selectedCatalogue) {
-            selectedItem = nil
+    }
+
+    @ViewBuilder
+    private var sidebarContent: some View {
+        List(selection: $selectedCatalogue) {
+            ForEach(catalogues) { catalogue in
+                NavigationLink(value: catalogue) {
+                    CatalogueRow(catalogue: catalogue)
+                }
+            }
+            .onDelete(perform: deleteCatalogues)
+        }
+        .navigationTitle("My Catalogues")
+        .overlay {
+            if catalogues.isEmpty {
+                ContentUnavailableView(
+                    "No Catalogues",
+                    systemImage: "square.grid.2x2",
+                    description: Text("Create your first catalogue to start organizing your collections")
+                )
+            }
+        }
+#if os(macOS)
+        .navigationSplitViewColumnWidth(min: 180, ideal: 220)
+#endif
+        .toolbar {
+#if os(iOS)
+            ToolbarItem(placement: .topBarTrailing) {
+                EditButton()
+            }
+#endif
+            ToolbarItem {
+                Button("Add Catalogue", systemImage: "plus") {
+                    showingAddCatalogue = true
+                }
+            }
+        }
+        .sheet(isPresented: $showingAddCatalogue) {
+            AddEditCatalogueView()
         }
     }
 

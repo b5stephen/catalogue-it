@@ -15,6 +15,7 @@ struct ItemTableView: View {
     let catalogue: Catalogue
     let showWishlistBadge: Bool
     @Binding var selectedItem: CatalogueItem?
+    var onViewDetails: ((CatalogueItem) -> Void)? = nil
 
     private var dynamicFields: [FieldDefinition] {
         Array(
@@ -46,6 +47,15 @@ struct ItemTableView: View {
             // Name column
             TableColumn("Name") { item in
                 Text(item.displayName).lineLimit(1)
+#if os(iOS)
+                    .contextMenu {
+                        if let onViewDetails {
+                            Button("View Details", systemImage: "info.circle") {
+                                onViewDetails(item)
+                            }
+                        }
+                    }
+#endif
             }
 
             // Dynamic field columns
@@ -67,6 +77,15 @@ struct ItemTableView: View {
                     }
                 }
                 .width(28)
+            }
+        }
+        .contextMenu(forSelectionType: PersistentIdentifier.self) { selection in
+            if let id = selection.first,
+               let item = items.first(where: { $0.id == id }),
+               let onViewDetails {
+                Button("View Details", systemImage: "info.circle") {
+                    onViewDetails(item)
+                }
             }
         }
     }

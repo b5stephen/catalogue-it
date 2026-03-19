@@ -33,6 +33,7 @@ struct CatalogueDetailView: View {
     @State private var searchText: String = ""
     @State private var tableHighlightedItem: CatalogueItem?
     @State private var tableSelectedItem: CatalogueItem?
+    @State private var isTableEditing: Bool = false
 
     private var isTableMode: Bool {
 #if os(macOS)
@@ -145,10 +146,14 @@ struct CatalogueDetailView: View {
                         selectedItem: isTableMode ? $tableHighlightedItem : $selectedItem,
                         sortFieldKey: $sortFieldKey,
                         sortDirection: $sortDirection,
-                        onViewDetails: isTableMode ? { item in tableSelectedItem = item } : nil
+                        isEditing: $isTableEditing,
+                        onViewDetails: isTableMode && !isTableEditing ? { item in tableSelectedItem = item } : nil
                     )
                 }
             }
+        }
+        .onChange(of: isTableMode) { _, on in
+            if !on { isTableEditing = false }
         }
         .navigationTitle(catalogue.name)
 #if os(macOS)
@@ -196,6 +201,11 @@ struct CatalogueDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 LayoutToggleButton(layout: $layout)
             }
+            if isTableMode {
+                ToolbarItem(placement: .topBarTrailing) {
+                    EditTableButton(isEditing: $isTableEditing)
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 AddItemButton(showingAddItem: $showingAddItem)
             }
@@ -205,6 +215,11 @@ struct CatalogueDetailView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 LayoutToggleButton(layout: $layout)
+            }
+            if isTableMode {
+                ToolbarItem(placement: .primaryAction) {
+                    EditTableButton(isEditing: $isTableEditing)
+                }
             }
             ToolbarItem(placement: .primaryAction) {
                 SortMenuButton(catalogue: catalogue, sortFieldKey: $sortFieldKey, sortDirection: $sortDirection)

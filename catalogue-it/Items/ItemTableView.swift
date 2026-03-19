@@ -17,9 +17,14 @@ struct ItemTableView: View {
     @Binding var selectedItem: CatalogueItem?
     @Binding var sortFieldKey: String
     @Binding var sortDirection: String
+    @Binding var isEditing: Bool
     var onViewDetails: ((CatalogueItem) -> Void)? = nil
 
     @State private var tableSortOrder: [CatalogueItemComparator] = []
+
+    private var firstField: FieldDefinition? {
+        catalogue.fieldDefinitions.sorted { $0.sortOrder < $1.sortOrder }.first
+    }
 
     private var dynamicFields: [FieldDefinition] {
         Array(
@@ -41,37 +46,35 @@ struct ItemTableView: View {
         Table(items, selection: tableSelection, sortOrder: $tableSortOrder) {
             // Name column
             TableColumn("Name", sortUsing: CatalogueItemComparator(field: .name)) { item in
-                Text(item.displayName).lineLimit(1)
+                if isEditing, let field = firstField {
+                    InlineFieldCell(item: item, field: field, isEditing: isEditing)
+                } else {
+                    Text(item.displayName).lineLimit(1)
 #if os(iOS)
-                    .contextMenu {
-                        if let onViewDetails {
-                            Button("View Details", systemImage: "info.circle") {
-                                onViewDetails(item)
+                        .contextMenu {
+                            if let onViewDetails {
+                                Button("View Details", systemImage: "info.circle") {
+                                    onViewDetails(item)
+                                }
                             }
                         }
-                    }
 #endif
+                }
             }
 
             // Dynamic field columns
             TableColumnForEach(dynamicFields) { field in
                 TableColumn(field.name, sortUsing: CatalogueItemComparator(field: .field(field.name))) { item in
-                    Text(item.value(for: field.name)?.displayValue ?? "")
-                        .foregroundStyle(item.value(for: field.name) == nil ? .tertiary : .primary)
-                        .lineLimit(1)
+                    InlineFieldCell(item: item, field: field, isEditing: isEditing)
                 }
             }
 
             // Optional wishlist column
             if showWishlistBadge {
                 TableColumn("") { item in
-                    if item.isWishlist {
-                        Image(systemName: "heart.fill")
-                            .foregroundStyle(.pink)
-                            .accessibilityLabel("Wishlist")
-                    }
+                    WishlistToggleCell(item: item, isEditing: isEditing)
                 }
-                .width(28)
+                .width(isEditing ? 44 : 28)
             }
         }
         .contextMenu(forSelectionType: PersistentIdentifier.self) { selection in
@@ -89,6 +92,13 @@ struct ItemTableView: View {
             sortDirection = first.order == .forward
                 ? ItemSortDirection.ascending.rawValue
                 : ItemSortDirection.descending.rawValue
+        }
+        .onChange(of: isEditing) { _, editing in
+            if editing {
+                tableSortOrder = []
+            } else {
+                syncTableSortOrder()
+            }
         }
         .onChange(of: sortFieldKey) { syncTableSortOrder() }
         .onChange(of: sortDirection) { syncTableSortOrder() }

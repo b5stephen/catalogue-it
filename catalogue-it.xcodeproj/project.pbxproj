@@ -6,11 +6,8 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-/* End PBXBuildFile section */
-
 /* Begin PBXFileReference section */
-DCD9C7EE2F4858BC0026F739 /* catalogue-it.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "catalogue-it.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DCD9C7EE2F4858BC0026F739 /* catalogue-it.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "catalogue-it.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -37,7 +34,7 @@ DCD9C7EE2F4858BC0026F739 /* catalogue-it.app */ = {isa = PBXFileReference; expli
 			children = (
 				DCD9C7F02F4858BC0026F739 /* catalogue-it */,
 				DCD9C7EF2F4858BC0026F739 /* Products */,
-				);
+			);
 			sourceTree = "<group>";
 		};
 		DCD9C7EF2F4858BC0026F739 /* Products */ = {
@@ -122,7 +119,7 @@ DCD9C7EE2F4858BC0026F739 /* catalogue-it.app */ = {isa = PBXFileReference; expli
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				);
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */

@@ -50,6 +50,21 @@ struct AddItemButton: View {
     }
 }
 
+// MARK: - Edit Table Button
+
+struct EditTableButton: View {
+    @Binding var isEditing: Bool
+
+    var body: some View {
+        Button { isEditing.toggle() } label: {
+            Label(
+                isEditing ? "Done" : "Edit Table",
+                systemImage: isEditing ? "checkmark.circle.fill" : "pencil.and.list.clipboard"
+            )
+        }
+    }
+}
+
 // MARK: - Sort Menu Button
 
 struct SortMenuButton: View {

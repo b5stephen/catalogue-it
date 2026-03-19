@@ -12,6 +12,8 @@ A multi-platform SwiftUI collection management app for iOS, iPadOS, and macOS. U
 
 ## Project Structure
 
+All files must be placed in the catalogue-it subfolder. Never place files in the Xcode project root group.
+
 ```
 catalogue-it/
 ├── catalogue_itApp.swift          # App entry point, SwiftData ModelContainer setup
@@ -42,15 +44,16 @@ catalogue-it.xcodeproj/            # Xcode project configuration
 
 ## Data Models
 
-| Model | Purpose |
-|-------|---------|
-| `Catalogue` | Collection container with name, icon, color |
+| Model             | Purpose                                           |
+| ----------------- | ------------------------------------------------- |
+| `Catalogue`       | Collection container with name, icon, color       |
 | `FieldDefinition` | Custom field schema (Text, Number, Date, Boolean) |
-| `CatalogueItem` | Individual item in a catalogue |
-| `FieldValue` | Typed value for a field on an item |
-| `ItemPhoto` | Photo attachment with caption and sort order |
+| `CatalogueItem`   | Individual item in a catalogue                    |
+| `FieldValue`      | Typed value for a field on an item                |
+| `ItemPhoto`       | Photo attachment with caption and sort order      |
 
 **Relationship tree:**
+
 ```
 Catalogue
   ├─ FieldDefinitions (1:many, cascade delete)
@@ -60,6 +63,7 @@ Catalogue
 ```
 
 **Key design decisions:**
+
 - `FieldValue` denormalizes field name and type to prevent data loss if definitions change
 - Photos stored as `Data` directly in SwiftData
 - All ordered collections use an explicit `sortOrder: Int` field

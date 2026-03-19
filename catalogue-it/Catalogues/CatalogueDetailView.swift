@@ -110,6 +110,16 @@ struct CatalogueDetailView: View {
             }
             .frame(minWidth: 360, minHeight: 480)
         }
+#if !os(macOS)
+        .navigationDestination(
+            item: Binding(
+                get: { horizontalSizeClass == .compact ? selectedItem : nil },
+                set: { selectedItem = $0 }
+            )
+        ) { item in
+            ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
+        }
+#endif
         .toolbar {
 #if os(iOS)
             ToolbarItem(placement: .topBarLeading) {

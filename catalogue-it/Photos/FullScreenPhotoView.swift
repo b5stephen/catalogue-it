@@ -59,6 +59,28 @@ struct FullScreenPhotoView: View {
                         )
                     }
                 }
+
+#if os(macOS)
+                ToolbarItemGroup(placement: .navigation) {
+                    Button {
+                        selectedIndex -= 1
+                    } label: {
+                        Label("Previous", systemImage: "chevron.left")
+                    }
+                    .disabled(selectedIndex == 0)
+
+                    Text("\(selectedIndex + 1) of \(photos.count)")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+
+                    Button {
+                        selectedIndex += 1
+                    } label: {
+                        Label("Next", systemImage: "chevron.right")
+                    }
+                    .disabled(selectedIndex >= photos.count - 1)
+                }
+#endif
             }
         }
         .preferredColorScheme(.dark)

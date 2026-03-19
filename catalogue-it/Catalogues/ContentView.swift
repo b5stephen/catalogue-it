@@ -73,6 +73,18 @@ struct ContentView: View {
                 NavigationLink(value: catalogue) {
                     CatalogueRow(catalogue: catalogue)
                 }
+                .contextMenu {
+                    Button(role: .destructive) {
+                        withAnimation {
+                            if selectedCatalogue == catalogue {
+                                selectedCatalogue = nil
+                            }
+                            modelContext.delete(catalogue)
+                        }
+                    } label: {
+                        Label("Delete Catalogue", systemImage: "trash")
+                    }
+                }
             }
             .onDelete(perform: deleteCatalogues)
         }

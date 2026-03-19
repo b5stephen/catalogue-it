@@ -148,6 +148,7 @@ struct ItemDetailView: View {
                     Button("Delete", role: .destructive) {
                         selectedItem = nil
                         modelContext.delete(item)
+                        dismiss()
                     }
                     Button("Cancel", role: .cancel) {}
                 } message: {

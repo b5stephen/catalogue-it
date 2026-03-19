@@ -173,11 +173,7 @@ struct CatalogueDetailView: View {
             NavigationStack {
                 ItemDetailView(catalogue: catalogue, item: item, selectedItem: $tableSelectedItem)
             }
-#if os(macOS)
             .frame(minWidth: 360, minHeight: 480)
-#else
-            .frame(minWidth: 360, minHeight: 480)
-#endif
         }
         .toolbar {
 #if os(iOS)

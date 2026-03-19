@@ -59,7 +59,6 @@ struct CatalogueDetailView: View {
 
     private var currentItems: [CatalogueItem] {
         let searched = searchText.isEmpty ? baseItems : baseItems.filter { item in
-            item.displayName.localizedStandardContains(searchText) ||
             item.fieldValues.contains { $0.displayValue.localizedStandardContains(searchText) }
         }
         return sortedItems(searched)
@@ -76,8 +75,6 @@ struct CatalogueDetailView: View {
             switch field {
             case .dateAdded:
                 result = a.createdDate < b.createdDate
-            case .name:
-                result = a.displayName.localizedCompare(b.displayName) == .orderedAscending
             case .field(let name):
                 let va = a.value(for: name)
                 let vb = b.value(for: name)

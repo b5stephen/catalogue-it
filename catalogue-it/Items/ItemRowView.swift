@@ -15,9 +15,20 @@ struct ItemRowView: View {
     let catalogue: Catalogue
     var showWishlistBadge: Bool = false
 
+    private var sortedFields: [FieldDefinition] {
+        catalogue.fieldDefinitions.sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    private var primaryValue: String {
+        guard let first = sortedFields.first,
+              let fv = item.value(for: first.name),
+              !fv.displayValue.isEmpty
+        else { return "Untitled Item" }
+        return fv.displayValue
+    }
+
     private var fieldSummaries: [(name: String, value: String)] {
-        catalogue.fieldDefinitions
-            .sorted { $0.sortOrder < $1.sortOrder }
+        sortedFields
             .dropFirst()
             .prefix(2)
             .compactMap { field in
@@ -36,7 +47,7 @@ struct ItemRowView: View {
 
             // Text content
             VStack(alignment: .leading, spacing: 4) {
-                Text(item.displayName)
+                Text(primaryValue)
                     .font(.headline)
                     .lineLimit(1)
 

@@ -72,20 +72,15 @@ struct SortMenuButton: View {
     @Binding var sortFieldKey: String
     @Binding var sortDirection: String
 
-    private var customFields: [FieldDefinition] {
-        Array(
-            catalogue.fieldDefinitions
-                .sorted { $0.sortOrder < $1.sortOrder }
-                .dropFirst()
-        )
+    private var sortedFields: [FieldDefinition] {
+        catalogue.fieldDefinitions.sorted { $0.sortOrder < $1.sortOrder }
     }
 
     var body: some View {
         Menu {
             Picker("Sort By", selection: $sortFieldKey) {
                 Text("Date Added").tag(ItemSortField.dateAdded.rawValue)
-                Text("Name").tag(ItemSortField.name.rawValue)
-                ForEach(customFields) { field in
+                ForEach(sortedFields) { field in
                     Text(field.name).tag(ItemSortField.field(field.name).rawValue)
                 }
             }

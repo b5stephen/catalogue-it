@@ -22,16 +22,8 @@ struct ItemTableView: View {
 
     @State private var tableSortOrder: [CatalogueItemComparator] = []
 
-    private var firstField: FieldDefinition? {
-        catalogue.fieldDefinitions.sorted { $0.sortOrder < $1.sortOrder }.first
-    }
-
-    private var dynamicFields: [FieldDefinition] {
-        Array(
-            catalogue.fieldDefinitions
-                .sorted { $0.sortOrder < $1.sortOrder }
-                .dropFirst()
-        )
+    private var sortedFields: [FieldDefinition] {
+        catalogue.fieldDefinitions.sorted { $0.sortOrder < $1.sortOrder }
     }
 
     // Bridges CatalogueItem? binding to the PersistentIdentifier? that Table requires.
@@ -44,26 +36,7 @@ struct ItemTableView: View {
 
     var body: some View {
         Table(items, selection: tableSelection, sortOrder: $tableSortOrder) {
-            // Name column
-            TableColumn("Name", sortUsing: CatalogueItemComparator(field: .name)) { item in
-                if isEditing, let field = firstField {
-                    InlineFieldCell(item: item, field: field, isEditing: isEditing)
-                } else {
-                    Text(item.displayName).lineLimit(1)
-#if os(iOS)
-                        .contextMenu {
-                            if let onViewDetails {
-                                Button("View Details", systemImage: "info.circle") {
-                                    onViewDetails(item)
-                                }
-                            }
-                        }
-#endif
-                }
-            }
-
-            // Dynamic field columns
-            TableColumnForEach(dynamicFields) { field in
+            TableColumnForEach(sortedFields) { field in
                 TableColumn(field.name, sortUsing: CatalogueItemComparator(field: .field(field.name))) { item in
                     InlineFieldCell(item: item, field: field, isEditing: isEditing)
                 }

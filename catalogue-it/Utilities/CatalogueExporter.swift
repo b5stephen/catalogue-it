@@ -20,7 +20,7 @@ enum CatalogueExporter {
         var rows: [String] = []
 
         // Header row
-        var headers = ["Tab", "Name"]
+        var headers = ["Tab"]
         headers.append(contentsOf: fields.map(\.name))
         headers.append(contentsOf: ["Notes", "Photo Count"])
         rows.append(headers.map(csvEscape).joined(separator: ","))
@@ -30,7 +30,6 @@ enum CatalogueExporter {
         for item in allItems {
             var cells: [String] = []
             cells.append(item.isWishlist ? "Wishlist" : "Owned")
-            cells.append(item.displayName)
             for field in fields {
                 let fv = item.value(for: field.name)
                 let cell: String

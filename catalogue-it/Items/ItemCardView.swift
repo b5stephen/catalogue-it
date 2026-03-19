@@ -14,6 +14,15 @@ struct ItemCardView: View {
     let item: CatalogueItem
     var showWishlistBadge: Bool = false
 
+    private var primaryValue: String {
+        guard let catalogue = item.catalogue,
+              let first = catalogue.fieldDefinitions.sorted(by: { $0.sortOrder < $1.sortOrder }).first,
+              let fv = item.value(for: first.name),
+              !fv.displayValue.isEmpty
+        else { return "Untitled Item" }
+        return fv.displayValue
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Photo or placeholder
@@ -32,7 +41,7 @@ struct ItemCardView: View {
                 }
 
             // Item name
-            Text(item.displayName)
+            Text(primaryValue)
                 .font(.subheadline)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)

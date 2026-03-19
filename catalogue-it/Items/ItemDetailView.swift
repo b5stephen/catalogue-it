@@ -23,6 +23,16 @@ struct ItemDetailView: View {
 
     // MARK: - Computed
 
+    private var primaryValue: String {
+        guard let firstName = catalogue.fieldDefinitions
+            .sorted(by: { $0.sortOrder < $1.sortOrder })
+            .first?.name,
+              let val = item.value(for: firstName),
+              !val.displayValue.isEmpty
+        else { return "Untitled Item" }
+        return val.displayValue
+    }
+
     private var sortedPhotos: [ItemPhoto] {
         item.photos.sorted { $0.sortOrder < $1.sortOrder }
     }
@@ -38,7 +48,7 @@ struct ItemDetailView: View {
     }
 
     private var shareText: String {
-        var lines = [item.displayName]
+        var lines: [String] = []
         for def in catalogue.fieldDefinitions.sorted(by: { $0.sortOrder < $1.sortOrder }) {
             if let val = item.value(for: def.name) {
                 lines.append("\(def.name): \(val.displayValue)")
@@ -72,7 +82,7 @@ struct ItemDetailView: View {
                 .padding()
             }
         }
-        .navigationTitle(item.displayName)
+        .navigationTitle(primaryValue)
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
@@ -97,7 +107,7 @@ struct ItemDetailView: View {
                     Label("Delete", systemImage: "trash")
                 }
                 .confirmationDialog(
-                    "Delete \"\(item.displayName)\"?",
+                    "Delete \"\(primaryValue)\"?",
                     isPresented: $showingDeleteConfirmation,
                     titleVisibility: .visible
                 ) {
@@ -131,7 +141,7 @@ struct ItemDetailView: View {
                     Label("Delete", systemImage: "trash")
                 }
                 .confirmationDialog(
-                    "Delete \"\(item.displayName)\"?",
+                    "Delete \"\(primaryValue)\"?",
                     isPresented: $showingDeleteConfirmation,
                     titleVisibility: .visible
                 ) {

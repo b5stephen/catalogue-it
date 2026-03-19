@@ -16,16 +16,13 @@ import Foundation
 /// so its `Hashable` conformance is usable from any actor context.
 nonisolated enum ItemSortField: Hashable {
     case dateAdded
-    case name
     case field(String)
 
     static let dateAddedKey = "__dateAdded"
-    static let nameKey      = "__name"
 
     init(rawValue: String) {
         switch rawValue {
         case Self.dateAddedKey: self = .dateAdded
-        case Self.nameKey:      self = .name
         default:                self = .field(rawValue)
         }
     }
@@ -33,7 +30,6 @@ nonisolated enum ItemSortField: Hashable {
     var rawValue: String {
         switch self {
         case .dateAdded:        Self.dateAddedKey
-        case .name:             Self.nameKey
         case .field(let name):  name
         }
     }
@@ -80,10 +76,6 @@ extension CatalogueItemComparator: SortComparator {
         case .dateAdded:
             let base = cmp(lhs.createdDate, rhs.createdDate)
             return order == .forward ? base : flip(base)
-
-        case .name:
-            let result = lhs.displayName.localizedCompare(rhs.displayName)
-            return order == .forward ? result : flip(result)
 
         case .field(let name):
             let va = lhs.value(for: name)

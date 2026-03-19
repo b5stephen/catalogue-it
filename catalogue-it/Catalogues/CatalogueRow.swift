@@ -26,16 +26,6 @@ struct CatalogueRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(catalogue.name)
                     .font(.headline)
-
-                HStack(spacing: 12) {
-                    Label("\(catalogue.ownedItemCount)", systemImage: "checkmark.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    Label("\(catalogue.wishlistItemCount)", systemImage: "heart.fill")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
             }
         }
         .padding(.vertical, 4)

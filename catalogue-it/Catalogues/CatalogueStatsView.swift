@@ -27,8 +27,8 @@ struct CatalogueStatsView: View {
             Form {
                 Section("Items") {
                     LabeledContent("Total", value: catalogue.items.count.formatted())
-                    LabeledContent("Owned", value: catalogue.ownedItemCount.formatted())
-                    LabeledContent("Wishlist", value: catalogue.wishlistItemCount.formatted())
+                    LabeledContent("Owned", value: catalogue.items.count(where: { !$0.isWishlist }).formatted())
+                    LabeledContent("Wishlist", value: catalogue.items.count(where: { $0.isWishlist }).formatted())
                     LabeledContent("Photos", value: totalPhotos.formatted())
                 }
 

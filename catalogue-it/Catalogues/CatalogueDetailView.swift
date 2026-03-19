@@ -47,60 +47,6 @@ struct CatalogueDetailView: View {
         GridItem(.adaptive(minimum: 160), spacing: 16)
     ]
 
-    // MARK: - Computed Items
-
-    private var baseItems: [CatalogueItem] {
-        switch selectedTab {
-        case .all:      catalogue.items
-        case .owned:    catalogue.ownedItems
-        case .wishlist: catalogue.wishlistItems
-        }
-    }
-
-    private var currentItems: [CatalogueItem] {
-        let searched = searchText.isEmpty ? baseItems : baseItems.filter { item in
-            item.fieldValues.contains { $0.displayValue.localizedStandardContains(searchText) }
-        }
-        return sortedItems(searched)
-    }
-
-    // MARK: - Sort Logic
-
-    private func sortedItems(_ items: [CatalogueItem]) -> [CatalogueItem] {
-        let field = ItemSortField(rawValue: sortFieldKey)
-        let asc = (ItemSortDirection(rawValue: sortDirection) ?? .ascending) == .ascending
-
-        return items.sorted { a, b in
-            let result: Bool
-            switch field {
-            case .dateAdded:
-                result = a.createdDate < b.createdDate
-            case .field(let name):
-                let va = a.value(for: name)
-                let vb = b.value(for: name)
-                // nil sorts last regardless of direction
-                guard let va else { return false }
-                guard let vb else { return true }
-                switch va.fieldType {
-                case .text:
-                    let ta = va.textValue ?? "", tb = vb.textValue ?? ""
-                    result = ta.localizedCompare(tb) == .orderedAscending
-                case .number:
-                    result = (va.numberValue ?? 0) < (vb.numberValue ?? 0)
-                case .date:
-                    guard let da = va.dateValue, let db = vb.dateValue else {
-                        return va.dateValue != nil
-                    }
-                    result = da < db
-                case .boolean:
-                    // false < true (unchecked first when ascending)
-                    result = (va.boolValue == false) && (vb.boolValue == true)
-                }
-            }
-            return asc ? result : !result
-        }
-    }
-
     // MARK: - CSV Export
 
     private var csvFile: CatalogueCSVFile {
@@ -124,30 +70,19 @@ struct CatalogueDetailView: View {
             .padding(.horizontal)
             .padding(.vertical, 8)
 
-            if currentItems.isEmpty {
-                CatalogueEmptyStateView(
-                    selectedTab: selectedTab,
-                    isFiltered: !searchText.isEmpty && !baseItems.isEmpty
-                )
-            } else {
-                switch layout {
-                case .grid:
-                    ItemGridView(items: currentItems, gridColumns: gridColumns, showWishlistBadge: selectedTab == .all, selectedItem: $selectedItem)
-                case .list:
-                    ItemListView(items: currentItems, catalogue: catalogue, showWishlistBadge: selectedTab == .all, selectedItem: $selectedItem)
-                case .table:
-                    ItemTableView(
-                        items: currentItems,
-                        catalogue: catalogue,
-                        showWishlistBadge: selectedTab == .all,
-                        selectedItem: isTableMode ? $tableHighlightedItem : $selectedItem,
-                        sortFieldKey: $sortFieldKey,
-                        sortDirection: $sortDirection,
-                        isEditing: $isTableEditing,
-                        onViewDetails: isTableMode && !isTableEditing ? { item in tableSelectedItem = item } : nil
-                    )
-                }
-            }
+            CatalogueItemsView(
+                catalogue: catalogue,
+                tab: selectedTab,
+                searchText: searchText,
+                sortFieldKey: $sortFieldKey,
+                sortDirection: $sortDirection,
+                layout: layout,
+                isTableMode: isTableMode,
+                selectedItem: $selectedItem,
+                tableHighlightedItem: $tableHighlightedItem,
+                tableSelectedItem: $tableSelectedItem,
+                isTableEditing: $isTableEditing
+            )
         }
         .onChange(of: isTableMode) { _, on in
             if !on { isTableEditing = false }

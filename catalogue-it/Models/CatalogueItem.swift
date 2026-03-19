@@ -35,10 +35,4 @@ final class CatalogueItem {
     func value(for fieldName: String) -> FieldValue? {
         fieldValues.first { $0.fieldName == fieldName }
     }
-
-    /// Get the primary photo (lowest sortOrder), or nil if none
-    var primaryPhoto: ItemPhoto? {
-        photos.min(by: { $0.sortOrder < $1.sortOrder })
-    }
-
 }

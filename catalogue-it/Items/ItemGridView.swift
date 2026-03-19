@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 // MARK: - Item Grid View
 
@@ -29,7 +30,42 @@ struct ItemGridView: View {
                         }
                 }
             }
-            .padding()
+            .padding(.vertical)
         }
+        .padding(.horizontal, 16)
     }
+}
+
+// MARK: - Preview
+
+#Preview {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: Catalogue.self, configurations: config)
+
+    let item1 = CatalogueItem(isWishlist: false)
+    container.mainContext.insert(item1)
+    let val1 = FieldValue(fieldName: "Name", fieldType: .text, sortOrder: 0)
+    val1.textValue = "Supermarine Spitfire Mk.I"
+    val1.item = item1
+    container.mainContext.insert(val1)
+
+    let item2 = CatalogueItem(isWishlist: true)
+    container.mainContext.insert(item2)
+    let val2 = FieldValue(fieldName: "Name", fieldType: .text, sortOrder: 0)
+    val2.textValue = "Hawker Hurricane Mk.IIc"
+    val2.item = item2
+    container.mainContext.insert(val2)
+
+    let item3 = CatalogueItem(isWishlist: false)
+    container.mainContext.insert(item3)
+
+    let columns = [GridItem(.adaptive(minimum: 160), spacing: 16)]
+
+    return ItemGridView(
+        items: [item1, item2, item3],
+        gridColumns: columns,
+        showWishlistBadge: true,
+        selectedItem: .constant(nil)
+    )
+    .modelContainer(container)
 }

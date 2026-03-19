@@ -30,24 +30,4 @@ final class Catalogue {
         self.iconName = iconName
         self.colorHex = colorHex
     }
-
-    /// Returns only items that are owned (not wishlist)
-    var ownedItems: [CatalogueItem] {
-        items.filter { !$0.isWishlist }
-    }
-
-    /// Returns only wishlist items
-    var wishlistItems: [CatalogueItem] {
-        items.filter { $0.isWishlist }
-    }
-
-    /// Count of owned items, without allocating a full filtered array
-    var ownedItemCount: Int {
-        items.count(where: { !$0.isWishlist })
-    }
-
-    /// Count of wishlist items, without allocating a full filtered array
-    var wishlistItemCount: Int {
-        items.count(where: { $0.isWishlist })
-    }
 }

@@ -41,7 +41,7 @@ struct ItemRowView: View {
     var body: some View {
         HStack(spacing: 12) {
             // Thumbnail
-            ItemThumbnailView(photo: item.primaryPhoto)
+            ItemThumbnailView(photo: item.photos.min(by: { $0.sortOrder < $1.sortOrder }))
                 .frame(width: AppConstants.ThumbnailSize.list, height: AppConstants.ThumbnailSize.list)
                 .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.small))
 

@@ -12,54 +12,22 @@ A multi-platform SwiftUI collection management app for iOS, iPadOS, and macOS. U
 
 ## Project Structure
 
-All files must be placed in the catalogue-it subfolder. Never place files in the Xcode project root group.
+All files must be placed in the catalogue-it subfolder. Never place files in the Xcode project root group. Follow a feature-based subdirectories structure like below
 
 ```
 catalogue-it/
 ├── catalogue_itApp.swift          # App entry point, SwiftData ModelContainer setup
-├── ContentView.swift              # Home screen with catalogue list
-├── CatalogueRow.swift             # List row component for a catalogue
-├── CatalogueDetailView.swift      # Detail screen: grid/list item browser
-├── AddEditCatalogueView.swift     # Catalogue creation/editing UI
-├── AddFieldView.swift             # Sheet for adding a custom field
-├── FieldDefinitionRow.swift       # Row component for a field definition
-├── IconPickerView.swift           # Icon picker sheet
-├── ItemCardView.swift             # Grid card for an item
-├── ItemRowView.swift              # List row for an item
-├── Catalogue.swift                # Catalogue SwiftData model
-├── CatalogueItem.swift            # CatalogueItem SwiftData model
-├── FieldDefinition.swift          # FieldDefinition SwiftData model
-├── FieldValue.swift               # FieldValue SwiftData model
-├── FieldType.swift                # FieldType enum + icon/color extensions
-├── ItemPhoto.swift                # ItemPhoto SwiftData model
-├── FieldDefinitionDraft.swift     # Lightweight draft for field editing
-├── ItemTab.swift                  # ItemTab enum (Owned / Wishlist)
-├── Color+Hex.swift                # Color(hex:) and Color.toHex() extensions
-├── ImageHelpers.swift             # Data.asImage() shared helper
-├── Item.swift                     # (redirect comment — models split above)
 ├── DEVELOPMENT_PLAN.md            # Phased feature roadmap
-└── Assets.xcassets/               # App resources
+├── Localizable.xcstrings          # Localization strings
+├── Assets.xcassets/               # App resources (icons, colors)
+├── Catalogues/                    # Catalogue list and detail views
+├── Fields/                        # Field definition UI
+├── Items/                         # Item management and display views
+├── Models/                        # SwiftData model definitions
+├── Photos/                        # Photo management views
+├── Types/                         # Supporting enums and value types
+└── Utilities/                     # Shared helpers and extensions
 catalogue-it.xcodeproj/            # Xcode project configuration
-```
-
-## Data Models
-
-| Model             | Purpose                                           |
-| ----------------- | ------------------------------------------------- |
-| `Catalogue`       | Collection container with name, icon, color       |
-| `FieldDefinition` | Custom field schema (Text, Number, Date, Boolean) |
-| `CatalogueItem`   | Individual item in a catalogue                    |
-| `FieldValue`      | Typed value for a field on an item                |
-| `ItemPhoto`       | Photo attachment with caption and sort order      |
-
-**Relationship tree:**
-
-```
-Catalogue
-  ├─ FieldDefinitions (1:many, cascade delete)
-  └─ CatalogueItems (1:many, cascade delete)
-      ├─ FieldValues (1:many, cascade delete)
-      └─ ItemPhotos (1:many, cascade delete)
 ```
 
 **Key design decisions:**
@@ -118,7 +86,7 @@ Configured in `catalogue_itApp.swift` via `ModelConfiguration(isStoredInMemoryOn
 
 ## Development Status
 
-See `DEVELOPMENT_PLAN.md` for the full phased roadmap. As of Feb 2026:
+See `DEVELOPMENT_PLAN.md` for the full phased roadmap. As of March 2026:
 
-- **Complete:** Data models, catalogue list view, add/edit catalogue sheet, icon picker, field definition editor with drag-to-reorder, catalogue detail screen (grid + list item browser), code review refactor (file splitting, Swift 6 best practices)
-- **Planned:** Item management, photo picking, search/filter/sort, export/sharing
+- **Complete:** Data models, catalogue list view, add/edit catalogue sheet, icon picker, field definition editor with drag-to-reorder, catalogue detail screen (grid + list item browser), item management, photo picking, code review refactor (feature-based subdirectories, Swift 6 best practices)
+- **Planned:** Search/filter/sort, export/sharing

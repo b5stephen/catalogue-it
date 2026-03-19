@@ -18,6 +18,7 @@ struct PhotoPickerView: View {
     @State private var selectedItems: [PhotosPickerItem] = []
     @State private var isLoadingPhotos: Bool = false
     @State private var loadError: Error? = nil
+    @State private var loadTask: Task<Void, Never>?
 
     var body: some View {
         let loading = isLoadingPhotos
@@ -51,22 +52,25 @@ struct PhotoPickerView: View {
 
     private func loadPhotos() {
         guard !selectedItems.isEmpty else { return }
+        loadTask?.cancel()
         isLoadingPhotos = true
 
-        Task {
+        loadTask = Task {
             var newDrafts: [PhotoDraft] = []
             let startOrder = photos.count
 
             for (index, item) in selectedItems.enumerated() {
+                guard !Task.isCancelled else { break }
                 do {
                     guard let data = try await item.loadTransferable(type: Data.self),
                           let compressed = data.compressedAsJPEG(quality: 0.8) else { continue }
                     newDrafts.append(PhotoDraft(imageData: compressed, sortOrder: startOrder + index))
                 } catch {
-                    loadError = error
+                    if !(error is CancellationError) { loadError = error }
                 }
             }
 
+            guard !Task.isCancelled else { return }
             photos.append(contentsOf: newDrafts)
             selectedItems = []
             isLoadingPhotos = false

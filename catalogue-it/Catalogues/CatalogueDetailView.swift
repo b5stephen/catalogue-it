@@ -143,6 +143,8 @@ struct CatalogueDetailView: View {
                         catalogue: catalogue,
                         showWishlistBadge: selectedTab == .all,
                         selectedItem: isTableMode ? $tableHighlightedItem : $selectedItem,
+                        sortFieldKey: $sortFieldKey,
+                        sortDirection: $sortDirection,
                         onViewDetails: isTableMode ? { item in tableSelectedItem = item } : nil
                     )
                 }

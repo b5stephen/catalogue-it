@@ -54,7 +54,7 @@ struct ContentView: View {
                     ContentUnavailableView("Select a catalogue", systemImage: "square.grid.2x2")
                 }
             } detail: {
-                if let catalogue = selectedCatalogue, let item = selectedItem {
+                if horizontalSizeClass != .compact, let catalogue = selectedCatalogue, let item = selectedItem {
                     ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
                 } else {
                     ContentUnavailableView("Select an item", systemImage: "cube")

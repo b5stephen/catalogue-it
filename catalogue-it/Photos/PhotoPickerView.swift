@@ -19,6 +19,10 @@ struct PhotoPickerView: View {
     @State private var isLoadingPhotos: Bool = false
     @State private var loadError: Error? = nil
     @State private var loadTask: Task<Void, Never>?
+    #if os(iOS)
+    @State private var isCameraPresented = false
+    @State private var cameraCoordinator: CameraCoordinator?
+    #endif
 
     var body: some View {
         let loading = isLoadingPhotos
@@ -39,6 +43,14 @@ struct PhotoPickerView: View {
             .onChange(of: selectedItems) {
                 loadPhotos()
             }
+            #if os(iOS)
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button { isCameraPresented = true } label: {
+                    Label("Take Photo", systemImage: "camera")
+                }
+                .disabled(isLoadingPhotos)
+            }
+            #endif
         }
         .alert("Couldn't Load Photo", isPresented: Binding<Bool>(
             get: { loadError != nil },
@@ -48,6 +60,17 @@ struct PhotoPickerView: View {
         } message: {
             Text(loadError?.localizedDescription ?? "")
         }
+        #if os(iOS)
+        .onChange(of: isCameraPresented) { _, newValue in
+            guard newValue else { return }
+            let coordinator = CameraCoordinator(
+                onCapture: { image in appendCapturedPhoto(image) },
+                onDismiss: { isCameraPresented = false; cameraCoordinator = nil }
+            )
+            cameraCoordinator = coordinator
+            coordinator.present()
+        }
+        #endif
     }
 
     private func loadPhotos() {
@@ -76,6 +99,13 @@ struct PhotoPickerView: View {
             isLoadingPhotos = false
         }
     }
+
+    #if os(iOS)
+    private func appendCapturedPhoto(_ image: UIImage) {
+        guard let data = image.jpegData(compressionQuality: 0.8) else { return }
+        photos.append(PhotoDraft(imageData: data, sortOrder: photos.count))
+    }
+    #endif
 
     private func deletePhoto(id: UUID) {
         photos.removeAll { $0.id == id }

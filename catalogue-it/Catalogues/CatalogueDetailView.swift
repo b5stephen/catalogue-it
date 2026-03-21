@@ -15,7 +15,7 @@ struct CatalogueDetailView: View {
     @Binding var selectedItem: CatalogueItem?
 
 #if os(macOS)
-    @AppStorage("itemLayoutStyle_mac")   private var layout: ItemLayout = .table
+    @AppStorage("itemLayoutStyle_mac")   private var layout: ItemLayout = .list
 #else
     @AppStorage("itemLayoutStyle_ios")   private var layout: ItemLayout = .grid
 #endif
@@ -31,18 +31,6 @@ struct CatalogueDetailView: View {
     @State private var showingAddItem = false
     @State private var showingStats = false
     @State private var searchText: String = ""
-    @State private var tableHighlightedItem: CatalogueItem?
-    @State private var tableSelectedItem: CatalogueItem?
-    @State private var isTableEditing: Bool = false
-
-    private var isTableMode: Bool {
-#if os(macOS)
-        layout == .table
-#else
-        layout == .table && horizontalSizeClass == .regular
-#endif
-    }
-
     private let gridColumns = [
         GridItem(.adaptive(minimum: 160), spacing: 16)
     ]
@@ -77,15 +65,8 @@ struct CatalogueDetailView: View {
                 sortFieldKey: $sortFieldKey,
                 sortDirection: $sortDirection,
                 layout: layout,
-                isTableMode: isTableMode,
-                selectedItem: $selectedItem,
-                tableHighlightedItem: $tableHighlightedItem,
-                tableSelectedItem: $tableSelectedItem,
-                isTableEditing: $isTableEditing
+                selectedItem: $selectedItem
             )
-        }
-        .onChange(of: isTableMode) { _, on in
-            if !on { isTableEditing = false }
         }
         .navigationTitle(catalogue.name)
 #if os(macOS)
@@ -103,12 +84,6 @@ struct CatalogueDetailView: View {
         }
         .sheet(isPresented: $showingStats) {
             CatalogueStatsView(catalogue: catalogue)
-        }
-        .popover(item: $tableSelectedItem) { item in
-            NavigationStack {
-                ItemDetailView(catalogue: catalogue, item: item, selectedItem: $tableSelectedItem)
-            }
-            .frame(minWidth: 360, minHeight: 480)
         }
 #if !os(macOS)
         .navigationDestination(
@@ -139,11 +114,6 @@ struct CatalogueDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 LayoutToggleButton(layout: $layout)
             }
-            if isTableMode {
-                ToolbarItem(placement: .topBarTrailing) {
-                    EditTableButton(isEditing: $isTableEditing)
-                }
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 AddItemButton(showingAddItem: $showingAddItem)
             }
@@ -153,11 +123,6 @@ struct CatalogueDetailView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 LayoutToggleButton(layout: $layout)
-            }
-            if isTableMode {
-                ToolbarItem(placement: .primaryAction) {
-                    EditTableButton(isEditing: $isTableEditing)
-                }
             }
             ToolbarItem(placement: .primaryAction) {
                 SortMenuButton(catalogue: catalogue, sortFieldKey: $sortFieldKey, sortDirection: $sortDirection)

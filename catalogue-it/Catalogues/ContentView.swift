@@ -15,54 +15,36 @@ struct ContentView: View {
     @State private var selectedCatalogue: Catalogue?
     @State private var selectedItem: CatalogueItem?
 
-#if os(macOS)
-    @AppStorage("itemLayoutStyle_mac") private var layout: ItemLayout = .table
-#else
-    @AppStorage("itemLayoutStyle_ios") private var layout: ItemLayout = .grid
+#if !os(macOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
 
-    private var isTableMode: Bool {
-#if os(macOS)
-        layout == .table
-#else
-        layout == .table && horizontalSizeClass == .regular
-#endif
-    }
-
     var body: some View {
-        if isTableMode {
-            NavigationSplitView {
-                sidebarContent
-            } detail: {
-                if let catalogue = selectedCatalogue {
-                    CatalogueDetailView(catalogue: catalogue, selectedItem: $selectedItem)
-                } else {
-                    ContentUnavailableView("Select a catalogue", systemImage: "square.grid.2x2")
-                }
+        NavigationSplitView {
+            sidebarContent
+        } content: {
+            if let catalogue = selectedCatalogue {
+                CatalogueDetailView(catalogue: catalogue, selectedItem: $selectedItem)
+            } else {
+                ContentUnavailableView("Select a catalogue", systemImage: "square.grid.2x2")
             }
-            .onChange(of: selectedCatalogue) {
-                selectedItem = nil
+        } detail: {
+#if os(macOS)
+            if let catalogue = selectedCatalogue, let item = selectedItem {
+                ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
+            } else {
+                ContentUnavailableView("Select an item", systemImage: "cube")
             }
-        } else {
-            NavigationSplitView {
-                sidebarContent
-            } content: {
-                if let catalogue = selectedCatalogue {
-                    CatalogueDetailView(catalogue: catalogue, selectedItem: $selectedItem)
-                } else {
-                    ContentUnavailableView("Select a catalogue", systemImage: "square.grid.2x2")
-                }
-            } detail: {
-                if horizontalSizeClass != .compact, let catalogue = selectedCatalogue, let item = selectedItem {
-                    ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
-                } else {
-                    ContentUnavailableView("Select an item", systemImage: "cube")
-                }
+#else
+            if horizontalSizeClass != .compact, let catalogue = selectedCatalogue, let item = selectedItem {
+                ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
+            } else {
+                ContentUnavailableView("Select an item", systemImage: "cube")
             }
-            .onChange(of: selectedCatalogue) {
-                selectedItem = nil
-            }
+#endif
+        }
+        .onChange(of: selectedCatalogue) {
+            selectedItem = nil
         }
     }
 

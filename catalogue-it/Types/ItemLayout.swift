@@ -10,29 +10,25 @@
 enum ItemLayout: String, CaseIterable {
     case grid  = "grid"
     case list  = "list"
-    case table = "table"
 
     var next: ItemLayout {
         switch self {
-        case .grid:  .list
-        case .list:  .table
-        case .table: .grid
+        case .grid: .list
+        case .list: .grid
         }
     }
 
     var nextLayoutIcon: String {
         switch self {
-        case .grid:  "list.bullet"
-        case .list:  "tablecells"
-        case .table: "square.grid.2x2"
+        case .grid: "list.bullet"
+        case .list: "square.grid.2x2"
         }
     }
 
     var nextLayoutLabel: String {
         switch self {
-        case .grid:  "Switch to List"
-        case .list:  "Switch to Table"
-        case .table: "Switch to Grid"
+        case .grid: "Switch to List"
+        case .list: "Switch to Grid"
         }
     }
 }

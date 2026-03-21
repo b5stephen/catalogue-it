@@ -18,7 +18,8 @@ struct catalogue_itApp: App {
             FieldValue.self,
             ItemPhoto.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let isUITesting = ProcessInfo.processInfo.arguments.contains("--ui-testing")
+        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: isUITesting)
 
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
@@ -27,10 +28,41 @@ struct catalogue_itApp: App {
         }
     }()
 
+    init() {
+        // When running UI tests, force list layout so the test starts in a known state.
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing"),
+           let layout = ProcessInfo.processInfo.environment["UITESTING_LAYOUT"] {
+            UserDefaults.standard.set(layout, forKey: "itemLayoutStyle_ios")
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onAppear { seedUITestDataIfNeeded() }
         }
         .modelContainer(sharedModelContainer)
+    }
+
+    private func seedUITestDataIfNeeded() {
+        guard ProcessInfo.processInfo.arguments.contains("--ui-testing") else { return }
+        let ctx = sharedModelContainer.mainContext
+        guard (try? ctx.fetch(FetchDescriptor<Catalogue>()))?.isEmpty == true else { return }
+
+        let catalogue = Catalogue(name: "Test Catalogue", iconName: "star", colorHex: "#007AFF")
+        ctx.insert(catalogue)
+
+        let fieldDef = FieldDefinition(name: "Name", fieldType: .text, sortOrder: 0)
+        fieldDef.catalogue = catalogue
+        ctx.insert(fieldDef)
+
+        let item = CatalogueItem(isWishlist: false)
+        item.catalogue = catalogue
+        ctx.insert(item)
+
+        let fieldValue = FieldValue(fieldName: "Name", fieldType: .text, sortOrder: 0)
+        fieldValue.textValue = "Test Item"
+        fieldValue.item = item
+        ctx.insert(fieldValue)
     }
 }

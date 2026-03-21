@@ -29,5 +29,6 @@ struct CatalogueRow: View {
             }
         }
         .padding(.vertical, 4)
+        .accessibilityIdentifier("catalogue-\(catalogue.name)")
     }
 }

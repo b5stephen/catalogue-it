@@ -68,6 +68,7 @@ struct ItemRowView: View {
             }
         }
         .padding(.vertical, 4)
+        .accessibilityIdentifier("item-\(primaryValue)")
     }
 }
 

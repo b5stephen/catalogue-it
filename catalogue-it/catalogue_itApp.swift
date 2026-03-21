@@ -60,7 +60,7 @@ struct catalogue_itApp: App {
         item.catalogue = catalogue
         ctx.insert(item)
 
-        let fieldValue = FieldValue(fieldName: "Name", fieldType: .text, sortOrder: 0)
+        let fieldValue = FieldValue(fieldDefinition: fieldDef, fieldType: .text)
         fieldValue.textValue = "Test Item"
         fieldValue.item = item
         ctx.insert(fieldValue)

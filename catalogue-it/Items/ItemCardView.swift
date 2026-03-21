@@ -17,7 +17,7 @@ struct ItemCardView: View {
     private var primaryValue: String {
         guard let catalogue = item.catalogue,
               let first = catalogue.fieldDefinitions.sorted(by: { $0.sortOrder < $1.sortOrder }).first,
-              let fv = item.value(for: first.name),
+              let fv = item.value(for: first),
               !fv.displayValue.isEmpty
         else { return "Untitled Item" }
         return fv.displayValue
@@ -93,7 +93,16 @@ private struct ItemCardPhotoView: View {
     let item = CatalogueItem(isWishlist: false)
     container.mainContext.insert(item)
 
-    let val = FieldValue(fieldName: "Name", fieldType: .text, sortOrder: 0)
+    let catalogue = Catalogue(name: "Model Planes", iconName: "airplane", colorHex: "#007AFF")
+    container.mainContext.insert(catalogue)
+
+    let field = FieldDefinition(name: "Name", fieldType: .text, sortOrder: 0)
+    field.catalogue = catalogue
+    container.mainContext.insert(field)
+
+    item.catalogue = catalogue
+
+    let val = FieldValue(fieldDefinition: field, fieldType: .text)
     val.textValue = "Supermarine Spitfire Mk.I"
     val.item = item
     container.mainContext.insert(val)

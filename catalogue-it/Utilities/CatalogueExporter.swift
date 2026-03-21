@@ -31,7 +31,7 @@ enum CatalogueExporter {
             var cells: [String] = []
             cells.append(item.isWishlist ? "Wishlist" : "Owned")
             for field in fields {
-                let fv = item.value(for: field.name)
+                let fv = item.value(for: field)
                 let cell: String
                 if let fv {
                     switch fv.fieldType {

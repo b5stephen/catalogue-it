@@ -10,11 +10,14 @@ import SwiftUI
 // MARK: - Field Definition Row
 
 struct FieldDefinitionRow: View {
-    let field: FieldDefinitionDraft
+    @Binding var field: FieldDefinitionDraft
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(field.name)
+            TextField("Field Name", text: $field.name)
+#if os(iOS)
+                .textInputAutocapitalization(.words)
+#endif
             Spacer()
             Text(field.fieldType.rawValue)
                 .font(.caption)

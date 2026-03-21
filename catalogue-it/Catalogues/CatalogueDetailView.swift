@@ -164,7 +164,7 @@ struct CatalogueDetailView: View {
     item1.catalogue = catalogue
     container.mainContext.insert(item1)
 
-    let val1 = FieldValue(fieldName: "Manufacturer", fieldType: .text, sortOrder: 0)
+    let val1 = FieldValue(fieldDefinition: field1, fieldType: .text)
     val1.textValue = "Airfix"
     val1.item = item1
     container.mainContext.insert(val1)
@@ -173,7 +173,7 @@ struct CatalogueDetailView: View {
     item2.catalogue = catalogue
     container.mainContext.insert(item2)
 
-    let val2 = FieldValue(fieldName: "Manufacturer", fieldType: .text, sortOrder: 0)
+    let val2 = FieldValue(fieldDefinition: field1, fieldType: .text)
     val2.textValue = "Tamiya"
     val2.item = item2
     container.mainContext.insert(val2)

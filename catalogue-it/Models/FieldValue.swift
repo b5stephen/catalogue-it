@@ -11,13 +11,13 @@ import SwiftData
 // MARK: - Field Value
 
 /// Stores the actual data for a field on a specific item.
-/// We store the field name and type here too (denormalized) so if the field definition
-/// changes, old values still display correctly.
+/// References the FieldDefinition via a SwiftData relationship — renaming a field
+/// requires no cascade update here.
 @Model
 final class FieldValue {
-    var fieldName: String
+    var fieldDefinition: FieldDefinition?
     var fieldType: FieldType
-    var sortOrder: Int
+    var item: CatalogueItem?
 
     // Value storage — only one will be used based on fieldType
     var textValue: String?
@@ -25,36 +25,9 @@ final class FieldValue {
     var dateValue: Date?
     var boolValue: Bool?
 
-    var item: CatalogueItem?
-
-    init(fieldName: String, fieldType: FieldType, sortOrder: Int = 0) {
-        self.fieldName = fieldName
+    init(fieldDefinition: FieldDefinition?, fieldType: FieldType) {
+        self.fieldDefinition = fieldDefinition
         self.fieldType = fieldType
-        self.sortOrder = sortOrder
-    }
-
-    /// Convenience computed property to get the value based on type
-    var value: Any? {
-        switch fieldType {
-        case .text: textValue
-        case .number: numberValue
-        case .date: dateValue
-        case .boolean: boolValue
-        }
-    }
-
-    /// Set a value (type-safe)
-    func setValue(_ value: Any?) {
-        switch fieldType {
-        case .text:
-            textValue = value as? String
-        case .number:
-            numberValue = value as? Double
-        case .date:
-            dateValue = value as? Date
-        case .boolean:
-            boolValue = value as? Bool
-        }
     }
 
     /// Get a formatted string representation of the value

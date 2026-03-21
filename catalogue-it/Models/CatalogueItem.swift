@@ -31,8 +31,8 @@ final class CatalogueItem {
         self.notes = notes
     }
 
-    /// Get the value for a specific field by name
-    func value(for fieldName: String) -> FieldValue? {
-        fieldValues.first { $0.fieldName == fieldName }
+    /// Get the value for a specific field definition
+    func value(for definition: FieldDefinition) -> FieldValue? {
+        fieldValues.first { $0.fieldDefinition == definition }
     }
 }

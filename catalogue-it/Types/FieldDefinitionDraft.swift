@@ -6,12 +6,14 @@
 //
 
 import Foundation
+import SwiftData
 
 // MARK: - Field Definition Draft
 
 /// A lightweight, non-persisted representation of a field definition used during catalogue editing.
 struct FieldDefinitionDraft: Identifiable {
-    let id = UUID()
+    let id: UUID = UUID() // SwiftUI list identity only
+    var existingDefinition: FieldDefinition? // nil = new field being added
     var name: String
     var fieldType: FieldType
     var sortOrder: Int
@@ -22,13 +24,12 @@ struct FieldDefinitionDraft: Identifiable {
 /// Lightweight form state for a single field input during item editing.
 struct FieldValueDraft: Identifiable {
     let id: UUID = UUID()
-    let fieldName: String
+    let fieldDefinition: FieldDefinition
     let fieldType: FieldType
-    let sortOrder: Int
 
     var textValue: String = ""
     var numberValue: Double? = nil
-    var dateValue: Date = .now
+    var dateValue: Date? = nil
     var boolValue: Bool = false
 }
 

@@ -42,21 +42,31 @@ struct ItemGridView: View {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! ModelContainer(for: Catalogue.self, configurations: config)
 
+    let catalogue = Catalogue(name: "Model Planes", iconName: "airplane", colorHex: "#007AFF")
+    container.mainContext.insert(catalogue)
+
+    let field = FieldDefinition(name: "Name", fieldType: .text, sortOrder: 0)
+    field.catalogue = catalogue
+    container.mainContext.insert(field)
+
     let item1 = CatalogueItem(isWishlist: false)
+    item1.catalogue = catalogue
     container.mainContext.insert(item1)
-    let val1 = FieldValue(fieldName: "Name", fieldType: .text, sortOrder: 0)
+    let val1 = FieldValue(fieldDefinition: field, fieldType: .text)
     val1.textValue = "Supermarine Spitfire Mk.I"
     val1.item = item1
     container.mainContext.insert(val1)
 
     let item2 = CatalogueItem(isWishlist: true)
+    item2.catalogue = catalogue
     container.mainContext.insert(item2)
-    let val2 = FieldValue(fieldName: "Name", fieldType: .text, sortOrder: 0)
+    let val2 = FieldValue(fieldDefinition: field, fieldType: .text)
     val2.textValue = "Hawker Hurricane Mk.IIc"
     val2.item = item2
     container.mainContext.insert(val2)
 
     let item3 = CatalogueItem(isWishlist: false)
+    item3.catalogue = catalogue
     container.mainContext.insert(item3)
 
     let columns = [GridItem(.adaptive(minimum: 160), spacing: 16)]

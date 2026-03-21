@@ -65,8 +65,8 @@ struct AddEditCatalogueView: View {
 
                 // MARK: - Field Definitions Section
                 Section {
-                    ForEach(fieldDefinitions) { field in
-                        FieldDefinitionRow(field: field)
+                    ForEach($fieldDefinitions) { $field in
+                        FieldDefinitionRow(field: $field)
                     }
                     .onDelete(perform: deleteField)
                     .onMove(perform: moveField)
@@ -129,7 +129,7 @@ struct AddEditCatalogueView: View {
         guard let catalogue else {
             // Start with some common default fields for new catalogues
             fieldDefinitions = [
-                FieldDefinitionDraft(name: "Name", fieldType: .text, sortOrder: 0)
+                FieldDefinitionDraft(existingDefinition: nil, name: "Name", fieldType: .text, sortOrder: 0)
             ]
             return
         }
@@ -140,7 +140,7 @@ struct AddEditCatalogueView: View {
         selectedColor = Color(hex: catalogue.colorHex)
         fieldDefinitions = catalogue.fieldDefinitions
             .sorted { $0.sortOrder < $1.sortOrder }
-            .map { FieldDefinitionDraft(name: $0.name, fieldType: $0.fieldType, sortOrder: $0.sortOrder) }
+            .map { FieldDefinitionDraft(existingDefinition: $0, name: $0.name, fieldType: $0.fieldType, sortOrder: $0.sortOrder) }
     }
 
     private func saveCatalogue() {
@@ -150,15 +150,22 @@ struct AddEditCatalogueView: View {
             existingCatalogue.iconName = selectedIcon
             existingCatalogue.colorHex = selectedColor.toHex()
 
-            // Update field definitions (simplified - in production you'd handle this more carefully)
-            for field in existingCatalogue.fieldDefinitions {
+            // Delete fields that were removed
+            let retained = Set(fieldDefinitions.compactMap(\.existingDefinition?.persistentModelID))
+            for field in existingCatalogue.fieldDefinitions where !retained.contains(field.persistentModelID) {
                 modelContext.delete(field)
             }
 
+            // Update existing fields in-place / insert new fields
             for (index, draft) in fieldDefinitions.enumerated() {
-                let field = FieldDefinition(name: draft.name, fieldType: draft.fieldType, sortOrder: index)
-                field.catalogue = existingCatalogue
-                modelContext.insert(field)
+                if let existing = draft.existingDefinition {
+                    existing.name = draft.name  // rename applied here — no cascade needed
+                    existing.sortOrder = index
+                } else {
+                    let field = FieldDefinition(name: draft.name, fieldType: draft.fieldType, sortOrder: index)
+                    field.catalogue = existingCatalogue
+                    modelContext.insert(field)
+                }
             }
         } else {
             // Create new

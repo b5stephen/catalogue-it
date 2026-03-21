@@ -24,10 +24,10 @@ struct ItemDetailView: View {
     // MARK: - Computed
 
     private var primaryValue: String {
-        guard let firstName = catalogue.fieldDefinitions
+        guard let firstDef = catalogue.fieldDefinitions
             .sorted(by: { $0.sortOrder < $1.sortOrder })
-            .first?.name,
-              let val = item.value(for: firstName),
+            .first,
+              let val = item.value(for: firstDef),
               !val.displayValue.isEmpty
         else { return "Untitled Item" }
         return val.displayValue
@@ -42,7 +42,7 @@ struct ItemDetailView: View {
         catalogue.fieldDefinitions
             .sorted { $0.sortOrder < $1.sortOrder }
             .compactMap { def in
-                guard let val = item.value(for: def.name), !val.displayValue.isEmpty else { return nil }
+                guard let val = item.value(for: def), !val.displayValue.isEmpty else { return nil }
                 return (def, val)
             }
     }
@@ -50,7 +50,7 @@ struct ItemDetailView: View {
     private var shareText: String {
         var lines: [String] = []
         for def in catalogue.fieldDefinitions.sorted(by: { $0.sortOrder < $1.sortOrder }) {
-            if let val = item.value(for: def.name) {
+            if let val = item.value(for: def) {
                 lines.append("\(def.name): \(val.displayValue)")
             }
         }
@@ -189,17 +189,17 @@ struct ItemDetailView: View {
     item.catalogue = catalogue
     container.mainContext.insert(item)
 
-    let val1 = FieldValue(fieldName: "Manufacturer", fieldType: .text, sortOrder: 0)
+    let val1 = FieldValue(fieldDefinition: field1, fieldType: .text)
     val1.textValue = "Airfix"
     val1.item = item
     container.mainContext.insert(val1)
 
-    let val2 = FieldValue(fieldName: "Year", fieldType: .number, sortOrder: 1)
+    let val2 = FieldValue(fieldDefinition: field2, fieldType: .number)
     val2.numberValue = 1972
     val2.item = item
     container.mainContext.insert(val2)
 
-    let val3 = FieldValue(fieldName: "Assembled", fieldType: .boolean, sortOrder: 2)
+    let val3 = FieldValue(fieldDefinition: field3, fieldType: .boolean)
     val3.boolValue = true
     val3.item = item
     container.mainContext.insert(val3)

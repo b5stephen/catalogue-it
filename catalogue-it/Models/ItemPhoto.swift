@@ -13,7 +13,7 @@ import SwiftData
 /// A photo attached to an item
 @Model
 final class ItemPhoto {
-    var imageData: Data
+    @Attribute(.externalStorage) var imageData: Data
     var sortOrder: Int
     var caption: String?
 

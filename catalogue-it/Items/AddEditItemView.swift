@@ -20,6 +20,7 @@ struct AddEditItemView: View {
 
     // MARK: - Form State
 
+    @State private var sortedDefs: [FieldDefinition] = []
     @State private var fieldDrafts: [FieldValueDraft] = []
     @State private var photoDrafts: [PhotoDraft] = []
     @State private var isWishlist: Bool = false
@@ -43,8 +44,8 @@ struct AddEditItemView: View {
                 PhotoPickerView(photos: $photoDrafts)
 
                 Section("Details") {
-                    ForEach($fieldDrafts) { $draft in
-                        FieldInputView(draft: $draft)
+                    ForEach(fieldDrafts.indices, id: \.self) { index in
+                        FieldInputView(label: sortedDefs[index].name, draft: $fieldDrafts[index])
                     }
                 }
 
@@ -80,24 +81,23 @@ struct AddEditItemView: View {
     // MARK: - Load
 
     private func loadItemData() {
-        let sortedDefs = catalogue.fieldDefinitions.sorted { $0.sortOrder < $1.sortOrder }
+        sortedDefs = catalogue.fieldDefinitions.sorted { $0.sortOrder < $1.sortOrder }
 
         if let item = existingItem {
             // Edit mode: populate from existing item
             fieldDrafts = sortedDefs.map { def in
                 var draft = FieldValueDraft(
-                    fieldName: def.name,
-                    fieldType: def.fieldType,
-                    sortOrder: def.sortOrder
+                    fieldDefinition: def,
+                    fieldType: def.fieldType
                 )
-                if let fv = item.value(for: def.name) {
+                if let fv = item.value(for: def) {
                     switch def.fieldType {
                     case .text:
                         draft.textValue = fv.textValue ?? ""
                     case .number:
                         draft.numberValue = fv.numberValue
                     case .date:
-                        draft.dateValue = fv.dateValue ?? .now
+                        draft.dateValue = fv.dateValue
                     case .boolean:
                         draft.boolValue = fv.boolValue ?? false
                     }
@@ -121,7 +121,7 @@ struct AddEditItemView: View {
         } else {
             // Create mode: blank drafts
             fieldDrafts = sortedDefs.map { def in
-                FieldValueDraft(fieldName: def.name, fieldType: def.fieldType, sortOrder: def.sortOrder)
+                FieldValueDraft(fieldDefinition: def, fieldType: def.fieldType)
             }
             isWishlist = defaultIsWishlist
         }
@@ -154,7 +154,7 @@ struct AddEditItemView: View {
 
         // Field values
         for draft in fieldDrafts {
-            let fv = FieldValue(fieldName: draft.fieldName, fieldType: draft.fieldType, sortOrder: draft.sortOrder)
+            let fv = FieldValue(fieldDefinition: draft.fieldDefinition, fieldType: draft.fieldType)
             switch draft.fieldType {
             case .text:
                 fv.textValue = draft.textValue.isEmpty ? nil : draft.textValue

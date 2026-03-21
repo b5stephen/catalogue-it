@@ -21,7 +21,7 @@ struct ItemRowView: View {
 
     private var primaryValue: String {
         guard let first = sortedFields.first,
-              let fv = item.value(for: first.name),
+              let fv = item.value(for: first),
               !fv.displayValue.isEmpty
         else { return "Untitled Item" }
         return fv.displayValue
@@ -32,7 +32,7 @@ struct ItemRowView: View {
             .dropFirst()
             .prefix(2)
             .compactMap { field in
-                guard let fv = item.value(for: field.name),
+                guard let fv = item.value(for: field),
                       !fv.displayValue.isEmpty else { return nil }
                 return (name: field.name, value: fv.displayValue)
             }
@@ -115,12 +115,12 @@ private struct ItemThumbnailView: View {
     item.catalogue = catalogue
     container.mainContext.insert(item)
 
-    let val1 = FieldValue(fieldName: "Manufacturer", fieldType: .text, sortOrder: 0)
+    let val1 = FieldValue(fieldDefinition: field1, fieldType: .text)
     val1.textValue = "Airfix"
     val1.item = item
     container.mainContext.insert(val1)
 
-    let val2 = FieldValue(fieldName: "Year", fieldType: .number, sortOrder: 1)
+    let val2 = FieldValue(fieldDefinition: field2, fieldType: .number)
     val2.numberValue = 1969
     val2.item = item
     container.mainContext.insert(val2)

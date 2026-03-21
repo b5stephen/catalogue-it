@@ -76,9 +76,12 @@ struct CatalogueItemsView: View {
             switch field {
             case .dateAdded:
                 result = a.createdDate < b.createdDate
-            case .field(let name):
-                let va = a.value(for: name)
-                let vb = b.value(for: name)
+            case .field(let fieldID):
+                guard let def = catalogue.fieldDefinitions.first(where: { $0.fieldID == fieldID }) else {
+                    return false
+                }
+                let va = a.value(for: def)
+                let vb = b.value(for: def)
                 guard let va else { return false }
                 guard let vb else { return true }
                 switch va.fieldType {

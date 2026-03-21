@@ -66,7 +66,7 @@ struct SortMenuButton: View {
             Picker("Sort By", selection: $sortFieldKey) {
                 Text("Date Added").tag(ItemSortField.dateAdded.rawValue)
                 ForEach(sortedFields) { field in
-                    Text(field.name).tag(ItemSortField.field(field.name).rawValue)
+                    Text(field.name).tag(ItemSortField.field(field.fieldID).rawValue)
                 }
             }
             Picker("Direction", selection: $sortDirection) {

@@ -16,21 +16,27 @@ import Foundation
 /// so its `Hashable` conformance is usable from any actor context.
 nonisolated enum ItemSortField: Hashable {
     case dateAdded
-    case field(String)
+    case field(UUID)
 
     static let dateAddedKey = "__dateAdded"
 
     init(rawValue: String) {
         switch rawValue {
-        case Self.dateAddedKey: self = .dateAdded
-        default:                self = .field(rawValue)
+        case Self.dateAddedKey:
+            self = .dateAdded
+        default:
+            if let uuid = UUID(uuidString: rawValue) {
+                self = .field(uuid)
+            } else {
+                self = .dateAdded // fallback for any stale stored values
+            }
         }
     }
 
     var rawValue: String {
         switch self {
-        case .dateAdded:        Self.dateAddedKey
-        case .field(let name):  name
+        case .dateAdded:          Self.dateAddedKey
+        case .field(let fieldID): fieldID.uuidString
         }
     }
 }

@@ -35,7 +35,7 @@ struct PhotoPickerView: View {
                 matching: .images
             ) {
                 Label(
-                    loading ? "Loading…" : "Add Photos",
+                    loading ? "Loading…" : "Select Photos",
                     systemImage: loading ? "hourglass" : "photo.badge.plus"
                 )
             }

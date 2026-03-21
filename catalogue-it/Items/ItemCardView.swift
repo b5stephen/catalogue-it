@@ -27,7 +27,8 @@ struct ItemCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Photo or placeholder
             ItemCardPhotoView(photo: item.photos.min(by: { $0.sortOrder < $1.sortOrder }))
-                .frame(maxWidth: .infinity, maxHeight: AppConstants.PhotoHeight.card)
+                .frame(height: AppConstants.PhotoHeight.card)
+                .frame(maxWidth: .infinity)
                 .clipped()
                 .overlay(alignment: .topTrailing) {
                     if showWishlistBadge && item.isWishlist {

@@ -25,7 +25,7 @@ struct ItemDetailView: View {
 
     private var primaryValue: String {
         guard let firstDef = catalogue.fieldDefinitions
-            .sorted(by: { $0.sortOrder < $1.sortOrder })
+            .sorted(by: { $0.priority < $1.priority })
             .first,
               let val = item.value(for: firstDef),
               !val.displayValue.isEmpty
@@ -34,13 +34,13 @@ struct ItemDetailView: View {
     }
 
     private var sortedPhotos: [ItemPhoto] {
-        item.photos.sorted { $0.sortOrder < $1.sortOrder }
+        item.photos.sorted { $0.priority < $1.priority }
     }
 
     /// Field definitions paired with their values, filtered to non-empty entries only.
     private var displayFields: [(FieldDefinition, FieldValue)] {
         catalogue.fieldDefinitions
-            .sorted { $0.sortOrder < $1.sortOrder }
+            .sorted { $0.priority < $1.priority }
             .compactMap { def in
                 guard let val = item.value(for: def), !val.displayValue.isEmpty else { return nil }
                 return (def, val)
@@ -49,7 +49,7 @@ struct ItemDetailView: View {
 
     private var shareText: String {
         var lines: [String] = []
-        for def in catalogue.fieldDefinitions.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+        for def in catalogue.fieldDefinitions.sorted(by: { $0.priority < $1.priority }) {
             if let val = item.value(for: def) {
                 lines.append("\(def.name): \(val.displayValue)")
             }
@@ -173,15 +173,15 @@ struct ItemDetailView: View {
     let catalogue = Catalogue(name: "Model Planes", iconName: "airplane", colorHex: "#007AFF")
     container.mainContext.insert(catalogue)
 
-    let field1 = FieldDefinition(name: "Manufacturer", fieldType: .text, sortOrder: 0)
+    let field1 = FieldDefinition(name: "Manufacturer", fieldType: .text, priority: 0)
     field1.catalogue = catalogue
     container.mainContext.insert(field1)
 
-    let field2 = FieldDefinition(name: "Year", fieldType: .number, sortOrder: 1)
+    let field2 = FieldDefinition(name: "Year", fieldType: .number, priority: 1)
     field2.catalogue = catalogue
     container.mainContext.insert(field2)
 
-    let field3 = FieldDefinition(name: "Assembled", fieldType: .boolean, sortOrder: 2)
+    let field3 = FieldDefinition(name: "Assembled", fieldType: .boolean, priority: 2)
     field3.catalogue = catalogue
     container.mainContext.insert(field3)
 

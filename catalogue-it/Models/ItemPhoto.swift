@@ -14,14 +14,14 @@ import SwiftData
 @Model
 final class ItemPhoto {
     @Attribute(.externalStorage) var imageData: Data
-    var sortOrder: Int
+    var priority: Int
     var caption: String?
 
     var item: CatalogueItem?
 
-    init(imageData: Data, sortOrder: Int = 0, caption: String? = nil) {
+    init(imageData: Data, priority: Int = 0, caption: String? = nil) {
         self.imageData = imageData
-        self.sortOrder = sortOrder
+        self.priority = priority
         self.caption = caption
     }
 }

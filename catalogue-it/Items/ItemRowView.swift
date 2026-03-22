@@ -16,7 +16,7 @@ struct ItemRowView: View {
     var showWishlistBadge: Bool = false
 
     private var sortedFields: [FieldDefinition] {
-        catalogue.fieldDefinitions.sorted { $0.sortOrder < $1.sortOrder }
+        catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
     }
 
     private var primaryValue: String {
@@ -41,7 +41,7 @@ struct ItemRowView: View {
     var body: some View {
         HStack(spacing: 12) {
             // Thumbnail
-            ItemThumbnailView(photo: item.photos.min(by: { $0.sortOrder < $1.sortOrder }))
+            ItemThumbnailView(photo: item.photos.min(by: { $0.priority < $1.priority }))
                 .frame(width: AppConstants.ThumbnailSize.list, height: AppConstants.ThumbnailSize.list)
                 .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.small))
 
@@ -103,11 +103,11 @@ private struct ItemThumbnailView: View {
     let catalogue = Catalogue(name: "Model Planes", iconName: "airplane", colorHex: "#007AFF")
     container.mainContext.insert(catalogue)
 
-    let field1 = FieldDefinition(name: "Manufacturer", fieldType: .text, sortOrder: 0)
+    let field1 = FieldDefinition(name: "Manufacturer", fieldType: .text, priority: 0)
     field1.catalogue = catalogue
     container.mainContext.insert(field1)
 
-    let field2 = FieldDefinition(name: "Year", fieldType: .number, sortOrder: 1)
+    let field2 = FieldDefinition(name: "Year", fieldType: .number, priority: 1)
     field2.catalogue = catalogue
     container.mainContext.insert(field2)
 

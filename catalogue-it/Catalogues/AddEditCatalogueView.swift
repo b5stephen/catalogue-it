@@ -129,7 +129,7 @@ struct AddEditCatalogueView: View {
         guard let catalogue else {
             // Start with some common default fields for new catalogues
             fieldDefinitions = [
-                FieldDefinitionDraft(existingDefinition: nil, name: "Name", fieldType: .text, sortOrder: 0)
+                FieldDefinitionDraft(existingDefinition: nil, name: "Name", fieldType: .text, priority: 0)
             ]
             return
         }
@@ -139,8 +139,8 @@ struct AddEditCatalogueView: View {
         selectedIcon = catalogue.iconName
         selectedColor = Color(hex: catalogue.colorHex)
         fieldDefinitions = catalogue.fieldDefinitions
-            .sorted { $0.sortOrder < $1.sortOrder }
-            .map { FieldDefinitionDraft(existingDefinition: $0, name: $0.name, fieldType: $0.fieldType, sortOrder: $0.sortOrder) }
+            .sorted { $0.priority < $1.priority }
+            .map { FieldDefinitionDraft(existingDefinition: $0, name: $0.name, fieldType: $0.fieldType, priority: $0.priority) }
     }
 
     private func saveCatalogue() {
@@ -160,9 +160,9 @@ struct AddEditCatalogueView: View {
             for (index, draft) in fieldDefinitions.enumerated() {
                 if let existing = draft.existingDefinition {
                     existing.name = draft.name  // rename applied here — no cascade needed
-                    existing.sortOrder = index
+                    existing.priority = index
                 } else {
-                    let field = FieldDefinition(name: draft.name, fieldType: draft.fieldType, sortOrder: index)
+                    let field = FieldDefinition(name: draft.name, fieldType: draft.fieldType, priority: index)
                     field.catalogue = existingCatalogue
                     modelContext.insert(field)
                 }
@@ -173,7 +173,7 @@ struct AddEditCatalogueView: View {
             modelContext.insert(newCatalogue)
 
             for (index, draft) in fieldDefinitions.enumerated() {
-                let field = FieldDefinition(name: draft.name, fieldType: draft.fieldType, sortOrder: index)
+                let field = FieldDefinition(name: draft.name, fieldType: draft.fieldType, priority: index)
                 field.catalogue = newCatalogue
                 modelContext.insert(field)
             }
@@ -190,7 +190,7 @@ struct AddEditCatalogueView: View {
         fieldDefinitions.move(fromOffsets: source, toOffset: destination)
         // Update sort order
         for (index, _) in fieldDefinitions.enumerated() {
-            fieldDefinitions[index].sortOrder = index
+            fieldDefinitions[index].priority = index
         }
     }
 }

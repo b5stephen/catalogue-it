@@ -45,7 +45,7 @@ struct ItemGridView: View {
     let catalogue = Catalogue(name: "Model Planes", iconName: "airplane", colorHex: "#007AFF")
     container.mainContext.insert(catalogue)
 
-    let field = FieldDefinition(name: "Name", fieldType: .text, sortOrder: 0)
+    let field = FieldDefinition(name: "Name", fieldType: .text, priority: 0)
     field.catalogue = catalogue
     container.mainContext.insert(field)
 

@@ -64,7 +64,7 @@ struct AddFieldView: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
-                        let field = FieldDefinitionDraft(name: fieldName, fieldType: selectedType, sortOrder: 0)
+                        let field = FieldDefinitionDraft(name: fieldName, fieldType: selectedType, priority: 0)
                         onAdd(field)
                         dismiss()
                     }

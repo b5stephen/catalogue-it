@@ -81,7 +81,7 @@ struct AddEditItemView: View {
     // MARK: - Load
 
     private func loadItemData() {
-        sortedDefs = catalogue.fieldDefinitions.sorted { $0.sortOrder < $1.sortOrder }
+        sortedDefs = catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
 
         if let item = existingItem {
             // Edit mode: populate from existing item
@@ -106,13 +106,13 @@ struct AddEditItemView: View {
             }
 
             photoDrafts = item.photos
-                .sorted { $0.sortOrder < $1.sortOrder }
+                .sorted { $0.priority < $1.priority }
                 .enumerated()
                 .map { index, photo in
                     PhotoDraft(
                         imageData: photo.imageData,
                         caption: photo.caption ?? "",
-                        sortOrder: index
+                        priority: index
                     )
                 }
 
@@ -173,7 +173,7 @@ struct AddEditItemView: View {
         for draft in photoDrafts {
             let photo = ItemPhoto(
                 imageData: draft.imageData,
-                sortOrder: draft.sortOrder,
+                priority: draft.priority,
                 caption: draft.caption.isEmpty ? nil : draft.caption
             )
             photo.item = targetItem
@@ -193,15 +193,15 @@ struct AddEditItemView: View {
     let catalogue = Catalogue(name: "Model Planes", iconName: "airplane", colorHex: "#007AFF")
     container.mainContext.insert(catalogue)
 
-    let field1 = FieldDefinition(name: "Manufacturer", fieldType: .text, sortOrder: 0)
+    let field1 = FieldDefinition(name: "Manufacturer", fieldType: .text, priority: 0)
     field1.catalogue = catalogue
     container.mainContext.insert(field1)
 
-    let field2 = FieldDefinition(name: "Year", fieldType: .number, sortOrder: 1)
+    let field2 = FieldDefinition(name: "Year", fieldType: .number, priority: 1)
     field2.catalogue = catalogue
     container.mainContext.insert(field2)
 
-    let field3 = FieldDefinition(name: "Assembled", fieldType: .boolean, sortOrder: 2)
+    let field3 = FieldDefinition(name: "Assembled", fieldType: .boolean, priority: 2)
     field3.catalogue = catalogue
     container.mainContext.insert(field3)
 

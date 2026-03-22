@@ -16,7 +16,7 @@ struct ItemCardView: View {
 
     private var primaryValue: String {
         guard let catalogue = item.catalogue,
-              let first = catalogue.fieldDefinitions.sorted(by: { $0.sortOrder < $1.sortOrder }).first,
+              let first = catalogue.fieldDefinitions.sorted(by: { $0.priority < $1.priority }).first,
               let fv = item.value(for: first),
               !fv.displayValue.isEmpty
         else { return "Untitled Item" }
@@ -26,7 +26,7 @@ struct ItemCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Photo or placeholder
-            ItemCardPhotoView(photo: item.photos.min(by: { $0.sortOrder < $1.sortOrder }))
+            ItemCardPhotoView(photo: item.photos.min(by: { $0.priority < $1.priority }))
                 .frame(height: AppConstants.PhotoHeight.card)
                 .frame(maxWidth: .infinity)
                 .clipped()
@@ -96,7 +96,7 @@ private struct ItemCardPhotoView: View {
     let catalogue = Catalogue(name: "Model Planes", iconName: "airplane", colorHex: "#007AFF")
     container.mainContext.insert(catalogue)
 
-    let field = FieldDefinition(name: "Name", fieldType: .text, sortOrder: 0)
+    let field = FieldDefinition(name: "Name", fieldType: .text, priority: 0)
     field.catalogue = catalogue
     container.mainContext.insert(field)
 

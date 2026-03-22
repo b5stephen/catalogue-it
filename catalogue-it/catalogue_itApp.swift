@@ -52,7 +52,7 @@ struct catalogue_itApp: App {
         let catalogue = Catalogue(name: "Test Catalogue", iconName: "star", colorHex: "#007AFF")
         ctx.insert(catalogue)
 
-        let fieldDef = FieldDefinition(name: "Name", fieldType: .text, sortOrder: 0)
+        let fieldDef = FieldDefinition(name: "Name", fieldType: .text, priority: 0)
         fieldDef.catalogue = catalogue
         ctx.insert(fieldDef)
 

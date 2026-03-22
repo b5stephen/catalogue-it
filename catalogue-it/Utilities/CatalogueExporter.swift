@@ -14,9 +14,9 @@ import UniformTypeIdentifiers
 
 enum CatalogueExporter {
     /// Generates a CSV string for all items in the catalogue.
-    /// Columns: Tab, Name, [custom fields sorted by sortOrder], Notes, Photo Count
+    /// Columns: Tab, Name, [custom fields sorted by priority], Notes, Photo Count
     static func csvString(for catalogue: Catalogue) -> String {
-        let fields = catalogue.fieldDefinitions.sorted { $0.sortOrder < $1.sortOrder }
+        let fields = catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
         var rows: [String] = []
 
         // Header row

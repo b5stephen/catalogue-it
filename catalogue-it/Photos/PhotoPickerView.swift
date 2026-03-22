@@ -87,7 +87,7 @@ struct PhotoPickerView: View {
                 do {
                     guard let data = try await item.loadTransferable(type: Data.self),
                           let compressed = data.compressedAsJPEG(quality: 0.8) else { continue }
-                    newDrafts.append(PhotoDraft(imageData: compressed, sortOrder: startOrder + index))
+                    newDrafts.append(PhotoDraft(imageData: compressed, priority: startOrder + index))
                 } catch {
                     if !(error is CancellationError) { loadError = error }
                 }
@@ -103,14 +103,14 @@ struct PhotoPickerView: View {
     #if os(iOS)
     private func appendCapturedPhoto(_ image: UIImage) {
         guard let data = image.jpegData(compressionQuality: 0.8) else { return }
-        photos.append(PhotoDraft(imageData: data, sortOrder: photos.count))
+        photos.append(PhotoDraft(imageData: data, priority: photos.count))
     }
     #endif
 
     private func deletePhoto(id: UUID) {
         photos.removeAll { $0.id == id }
         for index in photos.indices {
-            photos[index].sortOrder = index
+            photos[index].priority = index
         }
     }
 }

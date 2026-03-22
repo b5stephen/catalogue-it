@@ -16,7 +16,7 @@ struct FieldDefinitionDraft: Identifiable {
     var existingDefinition: FieldDefinition? // nil = new field being added
     var name: String
     var fieldType: FieldType
-    var sortOrder: Int
+    var priority: Int
 }
 
 // MARK: - Field Value Draft
@@ -40,5 +40,5 @@ struct PhotoDraft: Identifiable {
     let id: UUID = UUID()
     var imageData: Data
     var caption: String = ""
-    var sortOrder: Int
+    var priority: Int
 }

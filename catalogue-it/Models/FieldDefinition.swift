@@ -16,13 +16,13 @@ final class FieldDefinition {
     var fieldID: UUID // Stable identifier used for AppStorage-persisted sort preferences
     var name: String
     var fieldType: FieldType
-    var sortOrder: Int // For ordering fields in the UI
+    var priority: Int // For ordering fields in the UI
     var catalogue: Catalogue?
 
-    init(name: String, fieldType: FieldType, sortOrder: Int = 0, fieldID: UUID = UUID()) {
+    init(name: String, fieldType: FieldType, priority: Int = 0, fieldID: UUID = UUID()) {
         self.fieldID = fieldID
         self.name = name
         self.fieldType = fieldType
-        self.sortOrder = sortOrder
+        self.priority = priority
     }
 }

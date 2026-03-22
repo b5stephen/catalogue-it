@@ -17,6 +17,7 @@ final class Catalogue {
     var createdDate: Date
     var iconName: String // SF Symbol name
     var colorHex: String // Stored as hex string
+    var priority: Int
 
     @Relationship(deleteRule: .cascade, inverse: \FieldDefinition.catalogue)
     var fieldDefinitions: [FieldDefinition] = []
@@ -24,10 +25,11 @@ final class Catalogue {
     @Relationship(deleteRule: .cascade, inverse: \CatalogueItem.catalogue)
     var items: [CatalogueItem] = []
 
-    init(name: String, iconName: String = "square.grid.2x2", colorHex: String = "#007AFF") {
+    init(name: String, iconName: String = "square.grid.2x2", colorHex: String = "#007AFF", priority: Int = 0) {
         self.name = name
         self.createdDate = Date.now
         self.iconName = iconName
         self.colorHex = colorHex
+        self.priority = priority
     }
 }

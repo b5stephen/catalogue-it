@@ -152,11 +152,11 @@ struct CatalogueDetailView: View {
     let catalogue = Catalogue(name: "Model Planes", iconName: "airplane", colorHex: "#007AFF")
     container.mainContext.insert(catalogue)
 
-    let field1 = FieldDefinition(name: "Manufacturer", fieldType: .text, sortOrder: 0)
+    let field1 = FieldDefinition(name: "Manufacturer", fieldType: .text, priority: 0)
     field1.catalogue = catalogue
     container.mainContext.insert(field1)
 
-    let field2 = FieldDefinition(name: "Year", fieldType: .number, sortOrder: 1)
+    let field2 = FieldDefinition(name: "Year", fieldType: .number, priority: 1)
     field2.catalogue = catalogue
     container.mainContext.insert(field2)
 

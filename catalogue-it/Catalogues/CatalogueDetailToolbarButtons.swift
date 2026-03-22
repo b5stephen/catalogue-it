@@ -58,7 +58,7 @@ struct SortMenuButton: View {
     @Binding var sortDirection: String
 
     private var sortedFields: [FieldDefinition] {
-        catalogue.fieldDefinitions.sorted { $0.sortOrder < $1.sortOrder }
+        catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
     }
 
     var body: some View {

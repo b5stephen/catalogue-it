@@ -142,7 +142,7 @@ struct AddEditCatalogueView: View {
         selectedColor = Color(hex: catalogue.colorHex)
         fieldDefinitions = catalogue.fieldDefinitions
             .sorted { $0.priority < $1.priority }
-            .map { FieldDefinitionDraft(existingDefinition: $0, name: $0.name, fieldType: $0.fieldType, priority: $0.priority, precision: $0.precision) }
+            .map { FieldDefinitionDraft(existingDefinition: $0, name: $0.name, fieldType: $0.fieldType, priority: $0.priority, numberOptions: $0.numberOptions) }
     }
 
     private func saveCatalogue() {
@@ -163,10 +163,10 @@ struct AddEditCatalogueView: View {
                 if let existing = draft.existingDefinition {
                     existing.name = draft.name  // rename applied here — no cascade needed
                     existing.priority = index
-                    existing.precision = draft.precision
+                    existing.numberOptions = draft.numberOptions
                 } else {
                     let field = FieldDefinition(name: draft.name, fieldType: draft.fieldType, priority: index)
-                    field.precision = draft.precision
+                    field.numberOptions = draft.numberOptions
                     field.catalogue = existingCatalogue
                     modelContext.insert(field)
                 }
@@ -178,7 +178,7 @@ struct AddEditCatalogueView: View {
 
             for (index, draft) in fieldDefinitions.enumerated() {
                 let field = FieldDefinition(name: draft.name, fieldType: draft.fieldType, priority: index)
-                field.precision = draft.precision
+                field.numberOptions = draft.numberOptions
                 field.catalogue = newCatalogue
                 modelContext.insert(field)
             }

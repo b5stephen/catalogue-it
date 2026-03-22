@@ -17,7 +17,7 @@ struct FieldDefinitionDraft: Identifiable {
     var name: String
     var fieldType: FieldType
     var priority: Int
-    var precision: Int = 0 // Decimal places; only used when fieldType is .number or .currency
+    var numberOptions: NumberOptions = NumberOptions()
 }
 
 // MARK: - Field Value Draft

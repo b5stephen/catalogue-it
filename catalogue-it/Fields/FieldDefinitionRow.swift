@@ -11,7 +11,7 @@ import SwiftUI
 
 struct FieldDefinitionRow: View {
     @Binding var field: FieldDefinitionDraft
-    @State private var showingPrecisionSettings = false
+    @State private var showingNumberOptions = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -20,9 +20,9 @@ struct FieldDefinitionRow: View {
                 .textInputAutocapitalization(.words)
 #endif
             Spacer()
-            if field.fieldType == .number || field.fieldType == .currency {
+            if field.fieldType == .number {
                 Button {
-                    showingPrecisionSettings = true
+                    showingNumberOptions = true
                 } label: {
                     Image(systemName: "slider.horizontal.3")
                         .foregroundStyle(.secondary)
@@ -33,9 +33,9 @@ struct FieldDefinitionRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .sheet(isPresented: $showingPrecisionSettings) {
-            PrecisionSettingsSheet(precision: field.precision) { newPrecision in
-                field.precision = newPrecision
+        .sheet(isPresented: $showingNumberOptions) {
+            NumberOptionsSheet(options: field.numberOptions) { newOptions in
+                field.numberOptions = newOptions
             }
         }
     }

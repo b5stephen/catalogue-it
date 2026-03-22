@@ -17,7 +17,7 @@ final class FieldDefinition {
     var name: String
     var fieldType: FieldType
     var priority: Int // For ordering fields in the UI
-    var precision: Int = 0 // Decimal places; only used when fieldType is .number or .currency
+    var fieldOptions: FieldOptions? // Type-specific configuration; only set when the field type has options
     var catalogue: Catalogue?
 
     init(name: String, fieldType: FieldType, priority: Int = 0, fieldID: UUID = UUID()) {
@@ -25,5 +25,18 @@ final class FieldDefinition {
         self.name = name
         self.fieldType = fieldType
         self.priority = priority
+    }
+
+    /// Convenience accessor for Number field options.
+    /// Returns defaults when `fieldOptions` is nil or a non-`.number` case.
+    var numberOptions: NumberOptions {
+        get {
+            if case .number(let opts) = fieldOptions { return opts }
+            return NumberOptions()
+        }
+        set {
+            guard fieldType == .number else { return }
+            fieldOptions = .number(newValue)
+        }
     }
 }

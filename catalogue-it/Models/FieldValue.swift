@@ -34,18 +34,21 @@ final class FieldValue {
     var displayValue: String {
         switch fieldType {
         case .text:
-            textValue ?? ""
+            return textValue ?? ""
         case .number:
-            numberValue.map { $0.formatted(.number.precision(.fractionLength(fieldDefinition?.precision ?? 0))) } ?? ""
-        case .currency:
-            numberValue.map {
+            guard let value = numberValue else { return "" }
+            let opts = fieldDefinition?.numberOptions ?? NumberOptions()
+            switch opts.format {
+            case .number:
+                return value.formatted(.number.precision(.fractionLength(opts.precision)))
+            case .currency:
                 let code = Locale.current.currency?.identifier ?? "USD"
-                return $0.formatted(.currency(code: code).precision(.fractionLength(fieldDefinition?.precision ?? 2)))
-            } ?? ""
+                return value.formatted(.currency(code: code).precision(.fractionLength(opts.precision)))
+            }
         case .date:
-            dateValue.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? ""
+            return dateValue.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? ""
         case .boolean:
-            boolValue == true ? "Yes" : "No"
+            return boolValue == true ? "Yes" : "No"
         }
     }
 }

@@ -17,11 +17,10 @@ struct FieldInputView: View {
 
     var body: some View {
         switch draft.fieldType {
-        case .text:     textInput
-        case .number:   numberInput
-        case .currency: currencyInput
-        case .date:     dateInput
-        case .boolean:  booleanInput
+        case .text:    textInput
+        case .number:  numberInput
+        case .date:    dateInput
+        case .boolean: booleanInput
         }
     }
 
@@ -35,19 +34,15 @@ struct FieldInputView: View {
     }
 
     private var numberInput: some View {
-        TextField(label, value: $draft.numberValue, format: .number)
-#if os(iOS)
-            .keyboardType(draft.fieldDefinition.precision == 0 ? .numberPad : .decimalPad)
-#endif
-    }
-
-    private var currencyInput: some View {
-        HStack(spacing: 4) {
-            Text(Locale.current.currencySymbol ?? "$")
-                .foregroundStyle(.secondary)
+        let opts = draft.fieldDefinition.numberOptions
+        return HStack(spacing: 4) {
+            if opts.format == .currency {
+                Text(Locale.current.currencySymbol ?? "$")
+                    .foregroundStyle(.secondary)
+            }
             TextField(label, value: $draft.numberValue, format: .number)
 #if os(iOS)
-                .keyboardType(draft.fieldDefinition.precision == 0 ? .numberPad : .decimalPad)
+                .keyboardType(opts.precision == 0 ? .numberPad : .decimalPad)
 #endif
         }
     }

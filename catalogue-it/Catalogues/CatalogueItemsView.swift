@@ -88,7 +88,7 @@ struct CatalogueItemsView: View {
                 case .text:
                     let ta = va.textValue ?? "", tb = vb.textValue ?? ""
                     result = ta.localizedCompare(tb) == .orderedAscending
-                case .number, .currency:
+                case .number:
                     result = (va.numberValue ?? 0) < (vb.numberValue ?? 0)
                 case .date:
                     guard let da = va.dateValue, let db = vb.dateValue else {

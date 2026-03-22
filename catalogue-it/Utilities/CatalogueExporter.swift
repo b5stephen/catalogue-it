@@ -43,12 +43,6 @@ enum CatalogueExporter {
                         } else {
                             cell = ""
                         }
-                    case .currency:
-                        if let n = fv.numberValue {
-                            cell = n.formatted(.number.grouping(.never))
-                        } else {
-                            cell = ""
-                        }
                     case .date:
                         if let d = fv.dateValue {
                             cell = d.formatted(date: .abbreviated, time: .omitted)

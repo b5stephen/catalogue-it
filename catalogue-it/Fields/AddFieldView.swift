@@ -15,7 +15,7 @@ struct AddFieldView: View {
 
     @State private var fieldName: String = ""
     @State private var selectedType: FieldType = .text
-    @State private var precision: Int = 0
+    @State private var numberOptions: NumberOptions = NumberOptions()
 
     var body: some View {
         NavigationStack {
@@ -34,9 +34,16 @@ struct AddFieldView: View {
                     }
                 }
 
-                if selectedType == .number || selectedType == .currency {
-                    Section("Decimal Places") {
-                        Picker("Decimal Places", selection: $precision) {
+                if selectedType == .number {
+                    Section("Number Options") {
+                        Picker("Format", selection: $numberOptions.format) {
+                            ForEach(NumberFormat.allCases, id: \.self) { format in
+                                Text(format.rawValue).tag(format)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        Picker("Decimal Places", selection: $numberOptions.precision) {
                             Text("0 (Whole numbers)").tag(0)
                             Text("1").tag(1)
                             Text("2").tag(2)
@@ -66,7 +73,12 @@ struct AddFieldView: View {
                     }
                 }
             }
-            .onChange(of: selectedType) { precision = selectedType == .currency ? 2 : 0 }
+            .onChange(of: numberOptions.format) {
+                if numberOptions.format == .currency { numberOptions.precision = 2 }
+            }
+            .onChange(of: selectedType) {
+                numberOptions = NumberOptions()
+            }
             .navigationTitle("Add Field")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -79,7 +91,7 @@ struct AddFieldView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
                         var field = FieldDefinitionDraft(name: fieldName, fieldType: selectedType, priority: 0)
-                        field.precision = precision
+                        field.numberOptions = numberOptions
                         onAdd(field)
                         dismiss()
                     }

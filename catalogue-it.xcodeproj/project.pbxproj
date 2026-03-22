@@ -17,32 +17,32 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		DCD9C7EE2F4858BC0026F739 /* catalogue-it.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "catalogue-it.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AABB000100000000AABB0001 /* UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = UITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DCD9C7EE2F4858BC0026F739 /* catalogue-it.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "catalogue-it.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		DCD9C7F02F4858BC0026F739 /* catalogue-it */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "catalogue-it";
-			sourceTree = "<group>";
-		};
 		AABB000200000000AABB0002 /* UITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = UITests;
 			sourceTree = "<group>";
 		};
+		DCD9C7F02F4858BC0026F739 /* catalogue-it */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "catalogue-it";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		DCD9C7EB2F4858BC0026F739 /* Frameworks */ = {
+		AABB000300000000AABB0003 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AABB000300000000AABB0003 /* Frameworks */ = {
+		DCD9C7EB2F4858BC0026F739 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -73,28 +73,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		DCD9C7ED2F4858BC0026F739 /* catalogue-it */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = DCD9C7FB2F4858BD0026F739 /* Build configuration list for PBXNativeTarget "catalogue-it" */;
-			buildPhases = (
-				DCD9C7EA2F4858BC0026F739 /* Sources */,
-				DCD9C7EB2F4858BC0026F739 /* Frameworks */,
-				DCD9C7EC2F4858BC0026F739 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				DCD9C7F02F4858BC0026F739 /* catalogue-it */,
-			);
-			name = "catalogue-it";
-			packageProductDependencies = (
-			);
-			productName = "catalogue-it";
-			productReference = DCD9C7EE2F4858BC0026F739 /* catalogue-it.app */;
-			productType = "com.apple.product-type.application";
-		};
 		AABB000600000000AABB0006 /* UITests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AABB000900000000AABB0009 /* Build configuration list for PBXNativeTarget "UITests" */;
@@ -118,6 +96,28 @@
 			productReference = AABB000100000000AABB0001 /* UITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		DCD9C7ED2F4858BC0026F739 /* catalogue-it */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DCD9C7FB2F4858BD0026F739 /* Build configuration list for PBXNativeTarget "catalogue-it" */;
+			buildPhases = (
+				DCD9C7EA2F4858BC0026F739 /* Sources */,
+				DCD9C7EB2F4858BC0026F739 /* Frameworks */,
+				DCD9C7EC2F4858BC0026F739 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				DCD9C7F02F4858BC0026F739 /* catalogue-it */,
+			);
+			name = "catalogue-it";
+			packageProductDependencies = (
+			);
+			productName = "catalogue-it";
+			productReference = DCD9C7EE2F4858BC0026F739 /* catalogue-it.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -128,12 +128,12 @@
 				LastSwiftUpdateCheck = 2630;
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
-					DCD9C7ED2F4858BC0026F739 = {
-						CreatedOnToolsVersion = 26.3;
-					};
 					AABB000600000000AABB0006 = {
 						CreatedOnToolsVersion = 26.3;
 						TestTargetID = DCD9C7ED2F4858BC0026F739;
+					};
+					DCD9C7ED2F4858BC0026F739 = {
+						CreatedOnToolsVersion = 26.3;
 					};
 				};
 			};
@@ -158,14 +158,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		DCD9C7EC2F4858BC0026F739 /* Resources */ = {
+		AABB000500000000AABB0005 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AABB000500000000AABB0005 /* Resources */ = {
+		DCD9C7EC2F4858BC0026F739 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -175,14 +175,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		DCD9C7EA2F4858BC0026F739 /* Sources */ = {
+		AABB000400000000AABB0004 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AABB000400000000AABB0004 /* Sources */ = {
+		DCD9C7EA2F4858BC0026F739 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -200,6 +200,44 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		AABB000700000000AABB0007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.etched.UITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphonesimulator;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "catalogue-it";
+			};
+			name = Debug;
+		};
+		AABB000800000000AABB0008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.etched.UITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphonesimulator;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "catalogue-it";
+			};
+			name = Release;
+		};
 		DCD9C7F92F4858BD0026F739 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -406,47 +444,18 @@
 			};
 			name = Release;
 		};
-		AABB000700000000AABB0007 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = "dev.etched.UITests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphonesimulator;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "catalogue-it";
-			};
-			name = Debug;
-		};
-		AABB000800000000AABB0008 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = "dev.etched.UITests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphonesimulator;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "catalogue-it";
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		AABB000900000000AABB0009 /* Build configuration list for PBXNativeTarget "UITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AABB000700000000AABB0007 /* Debug */,
+				AABB000800000000AABB0008 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		DCD9C7E92F4858BC0026F739 /* Build configuration list for PBXProject "catalogue-it" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -461,15 +470,6 @@
 			buildConfigurations = (
 				DCD9C7FC2F4858BD0026F739 /* Debug */,
 				DCD9C7FD2F4858BD0026F739 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		AABB000900000000AABB0009 /* Build configuration list for PBXNativeTarget "UITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				AABB000700000000AABB0007 /* Debug */,
-				AABB000800000000AABB0008 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

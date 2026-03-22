@@ -36,7 +36,12 @@ final class FieldValue {
         case .text:
             textValue ?? ""
         case .number:
-            numberValue.map { $0.formatted(.number.precision(.fractionLength(2))) } ?? ""
+            numberValue.map { $0.formatted(.number.precision(.fractionLength(fieldDefinition?.precision ?? 0))) } ?? ""
+        case .currency:
+            numberValue.map {
+                let code = Locale.current.currency?.identifier ?? "USD"
+                return $0.formatted(.currency(code: code).precision(.fractionLength(fieldDefinition?.precision ?? 2)))
+            } ?? ""
         case .date:
             dateValue.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? ""
         case .boolean:

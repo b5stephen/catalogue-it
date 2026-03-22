@@ -17,6 +17,7 @@ final class FieldDefinition {
     var name: String
     var fieldType: FieldType
     var priority: Int // For ordering fields in the UI
+    var precision: Int = 0 // Decimal places; only used when fieldType is .number or .currency
     var catalogue: Catalogue?
 
     init(name: String, fieldType: FieldType, priority: Int = 0, fieldID: UUID = UUID()) {

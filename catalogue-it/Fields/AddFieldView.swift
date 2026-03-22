@@ -15,6 +15,7 @@ struct AddFieldView: View {
 
     @State private var fieldName: String = ""
     @State private var selectedType: FieldType = .text
+    @State private var precision: Int = 0
 
     var body: some View {
         NavigationStack {
@@ -29,6 +30,18 @@ struct AddFieldView: View {
                         ForEach(FieldType.allCases, id: \.self) { type in
                             Label(type.rawValue, systemImage: type.icon)
                                 .tag(type)
+                        }
+                    }
+                }
+
+                if selectedType == .number || selectedType == .currency {
+                    Section("Decimal Places") {
+                        Picker("Decimal Places", selection: $precision) {
+                            Text("0 (Whole numbers)").tag(0)
+                            Text("1").tag(1)
+                            Text("2").tag(2)
+                            Text("3").tag(3)
+                            Text("4").tag(4)
                         }
                     }
                 }
@@ -53,6 +66,7 @@ struct AddFieldView: View {
                     }
                 }
             }
+            .onChange(of: selectedType) { precision = selectedType == .currency ? 2 : 0 }
             .navigationTitle("Add Field")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -64,7 +78,8 @@ struct AddFieldView: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
-                        let field = FieldDefinitionDraft(name: fieldName, fieldType: selectedType, priority: 0)
+                        var field = FieldDefinitionDraft(name: fieldName, fieldType: selectedType, priority: 0)
+                        field.precision = precision
                         onAdd(field)
                         dismiss()
                     }

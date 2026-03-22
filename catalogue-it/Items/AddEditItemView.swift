@@ -94,7 +94,7 @@ struct AddEditItemView: View {
                     switch def.fieldType {
                     case .text:
                         draft.textValue = fv.textValue ?? ""
-                    case .number:
+                    case .number, .currency:
                         draft.numberValue = fv.numberValue
                     case .date:
                         draft.dateValue = fv.dateValue
@@ -158,7 +158,7 @@ struct AddEditItemView: View {
             switch draft.fieldType {
             case .text:
                 fv.textValue = draft.textValue.isEmpty ? nil : draft.textValue
-            case .number:
+            case .number, .currency:
                 fv.numberValue = draft.numberValue
             case .date:
                 fv.dateValue = draft.dateValue

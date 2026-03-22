@@ -14,6 +14,7 @@ struct ContentView: View {
     @State private var showingAddCatalogue = false
     @State private var selectedCatalogue: Catalogue?
     @State private var selectedItem: CatalogueItem?
+    @State private var catalogueToEdit: Catalogue?
 
 #if !os(macOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -55,6 +56,25 @@ struct ContentView: View {
                 NavigationLink(value: catalogue) {
                     CatalogueRow(catalogue: catalogue)
                 }
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button {
+                        catalogueToEdit = catalogue
+                    } label: {
+                        Label("Edit", systemImage: "pencil")
+                    }
+                    .tint(.blue)
+
+                    Button(role: .destructive) {
+                        withAnimation {
+                            if selectedCatalogue == catalogue {
+                                selectedCatalogue = nil
+                            }
+                            modelContext.delete(catalogue)
+                        }
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
                 .contextMenu {
                     Button(role: .destructive) {
                         withAnimation {
@@ -68,7 +88,6 @@ struct ContentView: View {
                     }
                 }
             }
-            .onDelete(perform: deleteCatalogues)
             .onMove(perform: moveCatalogues)
         }
         .navigationTitle("My Catalogues")
@@ -99,13 +118,8 @@ struct ContentView: View {
         .sheet(isPresented: $showingAddCatalogue) {
             AddEditCatalogueView(nextPriority: catalogues.count)
         }
-    }
-
-    private func deleteCatalogues(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(catalogues[index])
-            }
+        .sheet(item: $catalogueToEdit) { catalogue in
+            AddEditCatalogueView(catalogue: catalogue, nextPriority: catalogues.count)
         }
     }
 

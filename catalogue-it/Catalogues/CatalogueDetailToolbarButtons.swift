@@ -61,6 +61,16 @@ struct SortMenuButton: View {
         catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
     }
 
+    private var currentSortLabel: String {
+        let field = ItemSortField(rawValue: sortFieldKey)
+        switch field {
+        case .dateAdded:
+            return "Date Added"
+        case .field(let uuid):
+            return catalogue.fieldDefinitions.first { $0.fieldID == uuid }?.name ?? "Date Added"
+        }
+    }
+
     var body: some View {
         Menu {
             Picker("Sort By", selection: $sortFieldKey) {
@@ -74,7 +84,16 @@ struct SortMenuButton: View {
                 Text("Descending").tag(ItemSortDirection.descending.rawValue)
             }
         } label: {
-            Label("Sort", systemImage: "arrow.up.arrow.down")
+            Label {
+                VStack(alignment: .leading) {
+                    Text("Sort by")
+                    Text(currentSortLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } icon: {
+                Image(systemName: "arrow.up.arrow.down")
+            }
         }
     }
 }

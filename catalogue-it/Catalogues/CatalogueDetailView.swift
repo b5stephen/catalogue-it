@@ -97,22 +97,16 @@ struct CatalogueDetailView: View {
 #endif
         .toolbar {
 #if os(iOS)
-            ToolbarItem(placement: .topBarLeading) {
-                Menu("More Options", systemImage: "ellipsis.circle") {
-                    CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
-                    Button {
-                        showingStats = true
-                    } label: {
-                        Label("Statistics", systemImage: "chart.bar")
-                    }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    LayoutToggleButton(layout: $layout)
+                    SortMenuButton(catalogue: catalogue, sortFieldKey: $sortFieldKey, sortDirection: $sortDirection)
+                    Divider()
                     ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
+                    CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
+                } label: {
+                    Label("More Options", systemImage: "ellipsis")
                 }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                SortMenuButton(catalogue: catalogue, sortFieldKey: $sortFieldKey, sortDirection: $sortDirection)
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                LayoutToggleButton(layout: $layout)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 AddItemButton(showingAddItem: $showingAddItem)

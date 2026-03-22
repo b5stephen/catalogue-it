@@ -27,8 +27,8 @@ enum ItemLayout: String, CaseIterable {
 
     var nextLayoutLabel: String {
         switch self {
-        case .grid: "Switch to List"
-        case .list: "Switch to Grid"
+        case .grid: "View as List"
+        case .list: "View as Gallery"
         }
     }
 }

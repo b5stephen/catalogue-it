@@ -14,6 +14,7 @@ struct AddEditCatalogueView: View {
 
     // If editing an existing catalogue, pass it in
     let catalogue: Catalogue?
+    let nextPriority: Int
 
     // Form state
     @State private var name: String = ""
@@ -27,8 +28,9 @@ struct AddEditCatalogueView: View {
         catalogue != nil
     }
 
-    init(catalogue: Catalogue? = nil) {
+    init(catalogue: Catalogue? = nil, nextPriority: Int = 0) {
         self.catalogue = catalogue
+        self.nextPriority = nextPriority
     }
 
     var body: some View {
@@ -169,7 +171,7 @@ struct AddEditCatalogueView: View {
             }
         } else {
             // Create new
-            let newCatalogue = Catalogue(name: name, iconName: selectedIcon, colorHex: selectedColor.toHex())
+            let newCatalogue = Catalogue(name: name, iconName: selectedIcon, colorHex: selectedColor.toHex(), priority: nextPriority)
             modelContext.insert(newCatalogue)
 
             for (index, draft) in fieldDefinitions.enumerated() {

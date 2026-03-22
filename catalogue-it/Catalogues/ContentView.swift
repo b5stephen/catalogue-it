@@ -10,7 +10,7 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Catalogue.createdDate) private var catalogues: [Catalogue]
+    @Query(sort: \Catalogue.priority) private var catalogues: [Catalogue]
     @State private var showingAddCatalogue = false
     @State private var selectedCatalogue: Catalogue?
     @State private var selectedItem: CatalogueItem?
@@ -69,6 +69,7 @@ struct ContentView: View {
                 }
             }
             .onDelete(perform: deleteCatalogues)
+            .onMove(perform: moveCatalogues)
         }
         .navigationTitle("My Catalogues")
         .overlay {
@@ -96,7 +97,7 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $showingAddCatalogue) {
-            AddEditCatalogueView()
+            AddEditCatalogueView(nextPriority: catalogues.count)
         }
     }
 
@@ -105,6 +106,14 @@ struct ContentView: View {
             for index in offsets {
                 modelContext.delete(catalogues[index])
             }
+        }
+    }
+
+    private func moveCatalogues(from source: IndexSet, to destination: Int) {
+        var reordered = catalogues
+        reordered.move(fromOffsets: source, toOffset: destination)
+        for (index, catalogue) in reordered.enumerated() {
+            catalogue.priority = index
         }
     }
 }

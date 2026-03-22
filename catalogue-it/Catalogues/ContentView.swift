@@ -76,6 +76,12 @@ struct ContentView: View {
                     }
                 }
                 .contextMenu {
+                    Button {
+                        catalogueToEdit = catalogue
+                    } label: {
+                        Label("Edit Catalogue", systemImage: "pencil")
+                    }
+
                     Button(role: .destructive) {
                         withAnimation {
                             if selectedCatalogue == catalogue {

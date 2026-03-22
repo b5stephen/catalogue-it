@@ -84,16 +84,8 @@ struct SortMenuButton: View {
                 Text("Descending").tag(ItemSortDirection.descending.rawValue)
             }
         } label: {
-            Label {
-                VStack(alignment: .leading) {
-                    Text("Sort by")
-                    Text(currentSortLabel)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            } icon: {
-                Image(systemName: "arrow.up.arrow.down")
-            }
+            Label("Sort by", systemImage: "arrow.up.arrow.down")
+            Text(currentSortLabel)
         }
     }
 }

@@ -133,6 +133,7 @@ private struct PhotoGridView: View {
     let onDelete: (UUID) -> Void
     let onMove: (UUID, UUID) -> Void
 
+    @Namespace private var gridNamespace
     @State private var draggingId: UUID?
     @State private var dragOffset: CGSize = .zero
     @State private var numColumns: Int = 3
@@ -150,6 +151,7 @@ private struct PhotoGridView: View {
                 ForEach($photos) { $photo in
                     let isLifted = draggingId == photo.id
                     PhotoThumbnailView(photo: $photo, onDelete: { onDelete(photo.id) })
+                        .matchedGeometryEffect(id: photo.id, in: gridNamespace)
                         .offset(isLifted ? dragOffset : .zero)
                         .scaleEffect(isLifted ? 1.06 : 1.0)
                         .shadow(color: isLifted ? .black.opacity(0.25) : .clear, radius: 8, y: 4)
@@ -201,31 +203,33 @@ private struct PhotoGridView: View {
     private func swapIfNeeded(id: UUID) {
         guard let idx = photos.firstIndex(where: { $0.id == id }) else { return }
 
+        let targetIdx: Int
+        let offsetDelta: CGSize
+
         if dragOffset.width > stride / 2, idx < photos.count - 1 {
-            onMove(id, photos[idx + 1].id)
-            dragOffset.width -= stride
-            #if os(iOS)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            #endif
+            targetIdx = idx + 1
+            offsetDelta = CGSize(width: -stride, height: 0)
         } else if dragOffset.width < -stride / 2, idx > 0 {
-            onMove(id, photos[idx - 1].id)
-            dragOffset.width += stride
-            #if os(iOS)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            #endif
+            targetIdx = idx - 1
+            offsetDelta = CGSize(width: stride, height: 0)
         } else if dragOffset.height > stride / 2, idx + numColumns < photos.count {
-            onMove(id, photos[idx + numColumns].id)
-            dragOffset.height -= stride
-            #if os(iOS)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            #endif
+            targetIdx = idx + numColumns
+            offsetDelta = CGSize(width: 0, height: -stride)
         } else if dragOffset.height < -stride / 2, idx >= numColumns {
-            onMove(id, photos[idx - numColumns].id)
-            dragOffset.height += stride
-            #if os(iOS)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            #endif
+            targetIdx = idx - numColumns
+            offsetDelta = CGSize(width: 0, height: stride)
+        } else {
+            return
         }
+
+        withAnimation(.spring(duration: 0.25, bounce: 0.1)) {
+            onMove(id, photos[targetIdx].id)
+            dragOffset.width += offsetDelta.width
+            dragOffset.height += offsetDelta.height
+        }
+        #if os(iOS)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
     }
 }
 

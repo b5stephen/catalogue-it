@@ -54,7 +54,7 @@ struct AddEditItemView: View {
                 }
 
                 Section("Notes") {
-                    TextField("Optional notes…", text: $notes, axis: .vertical)
+                    TextField("Optional notes", text: $notes, axis: .vertical)
                         .lineLimit(4...8)
                 }
             }

@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import SwiftUI
 
 // MARK: - Field Type
 
@@ -16,22 +15,4 @@ enum FieldType: String, Codable, CaseIterable {
     case number = "Number"
     case date = "Date"
     case boolean = "Yes/No"
-
-    var icon: String {
-        switch self {
-        case .text:    "textformat"
-        case .number:  "number"
-        case .date:    "calendar"
-        case .boolean: "checkmark.circle"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .text:    .blue
-        case .number:  .green
-        case .date:    .orange
-        case .boolean: .purple
-        }
-    }
 }

@@ -95,29 +95,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		AABB001100000000AABB0011 /* UnitTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = AABB001400000000AABB0014 /* Build configuration list for PBXNativeTarget "UnitTests" */;
-			buildPhases = (
-				AABB000F00000000AABB000F /* Sources */,
-				AABB000E00000000AABB000E /* Frameworks */,
-				AABB001000000000AABB0010 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				AABB001600000000AABB0016 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				AABB000D00000000AABB000D /* UnitTests */,
-			);
-			name = UnitTests;
-			packageProductDependencies = (
-			);
-			productName = UnitTests;
-			productReference = AABB000C00000000AABB000C /* UnitTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
 		AABB000600000000AABB0006 /* UITests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AABB000900000000AABB0009 /* Build configuration list for PBXNativeTarget "UITests" */;
@@ -140,6 +117,29 @@
 			productName = UITests;
 			productReference = AABB000100000000AABB0001 /* UITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		AABB001100000000AABB0011 /* UnitTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AABB001400000000AABB0014 /* Build configuration list for PBXNativeTarget "UnitTests" */;
+			buildPhases = (
+				AABB000F00000000AABB000F /* Sources */,
+				AABB000E00000000AABB000E /* Frameworks */,
+				AABB001000000000AABB0010 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AABB001600000000AABB0016 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AABB000D00000000AABB000D /* UnitTests */,
+			);
+			name = UnitTests;
+			packageProductDependencies = (
+			);
+			productName = UnitTests;
+			productReference = AABB000C00000000AABB000C /* UnitTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		DCD9C7ED2F4858BC0026F739 /* catalogue-it */ = {
 			isa = PBXNativeTarget;
@@ -269,6 +269,44 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		AABB000700000000AABB0007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.etched.UITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphonesimulator;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "catalogue-it";
+			};
+			name = Debug;
+		};
+		AABB000800000000AABB0008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.etched.UITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphonesimulator;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "catalogue-it";
+			};
+			name = Release;
+		};
 		AABB001200000000AABB0012 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -305,44 +343,6 @@
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/catalogue-it.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/catalogue-it";
-				TEST_TARGET_NAME = "catalogue-it";
-			};
-			name = Release;
-		};
-		AABB000700000000AABB0007 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = dev.etched.UITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphonesimulator;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "catalogue-it";
-			};
-			name = Debug;
-		};
-		AABB000800000000AABB0008 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = dev.etched.UITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphonesimulator;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = "catalogue-it";
 			};
 			name = Release;
@@ -556,20 +556,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		AABB001400000000AABB0014 /* Build configuration list for PBXNativeTarget "UnitTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				AABB001200000000AABB0012 /* Debug */,
-				AABB001300000000AABB0013 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		AABB000900000000AABB0009 /* Build configuration list for PBXNativeTarget "UITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AABB000700000000AABB0007 /* Debug */,
 				AABB000800000000AABB0008 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AABB001400000000AABB0014 /* Build configuration list for PBXNativeTarget "UnitTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AABB001200000000AABB0012 /* Debug */,
+				AABB001300000000AABB0013 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

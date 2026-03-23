@@ -6,16 +6,16 @@
 import Foundation
 
 extension FieldValue {
-    /// Formatted string representation for display. Accessing this on a number
-    /// field faults the `fieldDefinition` relationship — callers should ensure
-    /// the relationship is pre-loaded where performance matters.
-    var displayValue: String {
+    /// Formatted string representation for display.
+    /// Pass `numberOptions` from the associated `FieldDefinition` to avoid faulting
+    /// the `fieldDefinition` relationship. Defaults to `NumberOptions()` if omitted.
+    func displayValue(numberOptions: NumberOptions? = nil) -> String {
         switch fieldType {
         case .text:
             return textValue ?? ""
         case .number:
             guard let value = numberValue else { return "" }
-            let opts = fieldDefinition?.numberOptions ?? NumberOptions()
+            let opts = numberOptions ?? NumberOptions()
             switch opts.format {
             case .number:
                 return value.formatted(.number.precision(.fractionLength(opts.precision)))

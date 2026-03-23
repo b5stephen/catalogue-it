@@ -62,7 +62,7 @@ private struct FieldCompletionRow: View {
     private var completionRate: Double {
         guard !items.isEmpty else { return 0 }
         let filled = items.count { item in
-            item.value(for: field)?.displayValue.isEmpty == false
+            item.value(for: field)?.displayValue(numberOptions: field.numberOptions).isEmpty == false
         }
         return Double(filled) / Double(items.count) * 100
     }

@@ -20,7 +20,7 @@ struct ItemFieldsSection: View {
                         Text(def.name)
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(val.displayValue)
+                        Text(val.displayValue(numberOptions: def.numberOptions))
                             .font(.body)
                     }
 

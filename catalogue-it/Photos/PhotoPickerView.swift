@@ -198,13 +198,9 @@ private struct PhotoGridView: View {
     }
 
     private func reorderGesture(for id: UUID) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.4)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named("photoGrid")))
-            .onChanged { value in
-                switch value {
-                case .first(true):
-                    // Ignore if another drag is already in flight.
-                    guard draggingId == nil else { break }
+        DragGesture(minimumDistance: 5, coordinateSpace: .named("photoGrid"))
+            .onChanged { drag in
+                if draggingId == nil {
                     if let frame = cellFrames[id] {
                         dragPosition = CGPoint(x: frame.midX, y: frame.midY)
                     }
@@ -212,15 +208,9 @@ private struct PhotoGridView: View {
                     #if os(iOS)
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     #endif
-                case .second(true, let drag?):
-                    dragPosition = drag.location
-                    swapIfNeeded(id: id)
-                case .second(false, _):
-                    // Long press recognised but drag was cancelled — reset lift.
-                    withAnimation(.spring(duration: 0.2)) { draggingId = nil }
-                default:
-                    break
                 }
+                dragPosition = drag.location
+                swapIfNeeded(id: id)
             }
             .onEnded { _ in
                 withAnimation(.spring(duration: 0.1)) { draggingId = nil }

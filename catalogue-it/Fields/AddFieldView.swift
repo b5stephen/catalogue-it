@@ -25,6 +25,7 @@ struct AddFieldView: View {
 #if os(iOS)
                         .textInputAutocapitalization(.words)
 #endif
+                        .accessibilityIdentifier("add-field-name")
 
                     Picker("Type", selection: $selectedType) {
                         ForEach(FieldType.allCases, id: \.self) { type in

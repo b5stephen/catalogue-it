@@ -43,6 +43,7 @@ struct AddEditCatalogueView: View {
 #if os(iOS)
                         .textInputAutocapitalization(.words)
 #endif
+                        .accessibilityIdentifier("catalogue-name-field")
 
                     // Icon Picker
                     Button {

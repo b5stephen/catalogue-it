@@ -182,8 +182,13 @@ private struct PhotoGridView: View {
     @ViewBuilder
     private var liftedPhotoOverlay: some View {
         if let id = draggingId,
-           let idx = photos.firstIndex(where: { $0.id == id }) {
-            PhotoThumbnailView(photo: $photos[idx], onDelete: {})
+           let snapshot = photos.first(where: { $0.id == id }) {
+            // Use an ID-based binding so it never holds a stale array index.
+            let safeBinding = Binding<PhotoDraft>(
+                get: { photos.first(where: { $0.id == id }) ?? snapshot },
+                set: { _ in }
+            )
+            PhotoThumbnailView(photo: safeBinding, onDelete: {})
                 .matchedGeometryEffect(id: id, in: gridNamespace, isSource: true)
                 .scaleEffect(1.06)
                 .shadow(color: .black.opacity(0.25), radius: 8, y: 4)
@@ -198,6 +203,8 @@ private struct PhotoGridView: View {
             .onChanged { value in
                 switch value {
                 case .first(true):
+                    // Ignore if another drag is already in flight.
+                    guard draggingId == nil else { break }
                     if let frame = cellFrames[id] {
                         dragPosition = CGPoint(x: frame.midX, y: frame.midY)
                     }
@@ -208,6 +215,9 @@ private struct PhotoGridView: View {
                 case .second(true, let drag?):
                     dragPosition = drag.location
                     swapIfNeeded(id: id)
+                case .second(false, _):
+                    // Long press recognised but drag was cancelled — reset lift.
+                    withAnimation(.spring(duration: 0.2)) { draggingId = nil }
                 default:
                     break
                 }

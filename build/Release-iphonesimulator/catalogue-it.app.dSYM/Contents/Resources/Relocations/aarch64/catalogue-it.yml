@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/stephen/dev/apple/catalogue-it/build/Release-iphonesimulator/catalogue-it.app/catalogue-it'
+relocations:     []
+...

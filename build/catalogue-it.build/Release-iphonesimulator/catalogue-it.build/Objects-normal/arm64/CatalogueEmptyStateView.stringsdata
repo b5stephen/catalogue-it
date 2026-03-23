@@ -1,0 +1,40 @@
+{
+  "source": "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Catalogues/CatalogueEmptyStateView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "No Items Yet",
+        "location": {
+          "startingColumn": 17,
+          "startingLine": 21
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tap + to add your first owned item",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 25
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tap + to add your first wishlist item",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 27
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tap + to add your first item",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 28
+        }
+      }
+    ]
+  },
+  "version": 1
+}

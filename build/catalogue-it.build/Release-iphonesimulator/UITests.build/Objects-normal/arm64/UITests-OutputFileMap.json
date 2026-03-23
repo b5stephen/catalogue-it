@@ -1,0 +1,21 @@
+{
+  "" : {
+    "const-values" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/UITests.build/Objects-normal/arm64/UITests-primary.swiftconstvalues",
+    "dependencies" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/UITests.build/Objects-normal/arm64/UITests-primary.d",
+    "diagnostics" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/UITests.build/Objects-normal/arm64/UITests-primary.dia",
+    "emit-module-dependencies" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/UITests.build/Objects-normal/arm64/UITests-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/UITests.build/Objects-normal/arm64/UITests-primary-emit-module.dia",
+    "pch" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/UITests.build/Objects-normal/arm64/UITests-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/UITests.build/Objects-normal/arm64/UITests-primary.swiftdeps"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/UITests/CatalogueCreationTests.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/UITests.build/Objects-normal/arm64/CatalogueCreationTests.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/UITests.build/Objects-normal/arm64/CatalogueCreationTests.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/UITests.build/Objects-normal/arm64/CatalogueCreationTests.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/UITests/NavigationTests.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/UITests.build/Objects-normal/arm64/NavigationTests.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/UITests.build/Objects-normal/arm64/NavigationTests.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/UITests.build/Objects-normal/arm64/NavigationTests.o"
+  }
+}

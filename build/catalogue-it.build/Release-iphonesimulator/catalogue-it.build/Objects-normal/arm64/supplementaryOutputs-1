@@ -1,0 +1,12 @@
+{
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Catalogues/AddEditCatalogueView.swift" : {
+    "abi-baseline-json" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue_it.abi.json",
+    "const-values" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue-it-primary.swiftconstvalues",
+    "dependencies" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue-it-primary.d",
+    "diagnostics" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue-it-primary.dia",
+    "objc-header" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue_it-Swift.h",
+    "swiftdoc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue_it.swiftdoc",
+    "swiftmodule" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue_it.swiftmodule",
+    "swiftsourceinfo" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue_it.swiftsourceinfo"
+  }
+}

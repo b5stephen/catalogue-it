@@ -1,0 +1,72 @@
+{
+  "source": "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Photos/PhotoPickerView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Photos",
+        "location": {
+          "startingColumn": 17,
+          "startingLine": 29
+        }
+      },
+      {
+        "comment": "",
+        "key": "Couldn't Load Photo",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 55
+        }
+      },
+      {
+        "comment": "",
+        "key": "Loading…",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 38
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select Photos",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 38
+        }
+      },
+      {
+        "comment": "",
+        "key": "Take Photo",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 49
+        }
+      },
+      {
+        "comment": "",
+        "key": "OK",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 59
+        }
+      },
+      {
+        "comment": "",
+        "key": "Caption",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 168
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete Photo",
+        "location": {
+          "startingColumn": 37,
+          "startingLine": 164
+        }
+      }
+    ]
+  },
+  "version": 1
+}

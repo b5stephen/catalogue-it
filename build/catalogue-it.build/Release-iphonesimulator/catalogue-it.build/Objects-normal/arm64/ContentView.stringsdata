@@ -1,0 +1,88 @@
+{
+  "source": "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Catalogues/ContentView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "My Catalogues",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 99
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select a catalogue",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 30
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select an item",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 43
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 63
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 75
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit Catalogue",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 82
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete Catalogue",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 93
+        }
+      },
+      {
+        "comment": "",
+        "key": "Create your first catalogue to start organizing your collections",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 105
+        }
+      },
+      {
+        "comment": "",
+        "key": "No Catalogues",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 103
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add Catalogue",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 119
+        }
+      }
+    ]
+  },
+  "version": 1
+}

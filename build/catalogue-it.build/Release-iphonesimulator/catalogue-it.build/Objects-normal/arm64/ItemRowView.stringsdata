@@ -1,0 +1,16 @@
+{
+  "source": "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Items/ItemRowView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "%@: %@",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 55
+        }
+      }
+    ]
+  },
+  "version": 1
+}

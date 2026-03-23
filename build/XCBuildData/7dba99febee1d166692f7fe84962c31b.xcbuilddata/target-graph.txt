@@ -1,0 +1,4 @@
+Target dependency graph (2 targets)
+Target 'UITests' in project 'catalogue-it'
+➜ Explicit dependency on target 'catalogue-it' in project 'catalogue-it'
+Target 'catalogue-it' in project 'catalogue-it' (no dependencies)

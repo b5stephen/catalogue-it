@@ -1,0 +1,16 @@
+{
+  "source": "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Photos/FullScreenPhotoView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Close",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 50
+        }
+      }
+    ]
+  },
+  "version": 1
+}

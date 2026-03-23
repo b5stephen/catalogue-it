@@ -1,0 +1,16 @@
+{
+  "source": "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Items/ItemDetailSections.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Notes",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 44
+        }
+      }
+    ]
+  },
+  "version": 1
+}

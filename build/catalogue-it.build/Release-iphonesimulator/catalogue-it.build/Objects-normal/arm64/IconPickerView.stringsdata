@@ -1,0 +1,24 @@
+{
+  "source": "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Utilities/IconPickerView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Choose Icon",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 67
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 73
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -1,0 +1,16 @@
+{
+  "source": "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Fields/FieldDefinitionRow.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Field Name",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 18
+        }
+      }
+    ]
+  },
+  "version": 1
+}

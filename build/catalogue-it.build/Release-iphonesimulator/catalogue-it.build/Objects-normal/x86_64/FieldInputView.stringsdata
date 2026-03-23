@@ -1,0 +1,48 @@
+{
+  "source": "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Fields/FieldInputView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Set %@",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 53
+        }
+      },
+      {
+        "comment": "",
+        "key": "Text",
+        "location": {
+          "startingColumn": 1,
+          "startingLine": 80
+        }
+      },
+      {
+        "comment": "",
+        "key": "Number",
+        "location": {
+          "startingColumn": 1,
+          "startingLine": 80
+        }
+      },
+      {
+        "comment": "",
+        "key": "Date",
+        "location": {
+          "startingColumn": 1,
+          "startingLine": 80
+        }
+      },
+      {
+        "comment": "",
+        "key": "Boolean",
+        "location": {
+          "startingColumn": 1,
+          "startingLine": 80
+        }
+      }
+    ]
+  },
+  "version": 1
+}

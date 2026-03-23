@@ -1,0 +1,246 @@
+{
+  "" : {
+    "const-values" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue-it-primary.swiftconstvalues",
+    "dependencies" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue-it-primary.d",
+    "diagnostics" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue-it-primary.dia",
+    "emit-module-dependencies" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue-it-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue-it-primary-emit-module.dia",
+    "pch" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue-it-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue-it-primary.swiftdeps"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/GeneratedAssetSymbols.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/DerivedSources/GeneratedStringSymbols_Localizable.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/GeneratedStringSymbols_Localizable.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/GeneratedStringSymbols_Localizable.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/GeneratedStringSymbols_Localizable.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Catalogues/AddEditCatalogueView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/AddEditCatalogueView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/AddEditCatalogueView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/AddEditCatalogueView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Catalogues/CatalogueDetailToolbarButtons.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueDetailToolbarButtons.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueDetailToolbarButtons.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueDetailToolbarButtons.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Catalogues/CatalogueDetailView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueDetailView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueDetailView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueDetailView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Catalogues/CatalogueEmptyStateView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueEmptyStateView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueEmptyStateView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueEmptyStateView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Catalogues/CatalogueItemsView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueItemsView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueItemsView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueItemsView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Catalogues/CatalogueRow.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueRow.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueRow.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueRow.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Catalogues/CatalogueStatsView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueStatsView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueStatsView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueStatsView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Catalogues/ContentView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ContentView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Fields/AddFieldView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/AddFieldView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/AddFieldView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/AddFieldView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Fields/FieldDefinitionRow.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldDefinitionRow.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldDefinitionRow.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldDefinitionRow.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Fields/FieldInputView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldInputView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldInputView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldInputView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Fields/NumberOptionsSheet.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/NumberOptionsSheet.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/NumberOptionsSheet.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/NumberOptionsSheet.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Items/AddEditItemView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/AddEditItemView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/AddEditItemView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/AddEditItemView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Items/ItemCardView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemCardView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemCardView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemCardView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Items/ItemDetailSections.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemDetailSections.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemDetailSections.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemDetailSections.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Items/ItemDetailView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemDetailView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemDetailView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemDetailView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Items/ItemGridView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemGridView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemGridView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemGridView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Items/ItemListView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemListView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemListView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemListView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Items/ItemRowView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemRowView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemRowView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemRowView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Models/Catalogue.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/Catalogue.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/Catalogue.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/Catalogue.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Models/CatalogueItem.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueItem.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueItem.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueItem.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Models/FieldDefinition.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldDefinition.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldDefinition.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldDefinition.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Models/FieldValue.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldValue.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldValue.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldValue.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Models/ItemPhoto.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemPhoto.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemPhoto.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemPhoto.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Photos/CameraPickerView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CameraPickerView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CameraPickerView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CameraPickerView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Photos/FullScreenPhotoView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FullScreenPhotoView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FullScreenPhotoView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FullScreenPhotoView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Photos/PhotoCarouselView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/PhotoCarouselView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/PhotoCarouselView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/PhotoCarouselView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Photos/PhotoPickerView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/PhotoPickerView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/PhotoPickerView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/PhotoPickerView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Types/FieldDefinitionDraft.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldDefinitionDraft.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldDefinitionDraft.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldDefinitionDraft.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Types/FieldOptions.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldOptions.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldOptions.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldOptions.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Types/FieldType.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldType.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldType.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldType.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Types/ItemLayout.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemLayout.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemLayout.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemLayout.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Types/ItemSortOrder.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemSortOrder.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemSortOrder.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemSortOrder.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Types/ItemTab.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemTab.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemTab.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ItemTab.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Types/NumberFormat.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/NumberFormat.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/NumberFormat.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/NumberFormat.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Types/NumberOptions.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/NumberOptions.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/NumberOptions.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/NumberOptions.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Utilities/AppConstants.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/AppConstants.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/AppConstants.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/AppConstants.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Utilities/Catalogue+Color.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/Catalogue+Color.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/Catalogue+Color.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/Catalogue+Color.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Utilities/CatalogueExporter.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueExporter.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueExporter.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/CatalogueExporter.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Utilities/Color+Hex.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/Color+Hex.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/Color+Hex.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/Color+Hex.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Utilities/FieldType+UI.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldType+UI.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldType+UI.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldType+UI.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Utilities/FieldValue+Display.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldValue+Display.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldValue+Display.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/FieldValue+Display.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Utilities/IconPickerView.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/IconPickerView.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/IconPickerView.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/IconPickerView.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/Utilities/ImageHelpers.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ImageHelpers.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ImageHelpers.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/ImageHelpers.o"
+  },
+  "/Users/stephen/dev/apple/catalogue-it/catalogue-it/catalogue_itApp.swift" : {
+    "index-unit-output-path" : "/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue_itApp.o",
+    "llvm-bc" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue_itApp.bc",
+    "object" : "/Users/stephen/dev/apple/catalogue-it/build/catalogue-it.build/Release-iphonesimulator/catalogue-it.build/Objects-normal/arm64/catalogue_itApp.o"
+  }
+}

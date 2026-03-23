@@ -34,7 +34,7 @@ struct FieldInputView: View {
     }
 
     private var numberInput: some View {
-        let opts = draft.fieldDefinition.numberOptions
+        let opts = draft.fieldDefinition.numberOptions ?? NumberOptions()
         return HStack(spacing: 4) {
             if opts.format == .currency {
                 Text(Locale.current.currencySymbol ?? "$")

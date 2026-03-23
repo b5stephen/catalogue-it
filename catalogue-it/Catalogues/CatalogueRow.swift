@@ -17,9 +17,9 @@ struct CatalogueRow: View {
             // Icon with color
             Image(systemName: catalogue.iconName)
                 .font(.title2)
-                .foregroundStyle(Color(hex: catalogue.colorHex))
+                .foregroundStyle(catalogue.color)
                 .frame(width: 40, height: 40)
-                .background(Color(hex: catalogue.colorHex).opacity(0.15))
+                .background(catalogue.color.opacity(0.15))
                 .clipShape(.rect(cornerRadius: 8))
                 .accessibilityHidden(true)
 

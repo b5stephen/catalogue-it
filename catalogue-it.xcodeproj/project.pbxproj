@@ -14,10 +14,18 @@
 			remoteGlobalIDString = DCD9C7ED2F4858BC0026F739;
 			remoteInfo = "catalogue-it";
 		};
+		AABB001500000000AABB0015 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DCD9C7E62F4858BC0026F739 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DCD9C7ED2F4858BC0026F739;
+			remoteInfo = "catalogue-it";
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		AABB000100000000AABB0001 /* UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = UITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AABB000C00000000AABB000C /* UnitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = UnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DCD9C7EE2F4858BC0026F739 /* catalogue-it.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "catalogue-it.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -25,6 +33,11 @@
 		AABB000200000000AABB0002 /* UITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = UITests;
+			sourceTree = "<group>";
+		};
+		AABB000D00000000AABB000D /* UnitTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UnitTests;
 			sourceTree = "<group>";
 		};
 		DCD9C7F02F4858BC0026F739 /* catalogue-it */ = {
@@ -36,6 +49,13 @@
 
 /* Begin PBXFrameworksBuildPhase section */
 		AABB000300000000AABB0003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AABB000E00000000AABB000E /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -57,6 +77,7 @@
 			children = (
 				DCD9C7F02F4858BC0026F739 /* catalogue-it */,
 				AABB000200000000AABB0002 /* UITests */,
+				AABB000D00000000AABB000D /* UnitTests */,
 				DCD9C7EF2F4858BC0026F739 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -66,6 +87,7 @@
 			children = (
 				DCD9C7EE2F4858BC0026F739 /* catalogue-it.app */,
 				AABB000100000000AABB0001 /* UITests.xctest */,
+				AABB000C00000000AABB000C /* UnitTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -73,6 +95,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		AABB001100000000AABB0011 /* UnitTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AABB001400000000AABB0014 /* Build configuration list for PBXNativeTarget "UnitTests" */;
+			buildPhases = (
+				AABB000F00000000AABB000F /* Sources */,
+				AABB000E00000000AABB000E /* Frameworks */,
+				AABB001000000000AABB0010 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AABB001600000000AABB0016 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AABB000D00000000AABB000D /* UnitTests */,
+			);
+			name = UnitTests;
+			packageProductDependencies = (
+			);
+			productName = UnitTests;
+			productReference = AABB000C00000000AABB000C /* UnitTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		AABB000600000000AABB0006 /* UITests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AABB000900000000AABB0009 /* Build configuration list for PBXNativeTarget "UITests" */;
@@ -132,6 +177,10 @@
 						CreatedOnToolsVersion = 26.3;
 						TestTargetID = DCD9C7ED2F4858BC0026F739;
 					};
+					AABB001100000000AABB0011 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = DCD9C7ED2F4858BC0026F739;
+					};
 					DCD9C7ED2F4858BC0026F739 = {
 						CreatedOnToolsVersion = 26.3;
 					};
@@ -153,12 +202,20 @@
 			targets = (
 				DCD9C7ED2F4858BC0026F739 /* catalogue-it */,
 				AABB000600000000AABB0006 /* UITests */,
+				AABB001100000000AABB0011 /* UnitTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		AABB000500000000AABB0005 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AABB001000000000AABB0010 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -182,6 +239,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AABB000F00000000AABB000F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		DCD9C7EA2F4858BC0026F739 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -197,9 +261,54 @@
 			target = DCD9C7ED2F4858BC0026F739 /* catalogue-it */;
 			targetProxy = AABB000A00000000AABB000A /* PBXContainerItemProxy */;
 		};
+		AABB001600000000AABB0016 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DCD9C7ED2F4858BC0026F739 /* catalogue-it */;
+			targetProxy = AABB001500000000AABB0015 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		AABB001200000000AABB0012 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.etched.UnitTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphonesimulator;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/catalogue-it.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/catalogue-it";
+				TEST_TARGET_NAME = "catalogue-it";
+			};
+			name = Debug;
+		};
+		AABB001300000000AABB0013 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 2FBZHF6G7Q;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.etched.UnitTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphonesimulator;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/catalogue-it.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/catalogue-it";
+				TEST_TARGET_NAME = "catalogue-it";
+			};
+			name = Release;
+		};
 		AABB000700000000AABB0007 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -447,6 +556,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		AABB001400000000AABB0014 /* Build configuration list for PBXNativeTarget "UnitTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AABB001200000000AABB0012 /* Debug */,
+				AABB001300000000AABB0013 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		AABB000900000000AABB0009 /* Build configuration list for PBXNativeTarget "UITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

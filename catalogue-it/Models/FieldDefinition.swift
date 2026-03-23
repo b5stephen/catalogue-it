@@ -30,15 +30,15 @@ final class FieldDefinition {
     }
 
     /// Convenience accessor for Number field options.
-    /// Returns defaults when `fieldOptions` is nil or a non-`.number` case.
-    var numberOptions: NumberOptions {
+    /// Returns `nil` for non-number fields; callers should handle the optional explicitly.
+    var numberOptions: NumberOptions? {
         get {
             if case .number(let opts) = fieldOptions { return opts }
-            return NumberOptions()
+            return nil
         }
         set {
             guard fieldType == .number else { return }
-            fieldOptions = .number(newValue)
+            fieldOptions = newValue.map { .number($0) }
         }
     }
 }

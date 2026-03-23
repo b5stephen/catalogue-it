@@ -34,7 +34,7 @@ struct FieldDefinitionRow: View {
                 .foregroundStyle(.secondary)
         }
         .sheet(isPresented: $showingNumberOptions) {
-            NumberOptionsSheet(options: field.numberOptions) { newOptions in
+            NumberOptionsSheet(options: field.numberOptions ?? NumberOptions()) { newOptions in
                 field.numberOptions = newOptions
             }
         }

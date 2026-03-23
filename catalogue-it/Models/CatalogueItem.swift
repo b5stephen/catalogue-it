@@ -31,7 +31,9 @@ final class CatalogueItem {
         self.notes = notes
     }
 
-    /// Get the value for a specific field definition
+    /// Get the value for a specific field definition.
+    /// Performs an O(n) in-memory linear scan over `fieldValues`.
+    /// Not predicate-backed — safe because item field counts are small.
     func value(for definition: FieldDefinition) -> FieldValue? {
         fieldValues.first { $0.fieldDefinition == definition }
     }

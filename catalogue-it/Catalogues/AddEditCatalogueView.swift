@@ -139,10 +139,10 @@ struct AddEditCatalogueView: View {
         // Load existing catalogue data
         name = catalogue.name
         selectedIcon = catalogue.iconName
-        selectedColor = Color(hex: catalogue.colorHex)
+        selectedColor = catalogue.color
         fieldDefinitions = catalogue.fieldDefinitions
             .sorted { $0.priority < $1.priority }
-            .map { FieldDefinitionDraft(existingDefinition: $0, name: $0.name, fieldType: $0.fieldType, priority: $0.priority, numberOptions: $0.numberOptions) }
+            .map { FieldDefinitionDraft(existingDefinition: $0, name: $0.name, fieldType: $0.fieldType, priority: $0.priority, numberOptions: $0.numberOptions ?? NumberOptions()) }
     }
 
     private func saveCatalogue() {

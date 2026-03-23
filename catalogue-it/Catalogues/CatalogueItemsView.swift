@@ -61,7 +61,7 @@ struct CatalogueItemsView: View {
             searched = items.filter { item in
                 catalogue.fieldDefinitions.contains { def in
                     guard let fv = item.value(for: def) else { return false }
-                    return fv.displayValue(numberOptions: def.numberOptions).localizedStandardContains(searchText)
+                    return fv.displayValue(options: def.fieldOptions).localizedStandardContains(searchText)
                 }
             }
         }

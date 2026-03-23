@@ -22,9 +22,9 @@ struct ItemRowView: View {
     private var primaryValue: String {
         guard let first = sortedFields.first,
               let fv = item.value(for: first),
-              !fv.displayValue(numberOptions: first.numberOptions).isEmpty
+              !fv.displayValue(options: first.fieldOptions).isEmpty
         else { return "Untitled Item" }
-        return fv.displayValue(numberOptions: first.numberOptions)
+        return fv.displayValue(options: first.fieldOptions)
     }
 
     private var fieldSummaries: [(name: String, value: String)] {
@@ -33,8 +33,8 @@ struct ItemRowView: View {
             .prefix(2)
             .compactMap { field in
                 guard let fv = item.value(for: field),
-                      !fv.displayValue(numberOptions: field.numberOptions).isEmpty else { return nil }
-                return (name: field.name, value: fv.displayValue(numberOptions: field.numberOptions))
+                      !fv.displayValue(options: field.fieldOptions).isEmpty else { return nil }
+                return (name: field.name, value: fv.displayValue(options: field.fieldOptions))
             }
     }
 

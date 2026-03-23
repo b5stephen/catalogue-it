@@ -7,15 +7,16 @@ import Foundation
 
 extension FieldValue {
     /// Formatted string representation for display.
-    /// Pass `numberOptions` from the associated `FieldDefinition` to avoid faulting
-    /// the `fieldDefinition` relationship. Defaults to `NumberOptions()` if omitted.
-    func displayValue(numberOptions: NumberOptions? = nil) -> String {
+    /// Pass `fieldOptions` from the associated `FieldDefinition` to avoid faulting
+    /// the `fieldDefinition` relationship. Safe to omit for non-configurable field types.
+    func displayValue(options: FieldOptions? = nil) -> String {
         switch fieldType {
         case .text:
             return textValue ?? ""
         case .number:
             guard let value = numberValue else { return "" }
-            let opts = numberOptions ?? NumberOptions()
+            let opts: NumberOptions
+            if case .number(let o) = options { opts = o } else { opts = NumberOptions() }
             switch opts.format {
             case .number:
                 return value.formatted(.number.precision(.fractionLength(opts.precision)))

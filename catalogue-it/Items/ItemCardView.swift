@@ -18,9 +18,9 @@ struct ItemCardView: View {
         guard let catalogue = item.catalogue,
               let first = catalogue.fieldDefinitions.sorted(by: { $0.priority < $1.priority }).first,
               let fv = item.value(for: first),
-              !fv.displayValue(numberOptions: first.numberOptions).isEmpty
+              !fv.displayValue(options: first.fieldOptions).isEmpty
         else { return "Untitled Item" }
-        return fv.displayValue(numberOptions: first.numberOptions)
+        return fv.displayValue(options: first.fieldOptions)
     }
 
     var body: some View {

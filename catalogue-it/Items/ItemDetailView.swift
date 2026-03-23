@@ -28,9 +28,9 @@ struct ItemDetailView: View {
             .sorted(by: { $0.priority < $1.priority })
             .first,
               let val = item.value(for: firstDef),
-              !val.displayValue(numberOptions: firstDef.numberOptions).isEmpty
+              !val.displayValue(options: firstDef.fieldOptions).isEmpty
         else { return "Untitled Item" }
-        return val.displayValue(numberOptions: firstDef.numberOptions)
+        return val.displayValue(options: firstDef.fieldOptions)
     }
 
     private var sortedPhotos: [ItemPhoto] {
@@ -42,7 +42,7 @@ struct ItemDetailView: View {
         catalogue.fieldDefinitions
             .sorted { $0.priority < $1.priority }
             .compactMap { def in
-                guard let val = item.value(for: def), !val.displayValue(numberOptions: def.numberOptions).isEmpty else { return nil }
+                guard let val = item.value(for: def), !val.displayValue(options: def.fieldOptions).isEmpty else { return nil }
                 return (def, val)
             }
     }
@@ -51,7 +51,7 @@ struct ItemDetailView: View {
         var lines: [String] = []
         for def in catalogue.fieldDefinitions.sorted(by: { $0.priority < $1.priority }) {
             if let val = item.value(for: def) {
-                lines.append("\(def.name): \(val.displayValue(numberOptions: def.numberOptions))")
+                lines.append("\(def.name): \(val.displayValue(options: def.fieldOptions))")
             }
         }
         if let notes = item.notes, !notes.isEmpty {

@@ -17,7 +17,7 @@ struct CatalogueDetailView: View {
 #if os(macOS)
     @AppStorage("itemLayoutStyle_mac")   private var layout: ItemLayout = .list
 #else
-    @AppStorage("itemLayoutStyle_ios")   private var layout: ItemLayout = .grid
+    @AppStorage("itemLayoutStyle_ios")   private var layout: ItemLayout = .list
 #endif
     @AppStorage("itemSortField")         private var sortFieldKey: String = ItemSortField.dateAdded.rawValue
     @AppStorage("itemSortDirection")     private var sortDirection: String = ItemSortDirection.ascending.rawValue

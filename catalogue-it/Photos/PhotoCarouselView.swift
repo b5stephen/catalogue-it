@@ -76,8 +76,7 @@ struct PhotoCarouselView: View {
         if let image = photo.imageData.asImage() {
             image
                 .resizable()
-                .scaledToFill()
-                .clipped()
+                .scaledToFit()
         } else {
             Rectangle()
                 .fill(.secondary.opacity(0.2))

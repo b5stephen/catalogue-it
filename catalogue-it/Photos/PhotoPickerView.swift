@@ -27,7 +27,7 @@ struct PhotoPickerView: View {
     var body: some View {
         let loading = isLoadingPhotos
         Section("Photos") {
-            PhotoScrollView(photos: $photos, onDelete: deletePhoto)
+            PhotoGridView(photos: $photos, onDelete: deletePhoto, onMove: movePhoto)
 
             PhotosPicker(
                 selection: $selectedItems,
@@ -113,27 +113,118 @@ struct PhotoPickerView: View {
             photos[index].priority = index
         }
     }
+
+    private func movePhoto(fromId: UUID, toId: UUID) {
+        guard fromId != toId,
+              let from = photos.firstIndex(where: { $0.id == fromId }),
+              let to = photos.firstIndex(where: { $0.id == toId }) else { return }
+        photos.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
+        for index in photos.indices {
+            photos[index].priority = index
+        }
+    }
 }
 
-// MARK: - Photo Scroll View
+// MARK: - Photo Grid View
 
-private struct PhotoScrollView: View {
+@MainActor
+private struct PhotoGridView: View {
     @Binding var photos: [PhotoDraft]
     let onDelete: (UUID) -> Void
+    let onMove: (UUID, UUID) -> Void
+
+    @State private var draggingId: UUID?
+    @State private var dragOffset: CGSize = .zero
+    @State private var numColumns: Int = 3
+
+    private let cellSize = AppConstants.ThumbnailSize.photoPicker
+    private let spacing: CGFloat = 12
+    private var stride: CGFloat { cellSize + spacing }
 
     var body: some View {
         if !photos.isEmpty {
-            ScrollView(.horizontal) {
-                HStack(spacing: 12) {
-                    ForEach($photos) { $photo in
-                        PhotoThumbnailView(photo: $photo) {
-                            onDelete(photo.id)
-                        }
-                    }
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: cellSize), spacing: spacing)],
+                spacing: spacing
+            ) {
+                ForEach($photos) { $photo in
+                    let isLifted = draggingId == photo.id
+                    PhotoThumbnailView(photo: $photo, onDelete: { onDelete(photo.id) })
+                        .offset(isLifted ? dragOffset : .zero)
+                        .scaleEffect(isLifted ? 1.06 : 1.0)
+                        .shadow(color: isLifted ? .black.opacity(0.25) : .clear, radius: 8, y: 4)
+                        .zIndex(isLifted ? 1 : 0)
+                        .animation(.spring(duration: 0.2), value: isLifted)
+                        .gesture(reorderGesture(for: photo.id))
                 }
-                .padding(.vertical, 4)
             }
-            .scrollIndicators(.hidden)
+            .padding(.vertical, 4)
+            .background(
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear { numColumns = columnCount(for: geo.size.width) }
+                        .onChange(of: geo.size.width) { _, w in numColumns = columnCount(for: w) }
+                }
+            )
+        }
+    }
+
+    private func columnCount(for width: CGFloat) -> Int {
+        max(1, Int((width + spacing) / (cellSize + spacing)))
+    }
+
+    private func reorderGesture(for id: UUID) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.4)
+            .sequenced(before: DragGesture(minimumDistance: 0))
+            .onChanged { value in
+                switch value {
+                case .first(true):
+                    withAnimation(.spring(duration: 0.2)) { draggingId = id }
+                    #if os(iOS)
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    #endif
+                case .second(true, let drag?):
+                    dragOffset = drag.translation
+                    swapIfNeeded(id: id)
+                default:
+                    break
+                }
+            }
+            .onEnded { _ in
+                withAnimation(.spring(duration: 0.2)) {
+                    draggingId = nil
+                    dragOffset = .zero
+                }
+            }
+    }
+
+    private func swapIfNeeded(id: UUID) {
+        guard let idx = photos.firstIndex(where: { $0.id == id }) else { return }
+
+        if dragOffset.width > stride / 2, idx < photos.count - 1 {
+            onMove(id, photos[idx + 1].id)
+            dragOffset.width -= stride
+            #if os(iOS)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            #endif
+        } else if dragOffset.width < -stride / 2, idx > 0 {
+            onMove(id, photos[idx - 1].id)
+            dragOffset.width += stride
+            #if os(iOS)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            #endif
+        } else if dragOffset.height > stride / 2, idx + numColumns < photos.count {
+            onMove(id, photos[idx + numColumns].id)
+            dragOffset.height -= stride
+            #if os(iOS)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            #endif
+        } else if dragOffset.height < -stride / 2, idx >= numColumns {
+            onMove(id, photos[idx - numColumns].id)
+            dragOffset.height += stride
+            #if os(iOS)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            #endif
         }
     }
 }

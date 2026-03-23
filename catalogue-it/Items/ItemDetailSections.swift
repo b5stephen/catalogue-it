@@ -40,16 +40,20 @@ struct ItemNotesSection: View {
     let notes: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Notes", systemImage: "note.text")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Notes")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(notes)
+                        .font(.body)
+                }
+                Spacer()
+            }
+            .padding(.vertical, 10)
 
-            Text(notes)
-                .font(.body)
+            Divider()
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: AppConstants.CornerRadius.medium))
     }
 }

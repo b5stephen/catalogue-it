@@ -70,7 +70,7 @@ struct ItemDetailView: View {
                         .frame(height: AppConstants.PhotoHeight.detail)
                 }
 
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 0) {
                     if !displayFields.isEmpty {
                         ItemFieldsSection(fields: displayFields)
                     }

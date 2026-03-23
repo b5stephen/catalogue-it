@@ -7,6 +7,31 @@
 
 import SwiftUI
 
+// MARK: - Field Row
+
+private struct FieldRowView: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(value)
+                        .font(.body)
+                }
+                Spacer()
+            }
+            .padding(.vertical, 10)
+
+            Divider()
+        }
+    }
+}
+
 // MARK: - Item Fields Section
 
 struct ItemFieldsSection: View {
@@ -15,20 +40,7 @@ struct ItemFieldsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(fields, id: \.0.id) { def, val in
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(def.name)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(val.displayValue(options: def.fieldOptions))
-                            .font(.body)
-                    }
-
-                    Spacer()
-                }
-                .padding(.vertical, 10)
-
-                Divider()
+                FieldRowView(label: def.name, value: val.displayValue(options: def.fieldOptions))
             }
         }
     }
@@ -40,20 +52,6 @@ struct ItemNotesSection: View {
     let notes: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Notes")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(notes)
-                        .font(.body)
-                }
-                Spacer()
-            }
-            .padding(.vertical, 10)
-
-            Divider()
-        }
+        FieldRowView(label: "Notes", value: notes)
     }
 }

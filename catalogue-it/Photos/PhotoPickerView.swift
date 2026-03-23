@@ -125,6 +125,15 @@ struct PhotoPickerView: View {
     }
 }
 
+// MARK: - Cell Frame Preference
+
+private struct CellFramePreference: PreferenceKey {
+    static let defaultValue: [UUID: CGRect] = [:]
+    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
+    }
+}
+
 // MARK: - Photo Grid View
 
 @MainActor
@@ -135,12 +144,11 @@ private struct PhotoGridView: View {
 
     @Namespace private var gridNamespace
     @State private var draggingId: UUID?
-    @State private var dragOffset: CGSize = .zero
-    @State private var numColumns: Int = 3
+    @State private var dragPosition: CGPoint = .zero
+    @State private var cellFrames: [UUID: CGRect] = [:]
 
     private let cellSize = AppConstants.ThumbnailSize.photoPicker
     private let spacing: CGFloat = 12
-    private var stride: CGFloat { cellSize + spacing }
 
     var body: some View {
         if !photos.isEmpty {
@@ -151,81 +159,71 @@ private struct PhotoGridView: View {
                 ForEach($photos) { $photo in
                     let isLifted = draggingId == photo.id
                     PhotoThumbnailView(photo: $photo, onDelete: { onDelete(photo.id) })
-                        .matchedGeometryEffect(id: photo.id, in: gridNamespace)
-                        .offset(isLifted ? dragOffset : .zero)
-                        .scaleEffect(isLifted ? 1.06 : 1.0)
-                        .shadow(color: isLifted ? .black.opacity(0.25) : .clear, radius: 8, y: 4)
-                        .zIndex(isLifted ? 1 : 0)
-                        .animation(.spring(duration: 0.2), value: isLifted)
+                        .matchedGeometryEffect(id: photo.id, in: gridNamespace, isSource: !isLifted)
+                        .opacity(isLifted ? 0 : 1)
+                        .background(
+                            GeometryReader { geo in
+                                Color.clear.preference(
+                                    key: CellFramePreference.self,
+                                    value: [photo.id: geo.frame(in: .named("photoGrid"))]
+                                )
+                            }
+                        )
                         .gesture(reorderGesture(for: photo.id))
                 }
             }
             .padding(.vertical, 4)
-            .background(
-                GeometryReader { geo in
-                    Color.clear
-                        .onAppear { numColumns = columnCount(for: geo.size.width) }
-                        .onChange(of: geo.size.width) { _, w in numColumns = columnCount(for: w) }
-                }
-            )
+            .coordinateSpace(.named("photoGrid"))
+            .overlay(alignment: .topLeading) { liftedPhotoOverlay }
+            .onPreferenceChange(CellFramePreference.self) { cellFrames = $0 }
         }
     }
 
-    private func columnCount(for width: CGFloat) -> Int {
-        max(1, Int((width + spacing) / (cellSize + spacing)))
+    @ViewBuilder
+    private var liftedPhotoOverlay: some View {
+        if let id = draggingId,
+           let idx = photos.firstIndex(where: { $0.id == id }) {
+            PhotoThumbnailView(photo: $photos[idx], onDelete: {})
+                .matchedGeometryEffect(id: id, in: gridNamespace, isSource: true)
+                .scaleEffect(1.06)
+                .shadow(color: .black.opacity(0.25), radius: 8, y: 4)
+                .position(dragPosition)
+                .allowsHitTesting(false)
+        }
     }
 
     private func reorderGesture(for id: UUID) -> some Gesture {
         LongPressGesture(minimumDuration: 0.4)
-            .sequenced(before: DragGesture(minimumDistance: 0))
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named("photoGrid")))
             .onChanged { value in
                 switch value {
                 case .first(true):
+                    if let frame = cellFrames[id] {
+                        dragPosition = CGPoint(x: frame.midX, y: frame.midY)
+                    }
                     withAnimation(.spring(duration: 0.2)) { draggingId = id }
                     #if os(iOS)
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     #endif
                 case .second(true, let drag?):
-                    dragOffset = drag.translation
+                    dragPosition = drag.location
                     swapIfNeeded(id: id)
                 default:
                     break
                 }
             }
             .onEnded { _ in
-                withAnimation(.spring(duration: 0.2)) {
-                    draggingId = nil
-                    dragOffset = .zero
-                }
+                withAnimation(.spring(duration: 0.1)) { draggingId = nil }
             }
     }
 
     private func swapIfNeeded(id: UUID) {
-        guard let idx = photos.firstIndex(where: { $0.id == id }) else { return }
-
-        let targetIdx: Int
-        let offsetDelta: CGSize
-
-        if dragOffset.width > stride / 2, idx < photos.count - 1 {
-            targetIdx = idx + 1
-            offsetDelta = CGSize(width: -stride, height: 0)
-        } else if dragOffset.width < -stride / 2, idx > 0 {
-            targetIdx = idx - 1
-            offsetDelta = CGSize(width: stride, height: 0)
-        } else if dragOffset.height > stride / 2, idx + numColumns < photos.count {
-            targetIdx = idx + numColumns
-            offsetDelta = CGSize(width: 0, height: -stride)
-        } else if dragOffset.height < -stride / 2, idx >= numColumns {
-            targetIdx = idx - numColumns
-            offsetDelta = CGSize(width: 0, height: stride)
-        } else {
-            return
-        }
+        guard let targetId = cellFrames.first(where: {
+            $0.key != id && $0.value.contains(dragPosition)
+        })?.key else { return }
 
         withAnimation(.spring(duration: 0.25, bounce: 0.1)) {
-            onMove(id, photos[targetIdx].id)
-            dragOffset.width += offsetDelta.width
-            dragOffset.height += offsetDelta.height
+            onMove(id, targetId)
         }
         #if os(iOS)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()

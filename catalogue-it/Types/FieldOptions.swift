@@ -14,33 +14,10 @@ import Foundation
 /// SwiftData encodes this as a Codable blob; `nil` on `FieldDefinition`
 /// means the field type carries no configurable options.
 ///
-/// Coding keys are pinned explicitly to prevent on-disk key changes if
-/// case names are ever renamed or new cases are added.
+/// ⚠️ IMPORTANT: Do NOT rename any case. Case names are the on-disk
+/// Codable keys (Swift synthesizes them from the case label). Renaming
+/// without a SchemaMigrationPlan will silently break stored data.
 enum FieldOptions: Codable, Equatable {
     case number(NumberOptions)
-    // future: case date(DateOptions)
-
-    private enum CodingKeys: String, CodingKey {
-        case number = "number"
-        // future: case date = "date"
-    }
-
-    func encode(to encoder: any Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .number(let opts):
-            try container.encode(opts, forKey: .number)
-        }
-    }
-
-    init(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        if let opts = try container.decodeIfPresent(NumberOptions.self, forKey: .number) {
-            self = .number(opts)
-            return
-        }
-        throw DecodingError.dataCorrupted(
-            .init(codingPath: decoder.codingPath, debugDescription: "Unknown FieldOptions variant")
-        )
-    }
+    // future: case date(DateOptions) — add matching "date" stability comment when added
 }

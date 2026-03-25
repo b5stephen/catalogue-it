@@ -8,6 +8,7 @@
 import Foundation
 import SwiftData
 
+
 // MARK: - Catalogue
 
 /// Represents a collection (e.g., "Model Planes", "Stamp Collection")
@@ -18,6 +19,9 @@ final class Catalogue {
     var iconName: String // SF Symbol name
     var colorHex: String // Stored as hex string
     var priority: Int
+
+    var sortFieldKey: String = ItemSortField.dateAdded.rawValue
+    var sortDirection: String = ItemSortDirection.ascending.rawValue
 
     @Relationship(deleteRule: .cascade, inverse: \FieldDefinition.catalogue)
     var fieldDefinitions: [FieldDefinition] = []

@@ -11,7 +11,7 @@ import SwiftData
 // MARK: - Catalogue Detail View
 
 struct CatalogueDetailView: View {
-    let catalogue: Catalogue
+    @Bindable var catalogue: Catalogue
     @Binding var selectedItem: CatalogueItem?
 
 #if os(macOS)
@@ -19,8 +19,6 @@ struct CatalogueDetailView: View {
 #else
     @AppStorage("itemLayoutStyle_ios")   private var layout: ItemLayout = .list
 #endif
-    @AppStorage("itemSortField")         private var sortFieldKey: String = ItemSortField.dateAdded.rawValue
-    @AppStorage("itemSortDirection")     private var sortDirection: String = ItemSortDirection.ascending.rawValue
 
 #if !os(macOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -62,8 +60,8 @@ struct CatalogueDetailView: View {
                 catalogue: catalogue,
                 tab: selectedTab,
                 searchText: searchText,
-                sortFieldKey: $sortFieldKey,
-                sortDirection: $sortDirection,
+                sortFieldKey: $catalogue.sortFieldKey,
+                sortDirection: $catalogue.sortDirection,
                 layout: layout,
                 selectedItem: $selectedItem
             )
@@ -100,7 +98,7 @@ struct CatalogueDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     LayoutToggleButton(layout: $layout)
-                    SortMenuButton(catalogue: catalogue, sortFieldKey: $sortFieldKey, sortDirection: $sortDirection)
+                    SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
                     Divider()
                     ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
                     CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
@@ -119,7 +117,7 @@ struct CatalogueDetailView: View {
                 LayoutToggleButton(layout: $layout)
             }
             ToolbarItem(placement: .primaryAction) {
-                SortMenuButton(catalogue: catalogue, sortFieldKey: $sortFieldKey, sortDirection: $sortDirection)
+                SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu("More", systemImage: "ellipsis.circle") {

@@ -72,38 +72,8 @@ struct CatalogueItemsView: View {
 
     private func sortedItems(_ items: [CatalogueItem]) -> [CatalogueItem] {
         let field = ItemSortField(rawValue: sortFieldKey)
-        let asc = (ItemSortDirection(rawValue: sortDirection) ?? .ascending) == .ascending
-
-        return items.sorted { a, b in
-            let result: Bool
-            switch field {
-            case .dateAdded:
-                result = a.createdDate < b.createdDate
-            case .field(let fieldID):
-                guard let def = catalogue.fieldDefinitions.first(where: { $0.fieldID == fieldID }) else {
-                    return false
-                }
-                let va = a.value(for: def)
-                let vb = b.value(for: def)
-                guard let va else { return false }
-                guard let vb else { return true }
-                switch va.fieldType {
-                case .text:
-                    let ta = va.textValue ?? "", tb = vb.textValue ?? ""
-                    result = ta.localizedCompare(tb) == .orderedAscending
-                case .number:
-                    result = (va.numberValue ?? 0) < (vb.numberValue ?? 0)
-                case .date:
-                    guard let da = va.dateValue, let db = vb.dateValue else {
-                        return va.dateValue != nil
-                    }
-                    result = da < db
-                case .boolean:
-                    result = (va.boolValue == false) && (vb.boolValue == true)
-                }
-            }
-            return asc ? result : !result
-        }
+        let direction = ItemSortDirection(rawValue: sortDirection) ?? .ascending
+        return CatalogueItemSort.sorted(items, primaryField: field, direction: direction, catalogue: catalogue)
     }
 
     private let gridColumns = [

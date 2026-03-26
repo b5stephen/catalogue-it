@@ -16,6 +16,7 @@ struct CatalogueItemsView: View {
     @Binding var sortDirection: String
     let layout: ItemLayout
     @Binding var selectedItem: CatalogueItem?
+    @Binding var displayedCount: Int
 
     @Query private var items: [CatalogueItem]
 
@@ -25,7 +26,8 @@ struct CatalogueItemsView: View {
          sortFieldKey: Binding<String>,
          sortDirection: Binding<String>,
          layout: ItemLayout,
-         selectedItem: Binding<CatalogueItem?>) {
+         selectedItem: Binding<CatalogueItem?>,
+         displayedCount: Binding<Int>) {
 
         self.catalogue = catalogue
         self.tab = tab
@@ -34,6 +36,7 @@ struct CatalogueItemsView: View {
         self._sortDirection = sortDirection
         self.layout = layout
         self._selectedItem = selectedItem
+        self._displayedCount = displayedCount
 
         let isAll = tab == .all
         let isWishlist = tab == .wishlist
@@ -107,12 +110,15 @@ struct CatalogueItemsView: View {
                 selectedTab: tab,
                 isFiltered: !searchText.isEmpty && !items.isEmpty
             )
+            .onChange(of: processedItems.count, initial: true) { displayedCount = processedItems.count }
         } else {
             switch layout {
             case .grid:
                 ItemGridView(items: processedItems, gridColumns: gridColumns, showWishlistBadge: tab == .all, selectedItem: $selectedItem)
+                    .onChange(of: processedItems.count, initial: true) { displayedCount = processedItems.count }
             case .list:
                 ItemListView(items: processedItems, catalogue: catalogue, showWishlistBadge: tab == .all, selectedItem: $selectedItem)
+                    .onChange(of: processedItems.count, initial: true) { displayedCount = processedItems.count }
             }
         }
     }

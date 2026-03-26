@@ -26,6 +26,10 @@ struct CatalogueRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(catalogue.name)
                     .font(.headline)
+                let count = catalogue.items.count
+                Text(count == 1 ? "1 item" : "\(count) items")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 4)

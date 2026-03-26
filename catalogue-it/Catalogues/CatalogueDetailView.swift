@@ -29,6 +29,11 @@ struct CatalogueDetailView: View {
     @State private var showingAddItem = false
     @State private var showingStats = false
     @State private var searchText: String = ""
+    @State private var displayedCount: Int = 0
+
+    private var countLabel: String {
+        displayedCount == 1 ? "1 item" : "\(displayedCount) items"
+    }
     private let gridColumns = [
         GridItem(.adaptive(minimum: 160), spacing: 16)
     ]
@@ -66,6 +71,11 @@ struct CatalogueDetailView: View {
             .padding(.horizontal)
             .padding(.vertical, 8)
 
+#if !os(macOS)
+            Text(countLabel)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+#endif
             CatalogueItemsView(
                 catalogue: catalogue,
                 tab: selectedTab,
@@ -73,11 +83,13 @@ struct CatalogueDetailView: View {
                 sortFieldKey: $catalogue.sortFieldKey,
                 sortDirection: $catalogue.sortDirection,
                 layout: layout,
-                selectedItem: $selectedItem
+                selectedItem: $selectedItem,
+                displayedCount: $displayedCount
             )
         }
         .navigationTitle(catalogue.name)
 #if os(macOS)
+        .navigationSubtitle(countLabel)
         .navigationSplitViewColumnWidth(min: 280, ideal: 360)
 #endif
         .searchable(text: $searchText)

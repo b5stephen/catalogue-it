@@ -42,11 +42,28 @@ struct CatalogueItemsView: View {
         let filterWishlist = isWishlist
         let filterAll = isAll
 
-        // Filter by Catalogue ID and Tab
+        let sortField = ItemSortField(rawValue: sortFieldKey.wrappedValue)
+        let ascending = (ItemSortDirection(rawValue: sortDirection.wrappedValue) ?? .ascending) == .ascending
+
+        // Filter by Catalogue ID and Tab.
         // Note: Predicate body must be a single expression. Using persistentModelID for relationships.
-        _items = Query(filter: #Predicate<CatalogueItem> { item in
-            item.catalogue?.persistentModelID == targetID && (filterAll || item.isWishlist == filterWishlist)
-        })
+        var descriptor = FetchDescriptor<CatalogueItem>(
+            predicate: #Predicate { item in
+                item.catalogue?.persistentModelID == targetID && (filterAll || item.isWishlist == filterWishlist)
+            }
+        )
+        // Batch-load relationship objects to avoid N+1 queries during list render.
+        // For photos: ItemPhoto model objects are prefetched, but imageData (external storage)
+        // is still loaded lazily from disk on first access — correct behaviour.
+        descriptor.relationshipKeyPathsForPrefetching = [\.fieldValues, \.photos]
+
+        // Push dateAdded sort to SQLite via the index on createdDate.
+        // Custom field sorts must remain in-memory (FieldValue properties aren't sortable at DB level).
+        if case .dateAdded = sortField {
+            descriptor.sortBy = [SortDescriptor(\.createdDate, order: ascending ? .forward : .reverse)]
+        }
+
+        _items = Query(descriptor)
     }
 
     // Perform search and sort in memory for now, as dynamic predicates/sorts
@@ -67,6 +84,10 @@ struct CatalogueItemsView: View {
         }
 
         // 2. Sort
+        // dateAdded sort was applied at DB level in the FetchDescriptor — skip in-memory sort.
+        // Swift's filter is stable, so search results preserve createdDate order.
+        let field = ItemSortField(rawValue: sortFieldKey)
+        if case .dateAdded = field { return searched }
         return sortedItems(searched)
     }
 

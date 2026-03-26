@@ -13,6 +13,8 @@ import SwiftData
 /// An individual item in a catalogue (can be owned or wishlist)
 @Model
 final class CatalogueItem {
+    #Index<CatalogueItem>([\.isWishlist], [\.createdDate], [\.isWishlist, \.createdDate])
+
     var createdDate: Date
     var isWishlist: Bool
     var notes: String? // Optional general notes field

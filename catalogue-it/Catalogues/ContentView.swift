@@ -7,11 +7,14 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Catalogue.priority) private var catalogues: [Catalogue]
     @State private var showingAddCatalogue = false
+    @State private var showingImporter = false
+    @State private var importErrorMessage: String?
     @State private var selectedCatalogue: Catalogue?
     @State private var selectedItem: CatalogueItem?
     @State private var catalogueToEdit: Catalogue?
@@ -116,6 +119,11 @@ struct ContentView: View {
             }
 #endif
             ToolbarItem {
+                Button("Import Catalogue", systemImage: "square.and.arrow.down") {
+                    showingImporter = true
+                }
+            }
+            ToolbarItem {
                 Button("Add Catalogue", systemImage: "plus") {
                     showingAddCatalogue = true
                 }
@@ -126,6 +134,43 @@ struct ContentView: View {
         }
         .sheet(item: $catalogueToEdit) { catalogue in
             AddEditCatalogueView(catalogue: catalogue, nextPriority: catalogues.count)
+        }
+        .fileImporter(
+            isPresented: $showingImporter,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            handleImport(result: result)
+        }
+        .alert(
+            "Import Failed",
+            isPresented: Binding(
+                get: { importErrorMessage != nil },
+                set: { if !$0 { importErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importErrorMessage ?? "")
+        }
+    }
+
+    private func handleImport(result: Result<[URL], Error>) {
+        Task { @MainActor in
+            do {
+                guard let url = try result.get().first else { return }
+                guard url.startAccessingSecurityScopedResource() else { return }
+                defer { url.stopAccessingSecurityScopedResource() }
+                let data = try Data(contentsOf: url)
+                let imported = try CatalogueImporter.importCatalogues(
+                    from: data,
+                    into: modelContext,
+                    priorityOffset: catalogues.count
+                )
+                selectedCatalogue = imported.first
+            } catch {
+                importErrorMessage = error.localizedDescription
+            }
         }
     }
 

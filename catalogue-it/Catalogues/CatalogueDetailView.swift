@@ -33,13 +33,23 @@ struct CatalogueDetailView: View {
         GridItem(.adaptive(minimum: 160), spacing: 16)
     ]
 
-    // MARK: - CSV Export
+    // MARK: - Export Files
 
     private var csvFile: CatalogueCSVFile {
         CatalogueCSVFile(
             content: CatalogueExporter.csvString(for: catalogue),
             filename: "\(catalogue.name).csv"
         )
+    }
+
+    private var jsonFile: CatalogueJSONFile? {
+        guard let data = try? CatalogueExporter.jsonData(for: catalogue) else { return nil }
+        return CatalogueJSONFile(data: data, filename: "\(catalogue.name).json")
+    }
+
+    private var jsonFileNoPhotos: CatalogueJSONFile? {
+        guard let data = try? CatalogueExporter.jsonData(for: catalogue, includePhotos: false) else { return nil }
+        return CatalogueJSONFile(data: data, filename: "\(catalogue.name).json")
     }
 
     // MARK: - Body
@@ -100,7 +110,15 @@ struct CatalogueDetailView: View {
                     LayoutToggleButton(layout: $layout)
                     SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
                     Divider()
-                    ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
+                    Menu("Export", systemImage: "square.and.arrow.up") {
+                        ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
+                        if let jsonFile {
+                            ShareLink("Export as JSON (with Photos)", item: jsonFile, preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text")))
+                        }
+                        if let jsonFileNoPhotos {
+                            ShareLink("Export as JSON (no Photos)", item: jsonFileNoPhotos, preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text")))
+                        }
+                    }
                     CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
                 } label: {
                     Label("More Options", systemImage: "ellipsis")
@@ -121,7 +139,15 @@ struct CatalogueDetailView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu("More", systemImage: "ellipsis.circle") {
-                    ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
+                    Menu("Export", systemImage: "square.and.arrow.up") {
+                        ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
+                        if let jsonFile {
+                            ShareLink("Export as JSON (with Photos)", item: jsonFile, preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text")))
+                        }
+                        if let jsonFileNoPhotos {
+                            ShareLink("Export as JSON (no Photos)", item: jsonFileNoPhotos, preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text")))
+                        }
+                    }
                     Button {
                         showingStats = true
                     } label: {

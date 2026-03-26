@@ -73,6 +73,21 @@ enum CatalogueExporter {
         let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
         return "\"\(escaped)\""
     }
+
+    // MARK: - JSON Export
+
+    /// Encodes a catalogue as a JSON export file.
+    /// - Parameter includePhotos: When `false`, item photos are omitted to reduce file size.
+    static func jsonData(for catalogue: Catalogue, includePhotos: Bool = true) throws -> Data {
+        let file = CatalogueExportFile(
+            exportedAt: .now,
+            catalogues: [CatalogueDTO(catalogue, includePhotos: includePhotos)]
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(file)
+    }
 }
 
 // MARK: - Catalogue CSV File (Transferable)
@@ -84,6 +99,22 @@ struct CatalogueCSVFile: Transferable {
     static var transferRepresentation: some TransferRepresentation {
         DataRepresentation(exportedContentType: .commaSeparatedText) { file in
             Data(file.content.utf8)
+        }
+        .suggestedFileName { file in
+            file.filename
+        }
+    }
+}
+
+// MARK: - Catalogue JSON File (Transferable)
+
+struct CatalogueJSONFile: Transferable {
+    let data: Data
+    let filename: String
+
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .json) { file in
+            file.data
         }
         .suggestedFileName { file in
             file.filename

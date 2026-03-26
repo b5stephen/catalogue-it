@@ -219,6 +219,131 @@ struct ItemSortTests {
         }
     }
 
+    // MARK: - Multi-Field Sort (parametrised)
+
+    /// Fixed setup:
+    ///   Item 0 — Brand="Beta",  Series="X", Model="Alpha", Year=2020
+    ///   Item 1 — Brand="Alpha", Series="X", Model="Alpha", Year=2021
+    ///   Item 2 — Brand="Gamma", Series="Y", Model="Zeta",  Year=2019
+    ///
+    /// When ties exist on the primary field, the algorithm should break them using
+    /// ALL other fields in their priority order (not just those after the primary).
+    struct MultiFieldSortCase: CustomStringConvertible {
+        let sortByFieldIndex: Int   // index into [Brand, Series, Model, Year]
+        let expectedOrder: [Int]    // expected item indices (0–2) after ascending sort
+        var description: String { "Sort by field index \(sortByFieldIndex)" }
+    }
+
+    @Test("Multi-field sort: tiebreakers include all fields, not just those after primary", arguments: [
+        // Brand unique (Alpha<Beta<Gamma) — no tiebreaker needed; same old vs new
+        MultiFieldSortCase(sortByFieldIndex: 0, expectedOrder: [1, 0, 2]),
+        // Series tied "X"/"X" — Brand (before Series) must resolve → Alpha<Beta → item1 before item0
+        MultiFieldSortCase(sortByFieldIndex: 1, expectedOrder: [1, 0, 2]),
+        // Model tied "Alpha"/"Alpha" — Brand must resolve → item1 before item0
+        MultiFieldSortCase(sortByFieldIndex: 2, expectedOrder: [1, 0, 2]),
+        // Year unique (2019<2020<2021) — no tiebreaker needed; same old vs new
+        MultiFieldSortCase(sortByFieldIndex: 3, expectedOrder: [2, 0, 1]),
+    ])
+    func multiFieldSort(tc: MultiFieldSortCase) throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+
+        let catalogue = Catalogue(name: "Test", iconName: "star", colorHex: "#000000")
+        ctx.insert(catalogue)
+
+        let brandDef  = FieldDefinition(name: "Brand",  fieldType: .text,   priority: 0)
+        let seriesDef = FieldDefinition(name: "Series", fieldType: .text,   priority: 1)
+        let modelDef  = FieldDefinition(name: "Model",  fieldType: .text,   priority: 2)
+        let yearDef   = FieldDefinition(name: "Year",   fieldType: .number, priority: 3)
+        let fieldDefs = [brandDef, seriesDef, modelDef, yearDef]
+        for fd in fieldDefs {
+            fd.catalogue = catalogue
+            ctx.insert(fd)
+        }
+
+        func makeItem(brand: String, series: String, model: String, year: Double) -> CatalogueItem {
+            let item = CatalogueItem()
+            item.catalogue = catalogue
+            ctx.insert(item)
+
+            let fvBrand = FieldValue(fieldDefinition: brandDef, fieldType: .text)
+            fvBrand.textValue = brand; fvBrand.item = item; ctx.insert(fvBrand)
+
+            let fvSeries = FieldValue(fieldDefinition: seriesDef, fieldType: .text)
+            fvSeries.textValue = series; fvSeries.item = item; ctx.insert(fvSeries)
+
+            let fvModel = FieldValue(fieldDefinition: modelDef, fieldType: .text)
+            fvModel.textValue = model; fvModel.item = item; ctx.insert(fvModel)
+
+            let fvYear = FieldValue(fieldDefinition: yearDef, fieldType: .number)
+            fvYear.numberValue = year; fvYear.item = item; ctx.insert(fvYear)
+
+            return item
+        }
+
+        let item0 = makeItem(brand: "Beta",  series: "X", model: "Alpha", year: 2020)
+        let item1 = makeItem(brand: "Alpha", series: "X", model: "Alpha", year: 2021)
+        let item2 = makeItem(brand: "Gamma", series: "Y", model: "Zeta",  year: 2019)
+        let allItems = [item0, item1, item2]
+
+        let primaryField = ItemSortField.field(fieldDefs[tc.sortByFieldIndex].fieldID)
+        let sorted = CatalogueItemSort.sorted(
+            [item2, item1, item0],  // start deliberately out of expected order
+            primaryField: primaryField,
+            direction: .ascending,
+            catalogue: catalogue
+        )
+
+        for (position, itemIndex) in tc.expectedOrder.enumerated() {
+            #expect(
+                sorted[position] === allItems[itemIndex],
+                "Position \(position): expected item\(itemIndex)"
+            )
+        }
+    }
+
+    // MARK: - Date Added Final Tiebreaker
+
+    @Test("dateAdded is the final tiebreaker when all custom fields are tied")
+    func dateAddedFinalTiebreaker() throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+
+        let catalogue = Catalogue(name: "Test", iconName: "star", colorHex: "#000000")
+        ctx.insert(catalogue)
+
+        let nameDef = FieldDefinition(name: "Name", fieldType: .text, priority: 0)
+        nameDef.catalogue = catalogue
+        ctx.insert(nameDef)
+
+        func makeItem(createdDate: Date) -> CatalogueItem {
+            let item = CatalogueItem()
+            item.catalogue = catalogue
+            item.createdDate = createdDate
+            ctx.insert(item)
+            let fv = FieldValue(fieldDefinition: nameDef, fieldType: .text)
+            fv.textValue = "Same"   // all tied on the only custom field
+            fv.item = item
+            ctx.insert(fv)
+            return item
+        }
+
+        let itemA = makeItem(createdDate: Date(timeIntervalSince1970: 0))
+        let itemB = makeItem(createdDate: Date(timeIntervalSince1970: 2000))
+        let itemC = makeItem(createdDate: Date(timeIntervalSince1970: 1000))
+
+        let sorted = CatalogueItemSort.sorted(
+            [itemB, itemC, itemA],
+            primaryField: .field(nameDef.fieldID),
+            direction: .ascending,
+            catalogue: catalogue
+        )
+
+        #expect(sorted[0] === itemA, "Oldest (t=0) should be first")
+        #expect(sorted[1] === itemC, "Middle (t=1000) should be second")
+        #expect(sorted[2] === itemB, "Newest (t=2000) should be last")
+    }
+
     // MARK: - Cascading Secondary Sort
 
     @Test("Cascading sort: ties broken by next field")

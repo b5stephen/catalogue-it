@@ -12,8 +12,8 @@ import Foundation
 /// Stateless sort helpers extracted from CatalogueItemsView for testability.
 enum CatalogueItemSort {
 
-    /// Returns `items` sorted by `primaryField` (in `direction`), with ties broken by the
-    /// subsequent fields in the catalogue's priority order (always ascending).
+    /// Returns `items` sorted by `primaryField` (in `direction`), with ties broken by all other
+    /// custom fields in priority order (always ascending), then finally by dateAdded ascending.
     static func sorted(
         _ items: [CatalogueItem],
         primaryField: ItemSortField,
@@ -23,11 +23,10 @@ enum CatalogueItemSort {
         let asc = direction == .ascending
         let sortedFieldDefs = catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
 
-        // Fields used as tiebreakers: everything after the primary in priority order.
+        // Fields used as tiebreakers: all fields in priority order, except the primary.
         let secondaryFields: [FieldDefinition]
-        if case .field(let uuid) = primaryField,
-           let idx = sortedFieldDefs.firstIndex(where: { $0.fieldID == uuid }) {
-            secondaryFields = Array(sortedFieldDefs[(idx + 1)...])
+        if case .field(let uuid) = primaryField {
+            secondaryFields = sortedFieldDefs.filter { $0.fieldID != uuid }
         } else {
             // dateAdded primary: all fields are available as tiebreakers
             secondaryFields = sortedFieldDefs
@@ -41,6 +40,11 @@ enum CatalogueItemSort {
                 if let result = compare(a, b, byField: .field(fieldDef.fieldID), fieldDefinitions: sortedFieldDefs) {
                     return result // tiebreakers always ascending
                 }
+            }
+            // Final tiebreaker: dateAdded (unless it's already the primary sort)
+            if case .field = primaryField,
+               let result = compare(a, b, byField: .dateAdded, fieldDefinitions: sortedFieldDefs) {
+                return result
             }
             return false
         }

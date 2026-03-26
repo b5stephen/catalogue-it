@@ -101,7 +101,7 @@ struct AddEditCatalogueView: View {
                     Button(isEditing ? "Save" : "Create") {
                         saveCatalogue()
                     }
-                    .disabled(name.isEmpty || fieldDefinitions.isEmpty)
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || fieldDefinitions.isEmpty)
                 }
 
 #if os(iOS)
@@ -149,7 +149,7 @@ struct AddEditCatalogueView: View {
     private func saveCatalogue() {
         if let existingCatalogue = catalogue {
             // Update existing
-            existingCatalogue.name = name
+            existingCatalogue.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
             existingCatalogue.iconName = selectedIcon
             existingCatalogue.colorHex = selectedColor.toHex()
 
@@ -162,11 +162,11 @@ struct AddEditCatalogueView: View {
             // Update existing fields in-place / insert new fields
             for (index, draft) in fieldDefinitions.enumerated() {
                 if let existing = draft.existingDefinition {
-                    existing.name = draft.name  // rename applied here — no cascade needed
+                    existing.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)  // rename applied here — no cascade needed
                     existing.priority = index
                     existing.numberOptions = draft.numberOptions
                 } else {
-                    let field = FieldDefinition(name: draft.name, fieldType: draft.fieldType, priority: index)
+                    let field = FieldDefinition(name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines), fieldType: draft.fieldType, priority: index)
                     field.numberOptions = draft.numberOptions
                     field.catalogue = existingCatalogue
                     modelContext.insert(field)
@@ -174,11 +174,11 @@ struct AddEditCatalogueView: View {
             }
         } else {
             // Create new
-            let newCatalogue = Catalogue(name: name, iconName: selectedIcon, colorHex: selectedColor.toHex(), priority: nextPriority)
+            let newCatalogue = Catalogue(name: name.trimmingCharacters(in: .whitespacesAndNewlines), iconName: selectedIcon, colorHex: selectedColor.toHex(), priority: nextPriority)
             modelContext.insert(newCatalogue)
 
             for (index, draft) in fieldDefinitions.enumerated() {
-                let field = FieldDefinition(name: draft.name, fieldType: draft.fieldType, priority: index)
+                let field = FieldDefinition(name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines), fieldType: draft.fieldType, priority: index)
                 field.numberOptions = draft.numberOptions
                 field.catalogue = newCatalogue
                 modelContext.insert(field)

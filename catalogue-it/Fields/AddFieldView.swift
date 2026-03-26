@@ -91,12 +91,12 @@ struct AddFieldView: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
-                        var field = FieldDefinitionDraft(name: fieldName, fieldType: selectedType, priority: 0)
+                        var field = FieldDefinitionDraft(name: fieldName.trimmingCharacters(in: .whitespacesAndNewlines), fieldType: selectedType, priority: 0)
                         field.numberOptions = numberOptions
                         onAdd(field)
                         dismiss()
                     }
-                    .disabled(fieldName.isEmpty)
+                    .disabled(fieldName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }

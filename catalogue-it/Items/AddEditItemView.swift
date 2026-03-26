@@ -135,7 +135,8 @@ struct AddEditItemView: View {
         if let existing = existingItem {
             // Edit path
             existing.isWishlist = isWishlist
-            existing.notes = notes.isEmpty ? nil : notes
+            let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+            existing.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
 
             for fv in existing.fieldValues { modelContext.delete(fv) }
             for photo in existing.photos { modelContext.delete(photo) }
@@ -143,9 +144,10 @@ struct AddEditItemView: View {
             targetItem = existing
         } else {
             // Create path
+            let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
             let newItem = CatalogueItem(
                 isWishlist: isWishlist,
-                notes: notes.isEmpty ? nil : notes
+                notes: trimmedNotes.isEmpty ? nil : trimmedNotes
             )
             newItem.catalogue = catalogue
             modelContext.insert(newItem)
@@ -157,7 +159,8 @@ struct AddEditItemView: View {
             let fv = FieldValue(fieldDefinition: draft.fieldDefinition, fieldType: draft.fieldType)
             switch draft.fieldType {
             case .text:
-                fv.textValue = draft.textValue.isEmpty ? nil : draft.textValue
+                let trimmedText = draft.textValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                fv.textValue = trimmedText.isEmpty ? nil : trimmedText
             case .number:
                 fv.numberValue = draft.numberValue
             case .date:
@@ -171,10 +174,11 @@ struct AddEditItemView: View {
 
         // Photos
         for draft in photoDrafts {
+            let trimmedCaption = draft.caption.trimmingCharacters(in: .whitespacesAndNewlines)
             let photo = ItemPhoto(
                 imageData: draft.imageData,
                 priority: draft.priority,
-                caption: draft.caption.isEmpty ? nil : draft.caption
+                caption: trimmedCaption.isEmpty ? nil : trimmedCaption
             )
             photo.item = targetItem
             modelContext.insert(photo)

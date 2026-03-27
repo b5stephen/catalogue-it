@@ -11,6 +11,7 @@ import SwiftData
 // MARK: - Catalogue Detail View
 
 struct CatalogueDetailView: View {
+    @Environment(\.modelContext) private var modelContext
     @Bindable var catalogue: Catalogue
     @Binding var selectedItem: CatalogueItem?
 
@@ -28,8 +29,13 @@ struct CatalogueDetailView: View {
     @State private var showingEditCatalogue = false
     @State private var showingAddItem = false
     @State private var showingStats = false
+    @State private var showingRecentlyDeleted = false
     @State private var searchText: String = ""
     @State private var displayedCount: Int = 0
+
+    private var hasRecentlyDeletedItems: Bool {
+        catalogue.items.contains { $0.deletedDate != nil }
+    }
 
     private var countLabel: String {
         displayedCount == 1 ? "1 item" : "\(displayedCount) items"
@@ -105,6 +111,12 @@ struct CatalogueDetailView: View {
         .sheet(isPresented: $showingStats) {
             CatalogueStatsView(catalogue: catalogue)
         }
+        .sheet(isPresented: $showingRecentlyDeleted) {
+            RecentlyDeletedView(catalogue: catalogue)
+        }
+        .task(id: catalogue.persistentModelID) {
+            PurgeService.purgeExpiredItems(for: catalogue, in: modelContext)
+        }
 #if !os(macOS)
         .navigationDestination(
             item: Binding(
@@ -132,6 +144,14 @@ struct CatalogueDetailView: View {
                         }
                     }
                     CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
+                    if hasRecentlyDeletedItems {
+                        Divider()
+                        Button {
+                            showingRecentlyDeleted = true
+                        } label: {
+                            Label("Recently Deleted", systemImage: "trash.circle")
+                        }
+                    }
                 } label: {
                     Label("More Options", systemImage: "ellipsis")
                 }
@@ -166,6 +186,14 @@ struct CatalogueDetailView: View {
                         Label("Statistics", systemImage: "chart.bar")
                     }
                     CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
+                    if hasRecentlyDeletedItems {
+                        Divider()
+                        Button {
+                            showingRecentlyDeleted = true
+                        } label: {
+                            Label("Recently Deleted", systemImage: "trash.circle")
+                        }
+                    }
                 }
             }
 #endif

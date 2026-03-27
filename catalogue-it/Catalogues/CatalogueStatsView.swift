@@ -14,8 +14,12 @@ struct CatalogueStatsView: View {
     @Bindable var catalogue: Catalogue
     @Environment(\.dismiss) private var dismiss
 
+    private var activeItems: [CatalogueItem] {
+        catalogue.items.filter { $0.deletedDate == nil }
+    }
+
     private var totalPhotos: Int {
-        catalogue.items.reduce(0) { $0 + $1.photos.count }
+        activeItems.reduce(0) { $0 + $1.photos.count }
     }
 
     private var sortedFields: [FieldDefinition] {
@@ -26,16 +30,16 @@ struct CatalogueStatsView: View {
         NavigationStack {
             Form {
                 Section("Items") {
-                    LabeledContent("Total", value: catalogue.items.count.formatted())
-                    LabeledContent("Owned", value: catalogue.items.count(where: { !$0.isWishlist }).formatted())
-                    LabeledContent("Wishlist", value: catalogue.items.count(where: { $0.isWishlist }).formatted())
+                    LabeledContent("Total", value: activeItems.count.formatted())
+                    LabeledContent("Owned", value: activeItems.count(where: { !$0.isWishlist }).formatted())
+                    LabeledContent("Wishlist", value: activeItems.count(where: { $0.isWishlist }).formatted())
                     LabeledContent("Photos", value: totalPhotos.formatted())
                 }
 
                 if !sortedFields.isEmpty {
                     Section("Field Completion") {
                         ForEach(sortedFields) { field in
-                            FieldCompletionRow(field: field, items: catalogue.items)
+                            FieldCompletionRow(field: field, items: activeItems)
                         }
                     }
                 }

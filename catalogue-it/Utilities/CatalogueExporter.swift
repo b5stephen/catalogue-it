@@ -26,7 +26,7 @@ enum CatalogueExporter {
         rows.append(headers.map(csvEscape).joined(separator: ","))
 
         // Data rows
-        let allItems = catalogue.items.sorted { $0.createdDate < $1.createdDate }
+        let allItems = catalogue.items.filter { $0.deletedDate == nil }.sorted { $0.createdDate < $1.createdDate }
         for item in allItems {
             var cells: [String] = []
             cells.append(item.isWishlist ? "Wishlist" : "Owned")

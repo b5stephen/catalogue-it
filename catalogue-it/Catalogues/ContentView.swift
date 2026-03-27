@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var selectedCatalogue: Catalogue?
     @State private var selectedItem: CatalogueItem?
     @State private var catalogueToEdit: Catalogue?
+    @State private var catalogueToDelete: Catalogue?
 
 #if !os(macOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -50,52 +51,51 @@ struct ContentView: View {
         .onChange(of: selectedCatalogue) {
             selectedItem = nil
         }
+        .alert(
+            "Import Failed",
+            isPresented: Binding(
+                get: { importErrorMessage != nil },
+                set: { if !$0 { importErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importErrorMessage ?? "")
+        }
+        .alert(
+            "Delete \"\(catalogueToDelete?.name ?? "")\"?",
+            isPresented: Binding(
+                get: { catalogueToDelete != nil },
+                set: { if !$0 { catalogueToDelete = nil } }
+            )
+        ) {
+            Button("Delete Catalogue", role: .destructive) {
+                if let catalogue = catalogueToDelete {
+                    modelContext.delete(catalogue)
+                }
+                catalogueToDelete = nil
+            }
+            Button("Cancel", role: .cancel) { catalogueToDelete = nil }
+        } message: {
+            if let catalogue = catalogueToDelete {
+                let activeCount = catalogue.items.count(where: { $0.deletedDate == nil })
+                let deletedCount = catalogue.items.count(where: { $0.deletedDate != nil })
+                if activeCount > 0 && deletedCount > 0 {
+                    Text("This catalogue contains \(activeCount) item(s) and \(deletedCount) recently deleted item(s). All data will be permanently removed.")
+                } else if activeCount > 0 {
+                    Text("This catalogue contains \(activeCount) item(s). All data will be permanently removed.")
+                } else {
+                    Text("This catalogue has \(deletedCount) recently deleted item(s). All data will be permanently removed.")
+                }
+            }
+        }
     }
 
     @ViewBuilder
     private var sidebarContent: some View {
         List(selection: $selectedCatalogue) {
             ForEach(catalogues) { catalogue in
-                NavigationLink(value: catalogue) {
-                    CatalogueRow(catalogue: catalogue)
-                }
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button {
-                        catalogueToEdit = catalogue
-                    } label: {
-                        Label("Edit", systemImage: "pencil")
-                    }
-                    .tint(.blue)
-
-                    Button(role: .destructive) {
-                        withAnimation {
-                            if selectedCatalogue == catalogue {
-                                selectedCatalogue = nil
-                            }
-                            modelContext.delete(catalogue)
-                        }
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                }
-                .contextMenu {
-                    Button {
-                        catalogueToEdit = catalogue
-                    } label: {
-                        Label("Edit Catalogue", systemImage: "pencil")
-                    }
-
-                    Button(role: .destructive) {
-                        withAnimation {
-                            if selectedCatalogue == catalogue {
-                                selectedCatalogue = nil
-                            }
-                            modelContext.delete(catalogue)
-                        }
-                    } label: {
-                        Label("Delete Catalogue", systemImage: "trash")
-                    }
-                }
+                catalogueRow(catalogue)
             }
             .onMove(perform: moveCatalogues)
         }
@@ -142,16 +142,49 @@ struct ContentView: View {
         ) { result in
             handleImport(result: result)
         }
-        .alert(
-            "Import Failed",
-            isPresented: Binding(
-                get: { importErrorMessage != nil },
-                set: { if !$0 { importErrorMessage = nil } }
-            )
-        ) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(importErrorMessage ?? "")
+    }
+
+    @ViewBuilder
+    private func catalogueRow(_ catalogue: Catalogue) -> some View {
+        NavigationLink(value: catalogue) {
+            CatalogueRow(catalogue: catalogue)
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button {
+                catalogueToEdit = catalogue
+            } label: {
+                Label("Edit", systemImage: "pencil")
+            }
+            .tint(.blue)
+
+            Button(role: .destructive) {
+                withAnimation {
+                    if selectedCatalogue == catalogue {
+                        selectedCatalogue = nil
+                    }
+                    deleteCatalogue(catalogue)
+                }
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .contextMenu {
+            Button {
+                catalogueToEdit = catalogue
+            } label: {
+                Label("Edit Catalogue", systemImage: "pencil")
+            }
+
+            Button(role: .destructive) {
+                withAnimation {
+                    if selectedCatalogue == catalogue {
+                        selectedCatalogue = nil
+                    }
+                    deleteCatalogue(catalogue)
+                }
+            } label: {
+                Label("Delete Catalogue", systemImage: "trash")
+            }
         }
     }
 
@@ -171,6 +204,16 @@ struct ContentView: View {
             } catch {
                 importErrorMessage = error.localizedDescription
             }
+        }
+    }
+
+    private func deleteCatalogue(_ catalogue: Catalogue) {
+        let hasItems = catalogue.items.contains { $0.deletedDate == nil }
+        let hasRecentlyDeleted = catalogue.items.contains { $0.deletedDate != nil }
+        if hasItems || hasRecentlyDeleted {
+            catalogueToDelete = catalogue
+        } else {
+            modelContext.delete(catalogue)
         }
     }
 

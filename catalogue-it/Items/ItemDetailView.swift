@@ -11,7 +11,6 @@ import SwiftData
 // MARK: - Item Detail View
 
 struct ItemDetailView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
     let catalogue: Catalogue
@@ -113,12 +112,12 @@ struct ItemDetailView: View {
                 ) {
                     Button("Delete", role: .destructive) {
                         selectedItem = nil
-                        modelContext.delete(item)
+                        item.deletedDate = Date.now
                         dismiss()
                     }
                     Button("Cancel", role: .cancel) {}
                 } message: {
-                    Text("This action cannot be undone.")
+                    Text("The item will be moved to Recently Deleted.")
                 }
             }
 #else
@@ -147,12 +146,12 @@ struct ItemDetailView: View {
                 ) {
                     Button("Delete", role: .destructive) {
                         selectedItem = nil
-                        modelContext.delete(item)
+                        item.deletedDate = Date.now
                         dismiss()
                     }
                     Button("Cancel", role: .cancel) {}
                 } message: {
-                    Text("This action cannot be undone.")
+                    Text("The item will be moved to Recently Deleted.")
                 }
             }
 #endif

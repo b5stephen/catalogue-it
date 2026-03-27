@@ -52,7 +52,9 @@ struct CatalogueItemsView: View {
         // Note: Predicate body must be a single expression. Using persistentModelID for relationships.
         var descriptor = FetchDescriptor<CatalogueItem>(
             predicate: #Predicate { item in
-                item.catalogue?.persistentModelID == targetID && (filterAll || item.isWishlist == filterWishlist)
+                item.catalogue?.persistentModelID == targetID
+                    && item.deletedDate == nil
+                    && (filterAll || item.isWishlist == filterWishlist)
             }
         )
         // Batch-load relationship objects to avoid N+1 queries during list render.

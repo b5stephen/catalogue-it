@@ -24,6 +24,12 @@ struct AddEditCatalogueView: View {
     @State private var showingIconPicker = false
     @State private var showingAddField = false
 
+    // Field deletion confirmation
+    @State private var pendingDeleteOffsets: IndexSet?
+    @State private var pendingDeleteFieldName = ""
+    @State private var pendingDeleteItemCount = 0
+    @State private var showingFieldDeleteConfirmation = false
+
     private var isEditing: Bool {
         catalogue != nil
     }
@@ -120,6 +126,24 @@ struct AddEditCatalogueView: View {
                     fieldDefinitions.append(field)
                 }
             }
+            .confirmationDialog(
+                "Delete \"\(pendingDeleteFieldName)\"?",
+                isPresented: $showingFieldDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Delete Field", role: .destructive) {
+                    if let offsets = pendingDeleteOffsets {
+                        fieldDefinitions.remove(atOffsets: offsets)
+                    }
+                    pendingDeleteOffsets = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingDeleteOffsets = nil
+                }
+            } message: {
+                let n = pendingDeleteItemCount
+                Text("This field contains data in \(n) item\(n == 1 ? "" : "s"). Deleting it will permanently remove that data when you save. You can still Cancel to keep the field.")
+            }
             .onAppear {
                 loadCatalogueData()
             }
@@ -189,7 +213,29 @@ struct AddEditCatalogueView: View {
     }
 
     private func deleteField(at offsets: IndexSet) {
-        fieldDefinitions.remove(atOffsets: offsets)
+        let affectedFields = offsets.map { fieldDefinitions[$0] }
+        let totalDataCount = affectedFields.reduce(0) { $0 + itemDataCount(for: $1) }
+
+        if totalDataCount > 0 {
+            pendingDeleteOffsets = offsets
+            pendingDeleteFieldName = affectedFields.first?.name ?? ""
+            pendingDeleteItemCount = totalDataCount
+            showingFieldDeleteConfirmation = true
+        } else {
+            fieldDefinitions.remove(atOffsets: offsets)
+        }
+    }
+
+    private func itemDataCount(for draft: FieldDefinitionDraft) -> Int {
+        guard let field = draft.existingDefinition else { return 0 }
+        return field.fieldValues.count { fv in
+            switch fv.fieldType {
+            case .text:    return fv.textValue != nil
+            case .number:  return fv.numberValue != nil
+            case .date:    return fv.dateValue != nil
+            case .boolean: return fv.boolValue == true
+            }
+        }
     }
 
     private func moveField(from source: IndexSet, to destination: Int) {

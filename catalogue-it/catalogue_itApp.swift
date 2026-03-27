@@ -40,6 +40,7 @@ struct catalogue_itApp: App {
         WindowGroup {
             ContentView()
                 .onAppear { seedUITestDataIfNeeded() }
+                .withModelContextUndoManager()
         }
         .modelContainer(sharedModelContainer)
     }

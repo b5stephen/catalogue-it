@@ -90,6 +90,7 @@ extension CatalogueDTO {
             .sorted { $0.priority < $1.priority }
             .map(FieldDefinitionDTO.init)
         items = catalogue.items
+            .filter { $0.deletedDate == nil }
             .sorted { $0.createdDate < $1.createdDate }
             .map { CatalogueItemDTO($0, includePhotos: includePhotos) }
     }

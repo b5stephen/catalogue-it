@@ -17,6 +17,25 @@ struct FullScreenPhotoView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedIndex: Int
 
+#if os(iOS)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    // Zoom
+    @GestureState private var gestureZoom: CGFloat = 1.0
+    @State private var zoomScale: CGFloat = 1.0
+
+    // Pan — only active via a conditional overlay when isZoomed, so it never
+    // competes with the horizontal scroll pager when viewing at 1×.
+    @GestureState private var gesturePan: CGSize = .zero
+    @State private var panOffset: CGSize = .zero
+
+    // Swipe-to-dismiss
+    @State private var dismissOffset: CGFloat = 0
+
+    private var currentZoom: CGFloat { zoomScale * gestureZoom }
+    private var isZoomed: Bool { currentZoom > 1.01 }
+#endif
+
     init(photos: [ItemPhoto], initialIndex: Int) {
         self.photos = photos
         self.initialIndex = initialIndex
@@ -28,18 +47,64 @@ struct FullScreenPhotoView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
 
-                TabView(selection: $selectedIndex) {
-                    ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
-                        photoPage(photo: photo)
-                            .tag(index)
+                GeometryReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 0) {
+                            ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
+                                photoPage(photo: photo)
+                                    .frame(width: proxy.size.width, height: proxy.size.height)
+                                    .id(index)
+                            }
+                        }
+                        .scrollTargetLayout()
+                    }
+                    .scrollTargetBehavior(.paging)
+                    .scrollPosition(id: Binding<Int?>(
+                        get: { selectedIndex },
+                        set: { if let i = $0 { selectedIndex = i } }
+                    ))
+#if os(iOS)
+                    .scrollDisabled(isZoomed)
+#endif
+                }
+
+#if os(iOS)
+                if photos.count > 1 {
+                    VStack {
+                        Spacer()
+                        HStack(spacing: 8) {
+                            ForEach(0..<photos.count, id: \.self) { i in
+                                Circle()
+                                    .fill(.white.opacity(selectedIndex == i ? 1 : 0.4))
+                                    .frame(width: 7, height: 7)
+                            }
+                        }
+                        .padding(.bottom, 20)
                     }
                 }
-#if os(iOS)
-                .tabViewStyle(.page)
-                .indexViewStyle(.page(backgroundDisplayMode: .always))
 #endif
             }
 #if os(iOS)
+            .simultaneousGesture(
+                DragGesture()
+                    .onChanged { value in
+                        guard !isZoomed, value.translation.height > 0 else { return }
+                        if !reduceMotion {
+                            dismissOffset = value.translation.height
+                        }
+                    }
+                    .onEnded { value in
+                        let didDragFar = value.translation.height > 100
+                        let didDragFast = value.velocity.height > 600
+                        if didDragFar || didDragFast {
+                            dismiss()
+                        } else if !reduceMotion {
+                            withAnimation(.spring(duration: 0.3)) { dismissOffset = 0 }
+                        } else {
+                            dismissOffset = 0
+                        }
+                    }
+            )
             .navigationBarTitleDisplayMode(.inline)
 #endif
             .toolbar {
@@ -83,6 +148,17 @@ struct FullScreenPhotoView: View {
 #endif
             }
         }
+#if os(iOS)
+        .offset(y: dismissOffset)
+        .onChange(of: selectedIndex) {
+            let animation: Animation = reduceMotion ? .linear(duration: 0.1) : .spring
+            withAnimation(animation) {
+                zoomScale = 1.0
+                panOffset = .zero
+                dismissOffset = 0
+            }
+        }
+#endif
         .preferredColorScheme(.dark)
     }
 
@@ -90,9 +166,51 @@ struct FullScreenPhotoView: View {
     private func photoPage(photo: ItemPhoto) -> some View {
         ZStack(alignment: .bottom) {
             if let image = photo.imageData.asImage() {
+#if os(iOS)
                 image
                     .resizable()
                     .scaledToFit()
+                    .scaleEffect(currentZoom)
+                    .offset(
+                        x: panOffset.width + gesturePan.width,
+                        y: panOffset.height + gesturePan.height
+                    )
+                    .gesture(
+                        MagnificationGesture()
+                            .updating($gestureZoom) { value, state, _ in state = value }
+                            .onEnded { value in
+                                zoomScale = min(max(zoomScale * value, 1.0), 5.0)
+                                if zoomScale <= 1.0 { panOffset = .zero }
+                            }
+                    )
+                    .onTapGesture(count: 2) {
+                        withAnimation(.spring(duration: 0.3)) {
+                            zoomScale = 1.0
+                            panOffset = .zero
+                        }
+                    }
+
+                // Pan overlay exists only when zoomed. Its absence when at 1× means
+                // there is no DragGesture inside the ScrollView to interfere with paging.
+                if isZoomed {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture()
+                                .updating($gesturePan) { value, state, _ in
+                                    state = value.translation
+                                }
+                                .onEnded { value in
+                                    panOffset.width += value.translation.width
+                                    panOffset.height += value.translation.height
+                                }
+                        )
+                }
+#else
+                image
+                    .resizable()
+                    .scaledToFit()
+#endif
             } else {
                 Rectangle()
                     .fill(.secondary.opacity(0.2))

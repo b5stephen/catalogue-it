@@ -13,7 +13,12 @@ struct PhotoCarouselView: View {
     let photos: [ItemPhoto]
 
     @State private var selectedIndex: Int? = 0
+#if os(iOS)
+    @Namespace private var photoNamespace
     @State private var showingFullScreen = false
+#else
+    @State private var showingFullScreen = false
+#endif
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -25,6 +30,7 @@ struct PhotoCarouselView: View {
                         .onTapGesture {
                             showingFullScreen = true
                         }
+                        .matchedTransitionSource(id: photo.id, in: photoNamespace)
                 }
             }
             .tabViewStyle(.page)
@@ -63,6 +69,10 @@ struct PhotoCarouselView: View {
 #if os(iOS)
         .fullScreenCover(isPresented: $showingFullScreen) {
             FullScreenPhotoView(photos: photos, initialIndex: selectedIndex ?? 0)
+                .navigationTransition(.zoom(
+                    sourceID: photos[selectedIndex ?? 0].id,
+                    in: photoNamespace
+                ))
         }
 #else
         .sheet(isPresented: $showingFullScreen) {

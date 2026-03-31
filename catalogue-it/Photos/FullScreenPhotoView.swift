@@ -164,7 +164,11 @@ struct FullScreenPhotoView: View {
 
                 let didDragFar = value.translation.height > 100
                 let didDragFast = value.velocity.height > 600
-                if !dismissSuppressed, (didDragFar || didDragFast) {
+                // dismissOffset > 0 confirms onChanged actually tracked this as a
+                // dismiss gesture. Without this, a pinch-out (where onChanged is
+                // suppressed by !isPinching but onEnded fires after isPinching resets)
+                // could satisfy didDragFar/didDragFast from the pinch translation.
+                if !dismissSuppressed, dismissOffset > 0, (didDragFar || didDragFast) {
                     dismiss()
                 } else {
                     withAnimation(reduceMotion ? .linear(duration: 0.1) : .spring(duration: 0.3)) {

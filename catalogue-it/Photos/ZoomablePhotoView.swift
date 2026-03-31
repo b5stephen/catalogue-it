@@ -80,6 +80,11 @@ struct ZoomablePhotoView: View {
                                                 }
                                             }
                                     )
+                                    // The overlay intercepts all touches when zoomed, so the
+                                    // double-tap on the image below never fires. Mirror it here.
+                                    .onTapGesture(count: 2) { location in
+                                        handleDoubleTap(at: location, in: geometry.size)
+                                    }
                             }
                         }
                         .onChange(of: currentlyZoomed) { _, zoomed in

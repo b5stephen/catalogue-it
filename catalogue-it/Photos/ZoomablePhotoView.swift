@@ -22,6 +22,7 @@ struct ZoomablePhotoView: View {
     let imageData: Data
     let caption: String?
     @Binding var isZoomed: Bool
+    @Binding var isPinching: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -113,6 +114,7 @@ struct ZoomablePhotoView: View {
         MagnifyGesture()
             .onChanged { value in
                 gestureMagnification = value.magnification
+                isPinching = true
             }
             .onEnded { value in
                 let newScale = min(max(zoomScale * value.magnification, 1.0), 5.0)
@@ -124,6 +126,7 @@ struct ZoomablePhotoView: View {
                         panOffset = .zero
                     }
                 }
+                isPinching = false
             }
     }
 

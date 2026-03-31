@@ -24,9 +24,18 @@ struct FullScreenPhotoView: View {
     // Set by ZoomablePhotoView via binding; gates paging and dismiss.
     @State private var isZoomed = false
 
+    // Reflects whether the currently visible photo has an active pinch gesture.
+    // Set by ZoomablePhotoView via binding; gates dismiss independently of isZoomed,
+    // since isZoomed is false during the transition from 1× to zoomed.
+    @State private var isPinching = false
+
     // Swipe-to-dismiss state
     @State private var dismissOffset: CGFloat = 0
     @State private var dismissProgress: CGFloat = 0 // 0 = fully presented, 1 = dismissed
+
+    // Latched to true within a gesture if horizontal motion is detected first.
+    // Prevents accidental dismiss from diagonal or horizontal swipes.
+    @State private var dismissSuppressed = false
 #endif
 
     init(photos: [ItemPhoto], initialIndex: Int) {
@@ -61,7 +70,8 @@ struct FullScreenPhotoView: View {
                             ZoomablePhotoView(
                                 imageData: photo.imageData,
                                 caption: photo.caption,
-                                isZoomed: $isZoomed
+                                isZoomed: $isZoomed,
+                                isPinching: $isPinching
                             )
                             .frame(width: proxy.size.width, height: proxy.size.height)
                             .id(index)
@@ -107,29 +117,54 @@ struct FullScreenPhotoView: View {
             withAnimation(animation) {
                 isZoomed = false
             }
+            isPinching = false
+            dismissSuppressed = false
         }
     }
 
     // MARK: - Dismiss Gesture
 
     // Vertical downward drag to dismiss. Uses simultaneousGesture on the parent
-    // so horizontal ScrollView paging is unaffected. A directionality check
-    // (height > width * 1.5) prevents accidental activation on diagonal swipes.
+    // so horizontal ScrollView paging is unaffected.
+    //
+    // Suppression logic prevents accidental activation:
+    // - isPinching: blocks dismiss while a pinch-to-zoom is active (isZoomed alone
+    //   is insufficient because it's false during the 1× → zoomed transition).
+    // - dismissSuppressed: latched true if horizontal motion is detected before
+    //   vertical, preventing diagonal/horizontal swipes from triggering dismiss.
+    // - 3× angle requirement (was 1.5×): gesture must be within ~18° of vertical.
+    // - 20pt minimum threshold: avoids a 1-frame visual jump at gesture start.
     private var dismissGesture: some Gesture {
         DragGesture()
             .onChanged { value in
-                guard !isZoomed, value.translation.height > 0 else { return }
-                let dominated = abs(value.translation.height) > abs(value.translation.width) * 1.5
-                guard dominated else { return }
+                guard !isZoomed, !isPinching else { return }
+
+                let height = value.translation.height
+                let width = value.translation.width
+
+                // Latch suppression if horizontal motion is detected first
+                if abs(width) > abs(height) {
+                    dismissSuppressed = true
+                }
+                guard !dismissSuppressed, height > 0 else { return }
+
+                // Require a steep vertical angle to avoid diagonal false positives
+                guard abs(height) > abs(width) * 3.0 else { return }
+
+                // Minimum threshold before showing visual feedback
+                guard height > 20 else { return }
+
                 if !reduceMotion {
-                    dismissOffset = value.translation.height
+                    dismissOffset = height
                     dismissProgress = min(dismissOffset / 300, 1.0)
                 }
             }
             .onEnded { value in
+                defer { dismissSuppressed = false }
+
                 let didDragFar = value.translation.height > 100
                 let didDragFast = value.velocity.height > 600
-                if didDragFar || didDragFast {
+                if !dismissSuppressed, (didDragFar || didDragFast) {
                     dismiss()
                 } else {
                     withAnimation(reduceMotion ? .linear(duration: 0.1) : .spring(duration: 0.3)) {

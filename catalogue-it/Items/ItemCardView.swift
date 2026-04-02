@@ -65,21 +65,32 @@ struct ItemCardView: View {
 
 private struct ItemCardPhotoView: View {
     let photo: ItemPhoto?
+    @State private var loadedImage: Image?
 
     var body: some View {
-        if let photo, let image = photo.imageData.asImage() {
-            image
-                .resizable()
-                .scaledToFill()
-        } else {
-            Rectangle()
-                .fill(.quaternary)
-                .overlay {
-                    Image(systemName: "photo")
-                        .font(.largeTitle)
-                        .foregroundStyle(.tertiary)
-                        .accessibilityHidden(true)
-                }
+        Group {
+            if let loadedImage {
+                loadedImage
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Rectangle()
+                    .fill(.quaternary)
+                    .overlay {
+                        Image(systemName: "photo")
+                            .font(.largeTitle)
+                            .foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
+                    }
+            }
+        }
+        .task(id: photo?.persistentModelID) {
+            guard let photo else { loadedImage = nil; return }
+            let data = photo.imageData   // Read on MainActor — @Model requires it
+            loadedImage = await Task.detached(priority: .userInitiated) {
+                guard let ui = UIImage(data: data) else { return nil }
+                return Image(uiImage: ui)
+            }.value
         }
     }
 }

@@ -19,6 +19,7 @@ struct CatalogueItemsView: View {
     @Binding var displayedCount: Int
 
     @Query private var items: [CatalogueItem]
+    @State private var displayedItems: [CatalogueItem] = []
 
     init(catalogue: Catalogue,
          tab: ItemTab,
@@ -57,10 +58,10 @@ struct CatalogueItemsView: View {
                     && (filterAll || item.isWishlist == filterWishlist)
             }
         )
-        // Batch-load relationship objects to avoid N+1 queries during list render.
-        // For photos: ItemPhoto model objects are prefetched, but imageData (external storage)
-        // is still loaded lazily from disk on first access — correct behaviour.
-        descriptor.relationshipKeyPathsForPrefetching = [\.fieldValues, \.photos]
+        // Batch-load field values to avoid N+1 queries during list render.
+        // Photos are intentionally excluded: LazyVGrid/List only renders visible cells,
+        // so prefetching all ItemPhoto objects upfront adds cost without benefit.
+        descriptor.relationshipKeyPathsForPrefetching = [\.fieldValues]
 
         // Push dateAdded sort to SQLite via the index on createdDate.
         // Custom field sorts must remain in-memory (FieldValue properties aren't sortable at DB level).
@@ -71,10 +72,27 @@ struct CatalogueItemsView: View {
         _items = Query(descriptor)
     }
 
-    // Perform search and sort in memory for now, as dynamic predicates/sorts
-    // on relationships/computed values are complex.
-    // Since we've already filtered by Catalogue+Tab, the dataset is smaller.
-    private var processedItems: [CatalogueItem] {
+    // Identifies the inputs that affect the displayed item list.
+    // .task(id: processingID) restarts whenever any of these change.
+    private struct ProcessingID: Equatable {
+        let itemIDs: [PersistentIdentifier]
+        let searchText: String
+        let sortFieldKey: String
+        let sortDirection: String
+    }
+
+    private var processingID: ProcessingID {
+        ProcessingID(
+            itemIDs: items.map(\.persistentModelID),
+            searchText: searchText,
+            sortFieldKey: sortFieldKey,
+            sortDirection: sortDirection
+        )
+    }
+
+    // Computes the filtered and sorted list from the current @Query results.
+    // Must run on MainActor because CatalogueItem/FieldValue are @Model types.
+    private func computeDisplayedItems() -> [CatalogueItem] {
         // 1. Search
         let searched: [CatalogueItem]
         if searchText.isEmpty {
@@ -90,16 +108,10 @@ struct CatalogueItemsView: View {
 
         // 2. Sort
         // dateAdded sort was applied at DB level in the FetchDescriptor — skip in-memory sort.
-        // Swift's filter is stable, so search results preserve createdDate order.
         let field = ItemSortField(rawValue: sortFieldKey)
         if case .dateAdded = field { return searched }
-        return sortedItems(searched)
-    }
-
-    private func sortedItems(_ items: [CatalogueItem]) -> [CatalogueItem] {
-        let field = ItemSortField(rawValue: sortFieldKey)
         let direction = ItemSortDirection(rawValue: sortDirection) ?? .ascending
-        return CatalogueItemSort.sorted(items, primaryField: field, direction: direction, catalogue: catalogue)
+        return CatalogueItemSort.sorted(searched, primaryField: field, direction: direction, catalogue: catalogue)
     }
 
     private let gridColumns = [
@@ -107,21 +119,28 @@ struct CatalogueItemsView: View {
     ]
 
     var body: some View {
-        if processedItems.isEmpty {
-            CatalogueEmptyStateView(
-                selectedTab: tab,
-                isFiltered: !searchText.isEmpty && !items.isEmpty
-            )
-            .onChange(of: processedItems.count, initial: true) { displayedCount = processedItems.count }
-        } else {
-            switch layout {
-            case .grid:
-                ItemGridView(items: processedItems, gridColumns: gridColumns, showWishlistBadge: tab == .all, selectedItem: $selectedItem)
-                    .onChange(of: processedItems.count, initial: true) { displayedCount = processedItems.count }
-            case .list:
-                ItemListView(items: processedItems, catalogue: catalogue, showWishlistBadge: tab == .all, selectedItem: $selectedItem)
-                    .onChange(of: processedItems.count, initial: true) { displayedCount = processedItems.count }
+        Group {
+            if displayedItems.isEmpty {
+                CatalogueEmptyStateView(
+                    selectedTab: tab,
+                    isFiltered: !searchText.isEmpty && !items.isEmpty
+                )
+            } else {
+                switch layout {
+                case .grid:
+                    ItemGridView(items: displayedItems, gridColumns: gridColumns, showWishlistBadge: tab == .all, selectedItem: $selectedItem)
+                case .list:
+                    ItemListView(items: displayedItems, catalogue: catalogue, showWishlistBadge: tab == .all, selectedItem: $selectedItem)
+                }
             }
+        }
+        // Recomputes search + sort whenever items, search, or sort settings change.
+        // Task.yield() lets the navigation animation complete before the sort runs.
+        .task(id: processingID) {
+            await Task.yield()
+            let result = computeDisplayedItems()
+            displayedItems = result
+            displayedCount = result.count
         }
     }
 }

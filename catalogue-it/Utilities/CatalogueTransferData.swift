@@ -181,6 +181,7 @@ extension CatalogueDTO {
             item.catalogue = catalogue
             context.insert(item)
 
+            var createdFieldValues: [FieldValue] = []
             for fvDTO in itemDTO.fieldValues {
                 // Skip values whose definition wasn't found (handles corrupt/partial files).
                 guard let def = defMap[fvDTO.fieldDefinitionID] else { continue }
@@ -189,9 +190,12 @@ extension CatalogueDTO {
                 fv.numberValue = fvDTO.numberValue
                 fv.dateValue = fvDTO.dateValue
                 fv.boolValue = fvDTO.boolValue
+                fv.sortKey = SortKeyEncoder.sortKey(for: fv)
                 fv.item = item
                 context.insert(fv)
+                createdFieldValues.append(fv)
             }
+            item.searchText = SearchTextBuilder.build(from: createdFieldValues)
 
             for photoDTO in itemDTO.photos {
                 let photo = ItemPhoto(

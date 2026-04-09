@@ -155,6 +155,7 @@ struct AddEditItemView: View {
         }
 
         // Field values
+        var createdFieldValues: [FieldValue] = []
         for draft in fieldDrafts {
             let fv = FieldValue(fieldDefinition: draft.fieldDefinition, fieldType: draft.fieldType)
             switch draft.fieldType {
@@ -168,9 +169,14 @@ struct AddEditItemView: View {
             case .boolean:
                 fv.boolValue = draft.boolValue
             }
+            fv.sortKey = SortKeyEncoder.sortKey(for: fv)
             fv.item = targetItem
             modelContext.insert(fv)
+            createdFieldValues.append(fv)
         }
+
+        // Denormalised search blob — kept in sync so SQLite can filter without loading children.
+        targetItem.searchText = SearchTextBuilder.build(from: createdFieldValues)
 
         // Photos
         for draft in photoDrafts {

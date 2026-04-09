@@ -18,6 +18,7 @@ struct CatalogueItemsView: View {
     @Binding var selectedItem: CatalogueItem?
     @Binding var displayedCount: Int
 
+    @Environment(\.modelContext) private var modelContext
     @Query private var items: [CatalogueItem]
     @State private var displayedItems: [CatalogueItem] = []
 
@@ -49,13 +50,18 @@ struct CatalogueItemsView: View {
         let sortField = ItemSortField(rawValue: sortFieldKey.wrappedValue)
         let ascending = (ItemSortDirection(rawValue: sortDirection.wrappedValue) ?? .ascending) == .ascending
 
-        // Filter by Catalogue ID and Tab.
-        // Note: Predicate body must be a single expression. Using persistentModelID for relationships.
+        // DB-level search: searchText is stored lowercased; query must match.
+        let hasSearch = !searchText.isEmpty
+        let lowercasedQuery = searchText.lowercased()
+
+        // Filter by catalogue, tab, soft-delete, and (if active) search text.
+        // Search uses CatalogueItem.searchText so SQLite filters without loading child rows.
         var descriptor = FetchDescriptor<CatalogueItem>(
             predicate: #Predicate { item in
                 item.catalogue?.persistentModelID == targetID
                     && item.deletedDate == nil
                     && (filterAll || item.isWishlist == filterWishlist)
+                    && (!hasSearch || item.searchText.contains(lowercasedQuery))
             }
         )
         // Batch-load field values to avoid N+1 queries during list render.
@@ -64,7 +70,7 @@ struct CatalogueItemsView: View {
         descriptor.relationshipKeyPathsForPrefetching = [\.fieldValues]
 
         // Push dateAdded sort to SQLite via the index on createdDate.
-        // Custom field sorts must remain in-memory (FieldValue properties aren't sortable at DB level).
+        // Custom field sorts are handled in computeDisplayedItems() via a FieldValue fetch.
         if case .dateAdded = sortField {
             descriptor.sortBy = [SortDescriptor(\.createdDate, order: ascending ? .forward : .reverse)]
         }
@@ -90,28 +96,43 @@ struct CatalogueItemsView: View {
         )
     }
 
-    // Computes the filtered and sorted list from the current @Query results.
+    // Computes the sorted list from the current @Query results.
+    // Search filtering is already applied at the DB level via the @Query predicate.
     // Must run on MainActor because CatalogueItem/FieldValue are @Model types.
+    @MainActor
     private func computeDisplayedItems() -> [CatalogueItem] {
-        // 1. Search
-        let searched: [CatalogueItem]
-        if searchText.isEmpty {
-            searched = items
-        } else {
-            searched = items.filter { item in
-                catalogue.fieldDefinitions.contains { def in
-                    guard let fv = item.value(for: def) else { return false }
-                    return fv.displayValue(options: def.fieldOptions).localizedStandardContains(searchText)
-                }
-            }
-        }
-
-        // 2. Sort
-        // dateAdded sort was applied at DB level in the FetchDescriptor — skip in-memory sort.
         let field = ItemSortField(rawValue: sortFieldKey)
-        if case .dateAdded = field { return searched }
-        let direction = ItemSortDirection(rawValue: sortDirection) ?? .ascending
-        return CatalogueItemSort.sorted(searched, primaryField: field, direction: direction, catalogue: catalogue)
+
+        // dateAdded: @Query already applied DB-level sort — nothing to do.
+        guard case .field(let fieldID) = field else { return items }
+
+        // Custom field: fetch FieldValues sorted by sortKey at the DB level.
+        // The @Query result set (items) is already filtered by tab and search;
+        // use it as an allow-list to avoid a complex 3-level predicate traversal.
+        let ascending = (ItemSortDirection(rawValue: sortDirection) ?? .ascending) == .ascending
+        let filterAll = tab == .all
+        let filterWishlist = tab == .wishlist
+
+        var descriptor = FetchDescriptor<FieldValue>(
+            predicate: #Predicate { fv in
+                fv.fieldDefinition?.fieldID == fieldID
+                    && fv.item?.deletedDate == nil
+                    && (filterAll || fv.item?.isWishlist == filterWishlist)
+            },
+            sortBy: [SortDescriptor(\.sortKey, order: ascending ? .forward : .reverse)]
+        )
+        descriptor.relationshipKeyPathsForPrefetching = [\.item]
+
+        let candidateIDs = Set(items.map(\.persistentModelID))
+
+        do {
+            let sorted = try modelContext.fetch(descriptor)
+            return sorted
+                .compactMap { $0.item }
+                .filter { candidateIDs.contains($0.persistentModelID) }
+        } catch {
+            return items // graceful fallback
+        }
     }
 
     private let gridColumns = [
@@ -134,7 +155,7 @@ struct CatalogueItemsView: View {
                 }
             }
         }
-        // Recomputes search + sort whenever items, search, or sort settings change.
+        // Recomputes sort whenever items, search, or sort settings change.
         // Task.yield() lets the navigation animation complete before the sort runs.
         .task(id: processingID) {
             await Task.yield()

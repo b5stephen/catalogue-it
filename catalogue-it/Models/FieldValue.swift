@@ -15,6 +15,10 @@ import SwiftData
 /// requires no cascade update here.
 @Model
 final class FieldValue {
+    // Compound index enables DB-level sort on a custom field:
+    // fetch FieldValues WHERE fieldDefinition = X ORDER BY sortKey.
+    #Index<FieldValue>([\.fieldDefinition, \.sortKey])
+
     var fieldDefinition: FieldDefinition?
     var fieldType: FieldType
     var item: CatalogueItem?
@@ -25,10 +29,13 @@ final class FieldValue {
     var dateValue: Date?
     var boolValue: Bool?
 
+    /// Normalised, lexicographically sortable string computed from the typed value on save.
+    /// `SortKeyEncoder.missingValueSentinel` ("\u{FFFF}") when the field has no value (sorts last).
+    /// Adding with a default value requires no SchemaMigrationPlan; existing rows get the sentinel.
+    var sortKey: String = SortKeyEncoder.missingValueSentinel
+
     init(fieldDefinition: FieldDefinition?, fieldType: FieldType) {
         self.fieldDefinition = fieldDefinition
         self.fieldType = fieldType
     }
-
-
 }

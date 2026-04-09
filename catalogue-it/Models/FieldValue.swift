@@ -32,7 +32,7 @@ final class FieldValue {
     /// Normalised, lexicographically sortable string computed from the typed value on save.
     /// `SortKeyEncoder.missingValueSentinel` ("\u{FFFF}") when the field has no value (sorts last).
     /// Adding with a default value requires no SchemaMigrationPlan; existing rows get the sentinel.
-    var sortKey: String = SortKeyEncoder.missingValueSentinel
+    var sortKey: String = "\u{FFFF}"
 
     init(fieldDefinition: FieldDefinition?, fieldType: FieldType) {
         self.fieldDefinition = fieldDefinition

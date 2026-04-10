@@ -19,120 +19,16 @@ struct CatalogueItemsView: View {
     @Binding var displayedCount: Int
 
     @Environment(\.modelContext) private var modelContext
-    @Query private var items: [CatalogueItem]
-    @State private var displayedItems: [CatalogueItem] = []
+    @State private var pagination = ItemPaginationController()
 
-    init(catalogue: Catalogue,
-         tab: ItemTab,
-         searchText: String,
-         sortFieldKey: Binding<String>,
-         sortDirection: Binding<String>,
-         layout: ItemLayout,
-         selectedItem: Binding<CatalogueItem?>,
-         displayedCount: Binding<Int>) {
-
-        self.catalogue = catalogue
-        self.tab = tab
-        self.searchText = searchText
-        self._sortFieldKey = sortFieldKey
-        self._sortDirection = sortDirection
-        self.layout = layout
-        self._selectedItem = selectedItem
-        self._displayedCount = displayedCount
-
-        let isAll = tab == .all
-        let isWishlist = tab == .wishlist
-
-        let targetID = catalogue.persistentModelID
-        let filterWishlist = isWishlist
-        let filterAll = isAll
-
-        let sortField = ItemSortField(rawValue: sortFieldKey.wrappedValue)
-        let ascending = (ItemSortDirection(rawValue: sortDirection.wrappedValue) ?? .ascending) == .ascending
-
-        // DB-level search: searchText is stored lowercased; query must match.
-        let hasSearch = !searchText.isEmpty
-        let lowercasedQuery = searchText.lowercased()
-
-        // Filter by catalogue, tab, soft-delete, and (if active) search text.
-        // Search uses CatalogueItem.searchText so SQLite filters without loading child rows.
-        var descriptor = FetchDescriptor<CatalogueItem>(
-            predicate: #Predicate { item in
-                item.catalogue?.persistentModelID == targetID
-                    && item.deletedDate == nil
-                    && (filterAll || item.isWishlist == filterWishlist)
-                    && (!hasSearch || item.searchText.contains(lowercasedQuery))
-            }
-        )
-        // Batch-load field values to avoid N+1 queries during list render.
-        // Photos are intentionally excluded: LazyVGrid/List only renders visible cells,
-        // so prefetching all ItemPhoto objects upfront adds cost without benefit.
-        descriptor.relationshipKeyPathsForPrefetching = [\.fieldValues]
-
-        // Push dateAdded sort to SQLite via the index on createdDate.
-        // Custom field sorts are handled in computeDisplayedItems() via a FieldValue fetch.
-        if case .dateAdded = sortField {
-            descriptor.sortBy = [SortDescriptor(\.createdDate, order: ascending ? .forward : .reverse)]
-        }
-
-        _items = Query(descriptor)
-    }
-
-    // Identifies the inputs that affect the displayed item list.
-    // .task(id: processingID) restarts whenever any of these change.
-    private struct ProcessingID: Equatable {
-        let itemIDs: [PersistentIdentifier]
-        let searchText: String
-        let sortFieldKey: String
-        let sortDirection: String
-    }
-
-    private var processingID: ProcessingID {
-        ProcessingID(
-            itemIDs: items.map(\.persistentModelID),
+    private var filterFingerprint: FilterFingerprint {
+        FilterFingerprint(
+            catalogueID: catalogue.persistentModelID,
+            tab: tab,
             searchText: searchText,
             sortFieldKey: sortFieldKey,
             sortDirection: sortDirection
         )
-    }
-
-    // Computes the sorted list from the current @Query results.
-    // Search filtering is already applied at the DB level via the @Query predicate.
-    // Must run on MainActor because CatalogueItem/FieldValue are @Model types.
-    @MainActor
-    private func computeDisplayedItems() -> [CatalogueItem] {
-        let field = ItemSortField(rawValue: sortFieldKey)
-
-        // dateAdded: @Query already applied DB-level sort — nothing to do.
-        guard case .field(let fieldID) = field else { return items }
-
-        // Custom field: fetch FieldValues sorted by sortKey at the DB level.
-        // The @Query result set (items) is already filtered by tab and search;
-        // use it as an allow-list to avoid a complex 3-level predicate traversal.
-        let ascending = (ItemSortDirection(rawValue: sortDirection) ?? .ascending) == .ascending
-        let filterAll = tab == .all
-        let filterWishlist = tab == .wishlist
-
-        var descriptor = FetchDescriptor<FieldValue>(
-            predicate: #Predicate { fv in
-                fv.fieldDefinition?.fieldID == fieldID
-                    && fv.item?.deletedDate == nil
-                    && (filterAll || fv.item?.isWishlist == filterWishlist)
-            },
-            sortBy: [SortDescriptor(\.sortKey, order: ascending ? .forward : .reverse)]
-        )
-        descriptor.relationshipKeyPathsForPrefetching = [\.item]
-
-        let candidateIDs = Set(items.map(\.persistentModelID))
-
-        do {
-            let sorted = try modelContext.fetch(descriptor)
-            return sorted
-                .compactMap { $0.item }
-                .filter { candidateIDs.contains($0.persistentModelID) }
-        } catch {
-            return items // graceful fallback
-        }
     }
 
     private let gridColumns = [
@@ -141,27 +37,48 @@ struct CatalogueItemsView: View {
 
     var body: some View {
         Group {
-            if displayedItems.isEmpty {
+            if pagination.items.isEmpty && !pagination.isLoadingMore {
                 CatalogueEmptyStateView(
                     selectedTab: tab,
-                    isFiltered: !searchText.isEmpty && !items.isEmpty
+                    isFiltered: !searchText.isEmpty && pagination.hasAnyItems
                 )
             } else {
                 switch layout {
                 case .grid:
-                    ItemGridView(items: displayedItems, gridColumns: gridColumns, showWishlistBadge: tab == .all, selectedItem: $selectedItem)
+                    ItemGridView(
+                        items: pagination.items,
+                        gridColumns: gridColumns,
+                        showWishlistBadge: tab == .all,
+                        selectedItem: $selectedItem,
+                        hasMore: pagination.hasMore,
+                        isLoadingMore: pagination.isLoadingMore,
+                        onLoadMore: { pagination.loadMore(context: modelContext) }
+                    )
                 case .list:
-                    ItemListView(items: displayedItems, catalogue: catalogue, showWishlistBadge: tab == .all, selectedItem: $selectedItem)
+                    ItemListView(
+                        items: pagination.items,
+                        catalogue: catalogue,
+                        showWishlistBadge: tab == .all,
+                        selectedItem: $selectedItem,
+                        hasMore: pagination.hasMore,
+                        isLoadingMore: pagination.isLoadingMore,
+                        onLoadMore: { pagination.loadMore(context: modelContext) }
+                    )
                 }
             }
         }
-        // Recomputes sort whenever items, search, or sort settings change.
-        // Task.yield() lets the navigation animation complete before the sort runs.
-        .task(id: processingID) {
-            await Task.yield()
-            let result = computeDisplayedItems()
-            displayedItems = result
-            displayedCount = result.count
+        .task {
+            pagination.reset(fingerprint: filterFingerprint, context: modelContext)
+            pagination.startObservingStoreChanges()
+        }
+        .onChange(of: filterFingerprint) {
+            pagination.reset(fingerprint: filterFingerprint, context: modelContext)
+        }
+        .onChange(of: pagination.totalCount) {
+            displayedCount = pagination.totalCount
+        }
+        .onDisappear {
+            pagination.stopObservingStoreChanges()
         }
     }
 }

@@ -127,6 +127,13 @@ struct ContentView: View {
                 EditButton()
             }
 #endif
+#if DEBUG
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Load Test Data", systemImage: "hammer") {
+                    seedTestData()
+                }
+            }
+#endif
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Import Catalogue", systemImage: "square.and.arrow.down") {
                     showingImporter = true
@@ -192,6 +199,24 @@ struct ContentView: View {
             }
         }
     }
+
+#if DEBUG
+    private func seedTestData() {
+        Task { @MainActor in
+            importProgress = (current: 0, total: 0)
+            let catalogue = TestDataGenerator.seed(
+                into: modelContext,
+                priorityOffset: catalogues.count,
+                onProgress: { current, total in
+                    importProgress = (current: current, total: total)
+                }
+            )
+            try? modelContext.save()
+            importProgress = nil
+            selectedCatalogue = catalogue
+        }
+    }
+#endif
 
     private func handleImport(result: Result<[URL], Error>) {
         Task { @MainActor in

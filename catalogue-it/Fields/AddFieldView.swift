@@ -16,6 +16,12 @@ struct AddFieldView: View {
     @State private var fieldName: String = ""
     @State private var selectedType: FieldType = .text
     @State private var numberOptions: NumberOptions = NumberOptions()
+    @State private var optionListOptions: OptionListOptions = OptionListOptions()
+    @State private var newOptionText: String = ""
+
+    // Trimmed candidate for the new option being typed
+    private var trimmedNew: String { newOptionText.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var canAddOption: Bool { !trimmedNew.isEmpty && !optionListOptions.options.contains(trimmedNew) }
 
     var body: some View {
         NavigationStack {
@@ -54,6 +60,54 @@ struct AddFieldView: View {
                     }
                 }
 
+                if selectedType == .optionList {
+                    Section {
+                        ForEach(optionListOptions.options.sorted(), id: \.self) { option in
+                            HStack {
+                                Text(option)
+                                Spacer()
+                                if option == optionListOptions.defaultValue {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.blue)
+                                }
+                                Button(role: .destructive) {
+                                    optionListOptions.options.removeAll { $0 == option }
+                                    if optionListOptions.defaultValue == option {
+                                        optionListOptions.defaultValue = nil
+                                    }
+                                } label: {
+                                    Image(systemName: "minus.circle.fill")
+                                        .foregroundStyle(.red)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                optionListOptions.defaultValue = (optionListOptions.defaultValue == option) ? nil : option
+                            }
+                        }
+
+                        HStack {
+                            TextField("New option", text: $newOptionText)
+#if os(iOS)
+                                .textInputAutocapitalization(.words)
+#endif
+                            Button {
+                                optionListOptions.options.append(trimmedNew)
+                                newOptionText = ""
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(!canAddOption)
+                        }
+                    } header: {
+                        Text("Options")
+                    } footer: {
+                        Text("Tap an option to set it as the default. Tap again to clear.")
+                    }
+                }
+
                 Section {
                     // Preview
                     VStack(alignment: .leading, spacing: 8) {
@@ -79,6 +133,8 @@ struct AddFieldView: View {
             }
             .onChange(of: selectedType) {
                 numberOptions = NumberOptions()
+                optionListOptions = OptionListOptions()
+                newOptionText = ""
             }
             .navigationTitle("Add Field")
 #if os(iOS)
@@ -93,6 +149,7 @@ struct AddFieldView: View {
                     Button("Add") {
                         var field = FieldDefinitionDraft(name: fieldName.trimmingCharacters(in: .whitespacesAndNewlines), fieldType: selectedType, priority: 0)
                         field.numberOptions = numberOptions
+                        field.optionListOptions = optionListOptions
                         onAdd(field)
                         dismiss()
                     }

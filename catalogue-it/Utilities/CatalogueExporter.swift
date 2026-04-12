@@ -51,6 +51,8 @@ enum CatalogueExporter {
                         }
                     case .boolean:
                         cell = fv.boolValue == true ? "Yes" : "No"
+                    case .optionList:
+                        cell = fv.textValue ?? ""
                     }
                 } else {
                     cell = ""

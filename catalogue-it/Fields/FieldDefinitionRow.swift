@@ -12,6 +12,7 @@ import SwiftUI
 struct FieldDefinitionRow: View {
     @Binding var field: FieldDefinitionDraft
     @State private var showingNumberOptions = false
+    @State private var showingOptionListOptions = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -29,6 +30,15 @@ struct FieldDefinitionRow: View {
                 }
                 .buttonStyle(.plain)
             }
+            if field.fieldType == .optionList {
+                Button {
+                    showingOptionListOptions = true
+                } label: {
+                    Image(systemName: "list.bullet")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
             Text(field.fieldType.rawValue)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -36,6 +46,11 @@ struct FieldDefinitionRow: View {
         .sheet(isPresented: $showingNumberOptions) {
             NumberOptionsSheet(options: field.numberOptions) { newOptions in
                 field.numberOptions = newOptions
+            }
+        }
+        .sheet(isPresented: $showingOptionListOptions) {
+            OptionListOptionsSheet(options: field.optionListOptions) { newOptions in
+                field.optionListOptions = newOptions
             }
         }
     }

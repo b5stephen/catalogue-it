@@ -167,7 +167,7 @@ struct AddEditCatalogueView: View {
         selectedColor = catalogue.color
         fieldDefinitions = catalogue.fieldDefinitions
             .sorted { $0.priority < $1.priority }
-            .map { FieldDefinitionDraft(existingDefinition: $0, name: $0.name, fieldType: $0.fieldType, priority: $0.priority, numberOptions: $0.numberOptions ?? NumberOptions()) }
+            .map { FieldDefinitionDraft(existingDefinition: $0, name: $0.name, fieldType: $0.fieldType, priority: $0.priority, numberOptions: $0.numberOptions ?? NumberOptions(), optionListOptions: $0.optionListOptions ?? OptionListOptions()) }
     }
 
     private func saveCatalogue() {
@@ -192,9 +192,11 @@ struct AddEditCatalogueView: View {
                     existing.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)  // rename applied here — no cascade needed
                     existing.priority = index
                     existing.numberOptions = draft.numberOptions
+                    existing.optionListOptions = draft.optionListOptions
                 } else {
                     let field = FieldDefinition(name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines), fieldType: draft.fieldType, priority: index)
                     field.numberOptions = draft.numberOptions
+                    field.optionListOptions = draft.optionListOptions
                     field.catalogue = existingCatalogue
                     modelContext.insert(field)
                 }
@@ -207,6 +209,7 @@ struct AddEditCatalogueView: View {
             for (index, draft) in fieldDefinitions.enumerated() {
                 let field = FieldDefinition(name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines), fieldType: draft.fieldType, priority: index)
                 field.numberOptions = draft.numberOptions
+                field.optionListOptions = draft.optionListOptions
                 field.catalogue = newCatalogue
                 modelContext.insert(field)
             }
@@ -233,10 +236,10 @@ struct AddEditCatalogueView: View {
         guard let field = draft.existingDefinition else { return 0 }
         return field.fieldValues.count { fv in
             switch fv.fieldType {
-            case .text:    return fv.textValue != nil
-            case .number:  return fv.numberValue != nil
-            case .date:    return fv.dateValue != nil
-            case .boolean: return fv.boolValue == true
+            case .text, .optionList: return fv.textValue != nil
+            case .number:            return fv.numberValue != nil
+            case .date:              return fv.dateValue != nil
+            case .boolean:           return fv.boolValue == true
             }
         }
     }

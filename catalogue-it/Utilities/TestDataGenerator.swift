@@ -1,10 +1,11 @@
 //
 //  TestDataGenerator.swift
 //  catalogue-it
-//
 
 #if DEBUG
 import Foundation
+import CoreGraphics
+import ImageIO
 import SwiftData
 
 // MARK: - Test Data Generator (Debug Only)
@@ -13,7 +14,57 @@ import SwiftData
 /// Only compiled in Debug builds — completely absent from release / App Store builds.
 enum TestDataGenerator {
 
-    static let catalogueName = "Film Collection (Test Data)"
+    // MARK: - Dataset
+
+    enum TestDataset: CaseIterable {
+        case items100, items500, items1k, items10k
+        case items100WithPhotos, items500WithPhotos, items1kWithPhotos, items10kWithPhotos
+
+        var displayName: String {
+            switch self {
+            case .items100:             return "100 Items"
+            case .items500:             return "500 Items"
+            case .items1k:              return "1k Items"
+            case .items10k:             return "10k Items"
+            case .items100WithPhotos:   return "100 Items + Photos"
+            case .items500WithPhotos:   return "500 Items + Photos"
+            case .items1kWithPhotos:    return "1k Items + Photos"
+            case .items10kWithPhotos:   return "10k Items + Photos"
+            }
+        }
+
+        var itemCount: Int {
+            switch self {
+            case .items100, .items100WithPhotos:  return 100
+            case .items500, .items500WithPhotos:  return 500
+            case .items1k, .items1kWithPhotos:    return 1_000
+            case .items10k, .items10kWithPhotos:  return 10_000
+            }
+        }
+
+        var includesPhotos: Bool {
+            switch self {
+            case .items100WithPhotos, .items500WithPhotos,
+                 .items1kWithPhotos, .items10kWithPhotos: return true
+            default: return false
+            }
+        }
+
+        var catalogueName: String {
+            switch self {
+            case .items100:             return "Film Collection – 100 (Test Data)"
+            case .items500:             return "Film Collection – 500 (Test Data)"
+            case .items1k:              return "Film Collection – 1k (Test Data)"
+            case .items10k:             return "Film Collection – 10k (Test Data)"
+            case .items100WithPhotos:   return "Film Collection – 100 + Photos (Test Data)"
+            case .items500WithPhotos:   return "Film Collection – 500 + Photos (Test Data)"
+            case .items1kWithPhotos:    return "Film Collection – 1k + Photos (Test Data)"
+            case .items10kWithPhotos:   return "Film Collection – 10k + Photos (Test Data)"
+            }
+        }
+    }
+
+    // MARK: - Source Data
 
     private static let titles: [String] = [
         "The Grand Illusion", "Breathless", "La Dolce Vita", "8½", "Rashomon",
@@ -51,23 +102,27 @@ enum TestDataGenerator {
         "Found on a random streaming service.",
     ]
 
-    /// Seeds a "Film Collection" catalogue with `itemCount` items directly into SwiftData.
+    // MARK: - Seed
+
+    /// Seeds a "Film Collection" catalogue into SwiftData for the given dataset variant.
     ///
     /// - Parameters:
     ///   - context: The SwiftData context to insert into.
-    ///   - itemCount: Number of items to generate (default: 1000).
+    ///   - dataset: Which dataset variant to generate (size + photos).
     ///   - priorityOffset: Added to the catalogue's priority so it appends after existing catalogues.
     ///   - onProgress: Called after each item is processed with (completedItems, totalItems).
     /// - Returns: The newly created `Catalogue`.
     @MainActor
     static func seed(
         into context: ModelContext,
-        itemCount: Int = 1000,
+        dataset: TestDataset = .items1k,
         priorityOffset: Int = 0,
         onProgress: ((Int, Int) -> Void)? = nil
     ) -> Catalogue {
+        let itemCount = dataset.itemCount
+
         let catalogue = Catalogue(
-            name: catalogueName,
+            name: dataset.catalogueName,
             iconName: "film",
             colorHex: "#8B5CF6",
             priority: priorityOffset
@@ -167,10 +222,78 @@ enum TestDataGenerator {
 
             item.searchText = SearchTextBuilder.build(from: fieldValues)
 
+            if dataset.includesPhotos, let photoData = makePhotoData(index: index) {
+                let thumbnail = makeThumbnailData(from: photoData)
+                let photo = ItemPhoto(imageData: photoData, thumbnailData: thumbnail, priority: 0)
+                photo.item = item
+                context.insert(photo)
+            }
+
             onProgress?(index + 1, itemCount)
         }
 
         return catalogue
+    }
+
+    // MARK: - Photo Generation
+
+    /// Generates a deterministic 400×300 JPEG with a colored background and diagonal stripe.
+    /// Uses CoreGraphics only — no UIKit/AppKit dependency.
+    private static func makePhotoData(index: Int) -> Data? {
+        let width = 400, height = 300
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let ctx = CGContext(
+                  data: nil,
+                  width: width,
+                  height: height,
+                  bitsPerComponent: 8,
+                  bytesPerRow: width * 4,
+                  space: colorSpace,
+                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              )
+        else { return nil }
+
+        // Deterministic hue cycling across 12 colours
+        let hue = CGFloat(index % 12) / 12.0
+        let (r, g, b) = hsvToRGB(h: hue, s: 0.55, v: 0.80)
+
+        ctx.setFillColor(red: r, green: g, blue: b, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+
+        // Diagonal stripe for visual texture
+        ctx.setFillColor(red: r * 0.85, green: g * 0.85, blue: b * 0.85, alpha: 1)
+        let stripe = CGMutablePath()
+        stripe.move(to: CGPoint(x: 0, y: 80))
+        stripe.addLine(to: CGPoint(x: 220, y: CGFloat(height)))
+        stripe.addLine(to: CGPoint(x: 300, y: CGFloat(height)))
+        stripe.addLine(to: CGPoint(x: 80, y: 0))
+        stripe.addLine(to: CGPoint(x: 0, y: 0))
+        ctx.addPath(stripe)
+        ctx.fillPath()
+
+        guard let cgImage = ctx.makeImage() else { return nil }
+        let mutableData = CFDataCreateMutable(kCFAllocatorDefault, 0)!
+        guard let dest = CGImageDestinationCreateWithData(mutableData, "public.jpeg" as CFString, 1, nil)
+        else { return nil }
+        CGImageDestinationAddImage(dest, cgImage, [kCGImageDestinationLossyCompressionQuality: 0.75] as CFDictionary)
+        guard CGImageDestinationFinalize(dest) else { return nil }
+        return mutableData as Data
+    }
+
+    private static func hsvToRGB(h: CGFloat, s: CGFloat, v: CGFloat) -> (CGFloat, CGFloat, CGFloat) {
+        let i = Int(h * 6)
+        let f = h * 6 - CGFloat(i)
+        let p = v * (1 - s)
+        let q = v * (1 - f * s)
+        let t = v * (1 - (1 - f) * s)
+        switch i % 6 {
+        case 0: return (v, t, p)
+        case 1: return (q, v, p)
+        case 2: return (p, v, t)
+        case 3: return (p, q, v)
+        case 4: return (t, p, v)
+        default: return (v, p, q)
+        }
     }
 }
 #endif

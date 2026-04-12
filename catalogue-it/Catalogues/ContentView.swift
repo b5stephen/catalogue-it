@@ -129,8 +129,12 @@ struct ContentView: View {
 #endif
 #if DEBUG
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Load Test Data", systemImage: "hammer") {
-                    seedTestData()
+                Menu("Load Test Data", systemImage: "hammer") {
+                    ForEach(TestDataGenerator.TestDataset.allCases, id: \.self) { dataset in
+                        Button(dataset.displayName) {
+                            seedTestData(dataset)
+                        }
+                    }
                 }
             }
 #endif
@@ -201,11 +205,12 @@ struct ContentView: View {
     }
 
 #if DEBUG
-    private func seedTestData() {
+    private func seedTestData(_ dataset: TestDataGenerator.TestDataset) {
         Task { @MainActor in
             importProgress = (current: 0, total: 0)
             let catalogue = TestDataGenerator.seed(
                 into: modelContext,
+                dataset: dataset,
                 priorityOffset: catalogues.count,
                 onProgress: { current, total in
                     importProgress = (current: current, total: total)

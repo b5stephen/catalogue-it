@@ -230,7 +230,10 @@ enum TestDataGenerator {
             }
 
             onProgress?(index + 1, itemCount)
-            if index % 100 == 99 {
+            if (index + 1) % 200 == 0 {
+                try? context.save()
+            }
+            if index % 20 == 19 {
                 await Task.yield()
             }
         }

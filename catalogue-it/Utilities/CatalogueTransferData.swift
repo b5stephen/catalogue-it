@@ -217,6 +217,9 @@ extension CatalogueDTO {
             }
 
             onProgress?(index + 1, items.count)
+            if (index + 1) % 200 == 0 {
+                try? context.save()
+            }
         }
 
         return catalogue

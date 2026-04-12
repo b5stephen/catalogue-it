@@ -13,13 +13,19 @@ import SwiftUI
 struct OptionListOptionsSheet: View {
     @Environment(\.dismiss) private var dismiss
     let onSave: (OptionListOptions) -> Void
+    let onRename: ((String, String) -> Void)?
+    let onDelete: ((String) -> Void)?
 
     @State private var options: [String]
     @State private var defaultValue: String?
     @State private var newOptionText: String = ""
+    @State private var renamingOption: String? = nil
+    @State private var renameText: String = ""
 
-    init(options: OptionListOptions?, onSave: @escaping (OptionListOptions) -> Void) {
+    init(options: OptionListOptions?, onSave: @escaping (OptionListOptions) -> Void, onRename: ((String, String) -> Void)? = nil, onDelete: ((String) -> Void)? = nil) {
         self.onSave = onSave
+        self.onRename = onRename
+        self.onDelete = onDelete
         _options = State(initialValue: options?.options ?? [])
         _defaultValue = State(initialValue: options?.defaultValue)
     }
@@ -48,11 +54,24 @@ struct OptionListOptionsSheet: View {
                         .onTapGesture {
                             defaultValue = (defaultValue == option) ? nil : option
                         }
-                    }
-                    .onDelete { offsets in
-                        let toRemove = Set(offsets.map { sortedOptions[$0] })
-                        if let d = defaultValue, toRemove.contains(d) { defaultValue = nil }
-                        options.removeAll { toRemove.contains($0) }
+                        .swipeActions(edge: .leading) {
+                            Button {
+                                renamingOption = option
+                                renameText = option
+                            } label: {
+                                Label("Rename", systemImage: "pencil")
+                            }
+                            .tint(.blue)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                if defaultValue == option { defaultValue = nil }
+                                options.removeAll { $0 == option }
+                                onDelete?(option)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                     }
 
                     HStack {
@@ -82,6 +101,25 @@ struct OptionListOptionsSheet: View {
                         }
                     }
                 }
+            }
+            .alert("Rename Option", isPresented: Binding(get: { renamingOption != nil }, set: { if !$0 { renamingOption = nil } })) {
+                TextField("Option name", text: $renameText)
+#if os(iOS)
+                    .textInputAutocapitalization(.words)
+#endif
+                Button("Cancel", role: .cancel) { renamingOption = nil }
+                Button("Rename") {
+                    if let old = renamingOption {
+                        let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmed.isEmpty, !options.contains(trimmed) || trimmed == old else { return }
+                        if let idx = options.firstIndex(of: old) { options[idx] = trimmed }
+                        if defaultValue == old { defaultValue = trimmed }
+                        if trimmed != old { onRename?(old, trimmed) }
+                        renamingOption = nil
+                    }
+                }
+            } message: {
+                Text("Enter a new name for \"\(renamingOption ?? "")\".")
             }
             .navigationTitle("Option List")
 #if os(iOS)

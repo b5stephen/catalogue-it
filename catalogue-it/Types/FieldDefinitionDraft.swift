@@ -19,6 +19,11 @@ struct FieldDefinitionDraft: Identifiable {
     var priority: Int
     var numberOptions: NumberOptions = NumberOptions()
     var optionListOptions: OptionListOptions = OptionListOptions()
+    /// Maps original option name → current renamed name, for cascading to FieldValue records on save.
+    /// Handles chains: renaming A→B then B→C records as A→C.
+    var pendingOptionRenames: [String: String] = [:]
+    /// Option names that were deleted, for cascading to FieldValue records on save.
+    var pendingOptionDeletions: Set<String> = []
 }
 
 // MARK: - Field Value Draft

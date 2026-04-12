@@ -49,9 +49,22 @@ struct FieldDefinitionRow: View {
             }
         }
         .sheet(isPresented: $showingOptionListOptions) {
-            OptionListOptionsSheet(options: field.optionListOptions) { newOptions in
+            OptionListOptionsSheet(options: field.optionListOptions, onSave: { newOptions in
                 field.optionListOptions = newOptions
-            }
+            }, onRename: { old, new in
+                // Handle chains: if old was already a rename target, update the source's mapping
+                if let originalName = field.pendingOptionRenames.first(where: { $0.value == old })?.key {
+                    field.pendingOptionRenames[originalName] = new
+                } else {
+                    field.pendingOptionRenames[old] = new
+                }
+            }, onDelete: { deleted in
+                // If a pending rename pointed to this option, remove it (no cascade needed)
+                if let originalName = field.pendingOptionRenames.first(where: { $0.value == deleted })?.key {
+                    field.pendingOptionRenames.removeValue(forKey: originalName)
+                }
+                field.pendingOptionDeletions.insert(deleted)
+            })
         }
     }
 }

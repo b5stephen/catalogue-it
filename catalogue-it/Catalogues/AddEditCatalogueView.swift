@@ -193,6 +193,19 @@ struct AddEditCatalogueView: View {
                     existing.priority = index
                     existing.numberOptions = draft.numberOptions
                     existing.optionListOptions = draft.optionListOptions
+                    for (original, current) in draft.pendingOptionRenames where current != original {
+                        guard draft.optionListOptions.options.contains(current) else { continue }
+                        for fv in existing.fieldValues where fv.fieldType == .optionList && fv.textValue == original {
+                            fv.textValue = current
+                            fv.sortKey = SortKeyEncoder.sortKey(for: fv)
+                        }
+                    }
+                    for deleted in draft.pendingOptionDeletions {
+                        for fv in existing.fieldValues where fv.fieldType == .optionList && fv.textValue == deleted {
+                            fv.textValue = nil
+                            fv.sortKey = SortKeyEncoder.sortKey(for: fv)
+                        }
+                    }
                 } else {
                     let field = FieldDefinition(name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines), fieldType: draft.fieldType, priority: index)
                     field.numberOptions = draft.numberOptions

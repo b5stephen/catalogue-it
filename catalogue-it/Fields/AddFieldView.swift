@@ -18,6 +18,8 @@ struct AddFieldView: View {
     @State private var numberOptions: NumberOptions = NumberOptions()
     @State private var optionListOptions: OptionListOptions = OptionListOptions()
     @State private var newOptionText: String = ""
+    @State private var renamingOption: String? = nil
+    @State private var renameText: String = ""
 
     // Trimmed candidate for the new option being typed
     private var trimmedNew: String { newOptionText.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -70,6 +72,14 @@ struct AddFieldView: View {
                                     Image(systemName: "checkmark")
                                         .foregroundStyle(.blue)
                                 }
+                                Button {
+                                    renamingOption = option
+                                    renameText = option
+                                } label: {
+                                    Image(systemName: "pencil.circle.fill")
+                                        .foregroundStyle(.blue)
+                                }
+                                .buttonStyle(.plain)
                                 Button(role: .destructive) {
                                     optionListOptions.options.removeAll { $0 == option }
                                     if optionListOptions.defaultValue == option {
@@ -128,6 +138,24 @@ struct AddFieldView: View {
                     }
                 }
             }
+            .alert("Rename Option", isPresented: Binding(get: { renamingOption != nil }, set: { if !$0 { renamingOption = nil } })) {
+                TextField("Option name", text: $renameText)
+#if os(iOS)
+                    .textInputAutocapitalization(.words)
+#endif
+                Button("Cancel", role: .cancel) { renamingOption = nil }
+                Button("Rename") {
+                    if let old = renamingOption {
+                        let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmed.isEmpty, !optionListOptions.options.contains(trimmed) || trimmed == old else { return }
+                        if let idx = optionListOptions.options.firstIndex(of: old) { optionListOptions.options[idx] = trimmed }
+                        if optionListOptions.defaultValue == old { optionListOptions.defaultValue = trimmed }
+                        renamingOption = nil
+                    }
+                }
+            } message: {
+                Text("Enter a new name for \"\(renamingOption ?? "")\".")
+            }
             .onChange(of: numberOptions.format) {
                 if numberOptions.format == .currency { numberOptions.precision = 2 }
             }
@@ -135,6 +163,7 @@ struct AddFieldView: View {
                 numberOptions = NumberOptions()
                 optionListOptions = OptionListOptions()
                 newOptionText = ""
+                renamingOption = nil
             }
             .navigationTitle("Add Field")
 #if os(iOS)

@@ -95,6 +95,13 @@ enum CatalogueItemSort {
                 let ba = va.boolValue ?? false, bb = vb.boolValue ?? false
                 if ba == bb { return nil }
                 return !ba // false < true
+            case .optionList:
+                let ta = va.textValue ?? "", tb = vb.textValue ?? ""
+                switch ta.localizedCompare(tb) {
+                case .orderedAscending:  return true
+                case .orderedDescending: return false
+                case .orderedSame:       return nil
+                }
             }
         }
     }

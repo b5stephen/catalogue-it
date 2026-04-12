@@ -18,6 +18,7 @@ struct FieldDefinitionDraft: Identifiable {
     var fieldType: FieldType
     var priority: Int
     var numberOptions: NumberOptions = NumberOptions()
+    var optionListOptions: OptionListOptions = OptionListOptions()
 }
 
 // MARK: - Field Value Draft

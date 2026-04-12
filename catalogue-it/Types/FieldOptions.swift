@@ -19,5 +19,7 @@ import Foundation
 /// without a SchemaMigrationPlan will silently break stored data.
 enum FieldOptions: Codable, Equatable {
     case number(NumberOptions)
+    // ⚠️ Do NOT rename this case — "optionList" is the permanent on-disk Codable key.
+    case optionList(OptionListOptions)
     // future: case date(DateOptions) — add matching "date" stability comment when added
 }

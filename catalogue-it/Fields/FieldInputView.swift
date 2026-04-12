@@ -17,10 +17,11 @@ struct FieldInputView: View {
 
     var body: some View {
         switch draft.fieldType {
-        case .text:    textInput
-        case .number:  numberInput
-        case .date:    dateInput
-        case .boolean: booleanInput
+        case .text:       textInput
+        case .number:     numberInput
+        case .date:       dateInput
+        case .boolean:    booleanInput
+        case .optionList: optionListInput
         }
     }
 
@@ -72,6 +73,22 @@ struct FieldInputView: View {
 
     private var booleanInput: some View {
         Toggle(label, isOn: $draft.boolValue)
+    }
+
+    private var optionListInput: some View {
+        let opts = draft.fieldDefinition.optionListOptions ?? OptionListOptions()
+        let sorted = opts.options.sorted()
+        let isStale = !draft.textValue.isEmpty && !opts.options.contains(draft.textValue)
+        return Picker(label, selection: $draft.textValue) {
+            Text("None").tag("")
+            ForEach(sorted, id: \.self) { option in
+                Text(option).tag(option)
+            }
+            if isStale {
+                Text("\(draft.textValue) (removed)").tag(draft.textValue)
+            }
+        }
+        .pickerStyle(.menu)
     }
 }
 

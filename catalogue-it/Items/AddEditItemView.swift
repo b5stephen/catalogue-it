@@ -92,7 +92,7 @@ struct AddEditItemView: View {
                 )
                 if let fv = item.value(for: def) {
                     switch def.fieldType {
-                    case .text:
+                    case .text, .optionList:
                         draft.textValue = fv.textValue ?? ""
                     case .number:
                         draft.numberValue = fv.numberValue
@@ -119,9 +119,16 @@ struct AddEditItemView: View {
             isWishlist = item.isWishlist
             notes = item.notes ?? ""
         } else {
-            // Create mode: blank drafts
+            // Create mode: blank drafts, pre-populate option list defaults
             fieldDrafts = sortedDefs.map { def in
-                FieldValueDraft(fieldDefinition: def, fieldType: def.fieldType)
+                var draft = FieldValueDraft(fieldDefinition: def, fieldType: def.fieldType)
+                if def.fieldType == .optionList,
+                   let opts = def.optionListOptions,
+                   let defaultVal = opts.defaultValue,
+                   opts.options.contains(defaultVal) {
+                    draft.textValue = defaultVal
+                }
+                return draft
             }
             isWishlist = defaultIsWishlist
         }
@@ -159,7 +166,7 @@ struct AddEditItemView: View {
         for draft in fieldDrafts {
             let fv = FieldValue(fieldDefinition: draft.fieldDefinition, fieldType: draft.fieldType)
             switch draft.fieldType {
-            case .text:
+            case .text, .optionList:
                 let trimmedText = draft.textValue.trimmingCharacters(in: .whitespacesAndNewlines)
                 fv.textValue = trimmedText.isEmpty ? nil : trimmedText
             case .number:

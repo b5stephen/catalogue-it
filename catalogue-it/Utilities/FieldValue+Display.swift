@@ -28,6 +28,8 @@ extension FieldValue {
             return dateValue.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? ""
         case .boolean:
             return boolValue == true ? "Yes" : "No"
+        case .optionList:
+            return textValue ?? ""
         }
     }
 }

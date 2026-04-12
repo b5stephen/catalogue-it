@@ -61,6 +61,12 @@ enum SortKeyEncoder {
                 return missingValueSentinel
             }
             return bool ? "1" : "0"
+
+        case .optionList:
+            guard let text = fieldValue.textValue, !text.isEmpty else {
+                return missingValueSentinel
+            }
+            return text.lowercased()
         }
     }
 }

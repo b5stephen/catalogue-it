@@ -41,4 +41,17 @@ final class FieldDefinition {
             fieldOptions = newValue.map { .number($0) }
         }
     }
+
+    /// Convenience accessor for Option List field options.
+    /// Returns `nil` for non-optionList fields; callers should handle the optional explicitly.
+    var optionListOptions: OptionListOptions? {
+        get {
+            if case .optionList(let opts) = fieldOptions { return opts }
+            return nil
+        }
+        set {
+            guard fieldType == .optionList else { return }
+            fieldOptions = newValue.map { .optionList($0) }
+        }
+    }
 }

@@ -14,56 +14,6 @@ import SwiftData
 /// Only compiled in Debug builds — completely absent from release / App Store builds.
 enum TestDataGenerator {
 
-    // MARK: - Dataset
-
-    enum TestDataset: CaseIterable {
-        case items100, items500, items1k, items10k
-        case items100WithPhotos, items500WithPhotos, items1kWithPhotos, items10kWithPhotos
-
-        var displayName: String {
-            switch self {
-            case .items100:             return "100 Items"
-            case .items500:             return "500 Items"
-            case .items1k:              return "1k Items"
-            case .items10k:             return "10k Items"
-            case .items100WithPhotos:   return "100 Items + Photos"
-            case .items500WithPhotos:   return "500 Items + Photos"
-            case .items1kWithPhotos:    return "1k Items + Photos"
-            case .items10kWithPhotos:   return "10k Items + Photos"
-            }
-        }
-
-        var itemCount: Int {
-            switch self {
-            case .items100, .items100WithPhotos:  return 100
-            case .items500, .items500WithPhotos:  return 500
-            case .items1k, .items1kWithPhotos:    return 1_000
-            case .items10k, .items10kWithPhotos:  return 10_000
-            }
-        }
-
-        var includesPhotos: Bool {
-            switch self {
-            case .items100WithPhotos, .items500WithPhotos,
-                 .items1kWithPhotos, .items10kWithPhotos: return true
-            default: return false
-            }
-        }
-
-        var catalogueName: String {
-            switch self {
-            case .items100:             return "Film Collection – 100 (Test Data)"
-            case .items500:             return "Film Collection – 500 (Test Data)"
-            case .items1k:              return "Film Collection – 1k (Test Data)"
-            case .items10k:             return "Film Collection – 10k (Test Data)"
-            case .items100WithPhotos:   return "Film Collection – 100 + Photos (Test Data)"
-            case .items500WithPhotos:   return "Film Collection – 500 + Photos (Test Data)"
-            case .items1kWithPhotos:    return "Film Collection – 1k + Photos (Test Data)"
-            case .items10kWithPhotos:   return "Film Collection – 10k + Photos (Test Data)"
-            }
-        }
-    }
-
     // MARK: - Source Data
 
     private static let titles: [String] = [
@@ -104,25 +54,27 @@ enum TestDataGenerator {
 
     // MARK: - Seed
 
-    /// Seeds a "Film Collection" catalogue into SwiftData for the given dataset variant.
+    /// Seeds a catalogue into SwiftData with the given configuration.
     ///
     /// - Parameters:
     ///   - context: The SwiftData context to insert into.
-    ///   - dataset: Which dataset variant to generate (size + photos).
+    ///   - catalogueName: Name for the new catalogue.
+    ///   - itemCount: Number of items to generate.
+    ///   - includesPhotos: Whether to generate photo data for each item.
     ///   - priorityOffset: Added to the catalogue's priority so it appends after existing catalogues.
     ///   - onProgress: Called after each item is processed with (completedItems, totalItems).
     /// - Returns: The newly created `Catalogue`.
     @MainActor
     static func seed(
         into context: ModelContext,
-        dataset: TestDataset = .items1k,
+        catalogueName: String,
+        itemCount: Int,
+        includesPhotos: Bool,
         priorityOffset: Int = 0,
         onProgress: ((Int, Int) -> Void)? = nil
     ) async -> Catalogue {
-        let itemCount = dataset.itemCount
-
         let catalogue = Catalogue(
-            name: dataset.catalogueName,
+            name: catalogueName,
             iconName: "film",
             colorHex: "#8B5CF6",
             priority: priorityOffset
@@ -222,7 +174,7 @@ enum TestDataGenerator {
 
             item.searchText = SearchTextBuilder.build(from: fieldValues)
 
-            if dataset.includesPhotos, let photoData = makePhotoData(index: index) {
+            if includesPhotos, let photoData = makePhotoData(index: index) {
                 let thumbnail = makeThumbnailData(from: photoData)
                 let photo = ItemPhoto(imageData: photoData, thumbnailData: thumbnail, priority: 0)
                 photo.item = item

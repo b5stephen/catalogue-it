@@ -20,6 +20,9 @@ struct ContentView: View {
     @State private var selectedItem: CatalogueItem?
     @State private var catalogueToEdit: Catalogue?
     @State private var catalogueToDelete: Catalogue?
+#if DEBUG
+    @State private var showingSeedSheet = false
+#endif
 
 #if !os(macOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -128,15 +131,7 @@ struct ContentView: View {
             }
 #endif
 #if DEBUG
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu("Load Test Data", systemImage: "hammer") {
-                    ForEach(TestDataGenerator.TestDataset.allCases, id: \.self) { dataset in
-                        Button(dataset.displayName) {
-                            seedTestData(dataset)
-                        }
-                    }
-                }
-            }
+            DebugToolbarItem { showingSeedSheet = true }
 #endif
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Import Catalogue", systemImage: "square.and.arrow.down") {
@@ -162,6 +157,13 @@ struct ContentView: View {
         ) { result in
             handleImport(result: result)
         }
+#if DEBUG
+        .sheet(isPresented: $showingSeedSheet) {
+            SeedDataSheet { itemCount, includesPhotos, catalogueName in
+                seedTestData(itemCount: itemCount, includesPhotos: includesPhotos, catalogueName: catalogueName)
+            }
+        }
+#endif
     }
 
     @ViewBuilder
@@ -205,12 +207,14 @@ struct ContentView: View {
     }
 
 #if DEBUG
-    private func seedTestData(_ dataset: TestDataGenerator.TestDataset) {
+    private func seedTestData(itemCount: Int, includesPhotos: Bool, catalogueName: String) {
         Task { @MainActor in
             importProgress = (current: 0, total: 0)
             let catalogue = await TestDataGenerator.seed(
                 into: modelContext,
-                dataset: dataset,
+                catalogueName: catalogueName,
+                itemCount: itemCount,
+                includesPhotos: includesPhotos,
                 priorityOffset: catalogues.count,
                 onProgress: { current, total in
                     importProgress = (current: current, total: total)

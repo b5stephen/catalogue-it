@@ -180,6 +180,9 @@ struct AddEditCatalogueView: View {
             // Delete fields that were removed
             let retained = Set(fieldDefinitions.compactMap(\.existingDefinition?.persistentModelID))
             for field in existingCatalogue.fieldDefinitions where !retained.contains(field.persistentModelID) {
+                let fieldID = field.persistentModelID
+                try? modelContext.delete(model: FieldValue.self,
+                    where: #Predicate { $0.fieldDefinition?.persistentModelID == fieldID })
                 modelContext.delete(field)
             }
 

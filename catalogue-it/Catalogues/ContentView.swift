@@ -208,7 +208,7 @@ struct ContentView: View {
     private func seedTestData(_ dataset: TestDataGenerator.TestDataset) {
         Task { @MainActor in
             importProgress = (current: 0, total: 0)
-            let catalogue = TestDataGenerator.seed(
+            let catalogue = await TestDataGenerator.seed(
                 into: modelContext,
                 dataset: dataset,
                 priorityOffset: catalogues.count,

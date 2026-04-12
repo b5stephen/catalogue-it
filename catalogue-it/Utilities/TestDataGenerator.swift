@@ -118,7 +118,7 @@ enum TestDataGenerator {
         dataset: TestDataset = .items1k,
         priorityOffset: Int = 0,
         onProgress: ((Int, Int) -> Void)? = nil
-    ) -> Catalogue {
+    ) async -> Catalogue {
         let itemCount = dataset.itemCount
 
         let catalogue = Catalogue(
@@ -230,6 +230,9 @@ enum TestDataGenerator {
             }
 
             onProgress?(index + 1, itemCount)
+            if index % 100 == 99 {
+                await Task.yield()
+            }
         }
 
         return catalogue

@@ -43,6 +43,10 @@ final class CatalogueItem {
     @Relationship(deleteRule: .cascade, inverse: \ItemPhoto.item)
     var photos: [ItemPhoto] = []
 
+    /// Thumbnail of the cover (lowest-priority) photo. Denormalised here so list/grid
+    /// views never need to fault in the ItemPhoto relationship. Updated on every item save.
+    @Attribute(.externalStorage) var coverThumbnailData: Data?
+
     init(isWishlist: Bool = false, notes: String? = nil) {
         self.createdDate = Date.now
         self.isWishlist = isWishlist

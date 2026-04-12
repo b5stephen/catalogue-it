@@ -15,6 +15,9 @@ struct ItemGridView: View {
     let gridColumns: [GridItem]
     let showWishlistBadge: Bool
     @Binding var selectedItem: CatalogueItem?
+    let hasMore: Bool
+    let isLoadingMore: Bool
+    let onLoadMore: () -> Void
 
     var body: some View {
         ScrollView {
@@ -28,6 +31,17 @@ struct ItemGridView: View {
                                     .strokeBorder(.tint, lineWidth: 2.5)
                             }
                         }
+                }
+                if hasMore {
+                    Color.clear
+                        .frame(height: 1)
+                        .onAppear { onLoadMore() }
+                }
+                if isLoadingMore {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .gridCellColumns(gridColumns.count)
                 }
             }
             .padding(.vertical)
@@ -75,7 +89,10 @@ struct ItemGridView: View {
         items: [item1, item2, item3],
         gridColumns: columns,
         showWishlistBadge: true,
-        selectedItem: .constant(nil)
+        selectedItem: .constant(nil),
+        hasMore: false,
+        isLoadingMore: false,
+        onLoadMore: {}
     )
     .modelContainer(container)
 }

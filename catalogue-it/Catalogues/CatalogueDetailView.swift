@@ -31,6 +31,7 @@ struct CatalogueDetailView: View {
     @State private var showingStats = false
     @State private var showingRecentlyDeleted = false
     @State private var searchText: String = ""
+    @State private var appliedSearchText: String = ""
     @State private var displayedCount: Int = 0
 
     private var hasRecentlyDeletedItems: Bool {
@@ -43,25 +44,6 @@ struct CatalogueDetailView: View {
     private let gridColumns = [
         GridItem(.adaptive(minimum: 160), spacing: 16)
     ]
-
-    // MARK: - Export Files
-
-    private var csvFile: CatalogueCSVFile {
-        CatalogueCSVFile(
-            content: CatalogueExporter.csvString(for: catalogue),
-            filename: "\(catalogue.name).csv"
-        )
-    }
-
-    private var jsonFile: CatalogueJSONFile? {
-        guard let data = try? CatalogueExporter.jsonData(for: catalogue) else { return nil }
-        return CatalogueJSONFile(data: data, filename: "\(catalogue.name).json")
-    }
-
-    private var jsonFileNoPhotos: CatalogueJSONFile? {
-        guard let data = try? CatalogueExporter.jsonData(for: catalogue, includePhotos: false) else { return nil }
-        return CatalogueJSONFile(data: data, filename: "\(catalogue.name).json")
-    }
 
     // MARK: - Body
 
@@ -85,7 +67,7 @@ struct CatalogueDetailView: View {
             CatalogueItemsView(
                 catalogue: catalogue,
                 tab: selectedTab,
-                searchText: searchText,
+                searchText: appliedSearchText,
                 sortFieldKey: $catalogue.sortFieldKey,
                 sortDirection: $catalogue.sortDirection,
                 layout: layout,
@@ -99,6 +81,14 @@ struct CatalogueDetailView: View {
         .navigationSplitViewColumnWidth(min: 280, ideal: 360)
 #endif
         .searchable(text: $searchText)
+        .onChange(of: searchText) { _, newValue in
+            Task {
+                try? await Task.sleep(for: .milliseconds(200))
+                if newValue == searchText {
+                    appliedSearchText = newValue
+                }
+            }
+        }
         .sheet(isPresented: $showingEditCatalogue) {
             AddEditCatalogueView(catalogue: catalogue)
         }
@@ -134,15 +124,7 @@ struct CatalogueDetailView: View {
                     LayoutToggleButton(layout: $layout)
                     SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
                     Divider()
-                    Menu("Export", systemImage: "square.and.arrow.up") {
-                        ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
-                        if let jsonFile {
-                            ShareLink("Export as JSON (with Photos)", item: jsonFile, preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text")))
-                        }
-                        if let jsonFileNoPhotos {
-                            ShareLink("Export as JSON (no Photos)", item: jsonFileNoPhotos, preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text")))
-                        }
-                    }
+                    ExportMenuItems(catalogue: catalogue)
                     CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
                     if hasRecentlyDeletedItems {
                         Divider()
@@ -171,15 +153,7 @@ struct CatalogueDetailView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu("More", systemImage: "ellipsis.circle") {
-                    Menu("Export", systemImage: "square.and.arrow.up") {
-                        ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
-                        if let jsonFile {
-                            ShareLink("Export as JSON (with Photos)", item: jsonFile, preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text")))
-                        }
-                        if let jsonFileNoPhotos {
-                            ShareLink("Export as JSON (no Photos)", item: jsonFileNoPhotos, preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text")))
-                        }
-                    }
+                    ExportMenuItems(catalogue: catalogue)
                     Button {
                         showingStats = true
                     } label: {
@@ -197,6 +171,42 @@ struct CatalogueDetailView: View {
                 }
             }
 #endif
+        }
+    }
+}
+
+// MARK: - Export Menu Items
+
+/// Isolated subview so that export data is never computed during search keystrokes.
+/// CatalogueDetailView re-renders on every keystroke (@State searchText changes), but
+/// SwiftUI only re-renders this view when `catalogue` properties it accessed actually change.
+private struct ExportMenuItems: View {
+    let catalogue: Catalogue
+
+    private var csvFile: CatalogueCSVFile {
+        CatalogueCSVFile(
+            content: CatalogueExporter.csvString(for: catalogue),
+            filename: "\(catalogue.name).csv"
+        )
+    }
+    private var jsonFile: CatalogueJSONFile? {
+        guard let data = try? CatalogueExporter.jsonData(for: catalogue) else { return nil }
+        return CatalogueJSONFile(data: data, filename: "\(catalogue.name).json")
+    }
+    private var jsonFileNoPhotos: CatalogueJSONFile? {
+        guard let data = try? CatalogueExporter.jsonData(for: catalogue, includePhotos: false) else { return nil }
+        return CatalogueJSONFile(data: data, filename: "\(catalogue.name).json")
+    }
+
+    var body: some View {
+        Menu("Export", systemImage: "square.and.arrow.up") {
+            ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
+            if let jsonFile {
+                ShareLink("Export as JSON (with Photos)", item: jsonFile, preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text")))
+            }
+            if let jsonFileNoPhotos {
+                ShareLink("Export as JSON (no Photos)", item: jsonFileNoPhotos, preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text")))
+            }
         }
     }
 }

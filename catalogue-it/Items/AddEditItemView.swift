@@ -183,6 +183,7 @@ struct AddEditItemView: View {
             let trimmedCaption = draft.caption.trimmingCharacters(in: .whitespacesAndNewlines)
             let photo = ItemPhoto(
                 imageData: draft.imageData,
+                thumbnailData: draft.imageData.makeThumbnail(),
                 priority: draft.priority,
                 caption: trimmedCaption.isEmpty ? nil : trimmedCaption
             )
@@ -190,6 +191,17 @@ struct AddEditItemView: View {
             modelContext.insert(photo)
         }
 
+        // Denormalised cover thumbnail — eliminates ItemPhoto relationship faults in list/grid views.
+        targetItem.coverThumbnailData = photoDrafts
+            .min(by: { $0.priority < $1.priority })
+            .flatMap { $0.imageData.makeThumbnail() }
+
+        // Save immediately so newly inserted models get permanent PersistentIdentifiers
+        // before any view renders them. Without this, autosave fires 20+ seconds later:
+        // ItemPaginationController never sees NSManagedObjectContextDidSave, so the
+        // new item doesn't appear; and if temporary IDs are handed to views before the
+        // save converts them, accessing the model via a stale temporary ID crashes.
+        try? modelContext.save()
         dismiss()
     }
 }

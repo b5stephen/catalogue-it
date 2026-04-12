@@ -19,7 +19,7 @@ final class FieldDefinition {
     var priority: Int // For ordering fields in the UI
     var fieldOptions: FieldOptions? // Type-specific configuration; only set when the field type has options
     var catalogue: Catalogue?
-    @Relationship(deleteRule: .cascade, inverse: \FieldValue.fieldDefinition)
+    @Relationship(deleteRule: .nullify, inverse: \FieldValue.fieldDefinition)
     var fieldValues: [FieldValue] = []
 
     init(name: String, fieldType: FieldType, priority: Int = 0, fieldID: UUID = UUID()) {

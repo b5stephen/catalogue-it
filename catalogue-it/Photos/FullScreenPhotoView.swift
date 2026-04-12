@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 import UniformTypeIdentifiers
 
 // MARK: - Full Screen Photo View
@@ -215,6 +216,7 @@ struct FullScreenPhotoView: View {
 
     // MARK: - macOS Body
 
+#if os(macOS)
     private var macOSBody: some View {
         NavigationStack {
             ZStack {
@@ -224,7 +226,7 @@ struct FullScreenPhotoView: View {
                     ScrollView(.horizontal) {
                         HStack(spacing: 0) {
                             ForEach(photos.enumerated(), id: \.element.id) { index, photo in
-                                macOSPhotoPage(photo: photo)
+                                MacOSPhotoPage(photo: photo)
                                     .frame(width: proxy.size.width, height: proxy.size.height)
                                     .id(index)
                             }
@@ -274,12 +276,21 @@ struct FullScreenPhotoView: View {
         }
         .preferredColorScheme(.dark)
     }
+#endif
 
-    @ViewBuilder
-    private func macOSPhotoPage(photo: ItemPhoto) -> some View {
+}
+
+// MARK: - macOS Photo Page
+
+#if os(macOS)
+private struct MacOSPhotoPage: View {
+    let photo: ItemPhoto
+    @State private var loadedImage: Image?
+
+    var body: some View {
         ZStack(alignment: .bottom) {
-            if let image = photo.imageData.asImage() {
-                image
+            if let loadedImage {
+                loadedImage
                     .resizable()
                     .scaledToFit()
             } else {
@@ -302,8 +313,15 @@ struct FullScreenPhotoView: View {
                     .padding(.bottom, 20)
             }
         }
+        .task(id: photo.persistentModelID) {
+            let data = photo.imageData
+            loadedImage = await Task.detached(priority: .userInitiated) {
+                NSImage(data: data).map { Image(nsImage: $0) }
+            }.value
+        }
     }
 }
+#endif
 
 // MARK: - Photo Transferable
 

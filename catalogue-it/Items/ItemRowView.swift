@@ -41,7 +41,7 @@ struct ItemRowView: View {
     var body: some View {
         HStack(spacing: 12) {
             // Thumbnail
-            ItemThumbnailView(photo: item.photos.min(by: { $0.priority < $1.priority }))
+            ItemThumbnailView(itemID: item.persistentModelID)
                 .frame(width: AppConstants.ThumbnailSize.list, height: AppConstants.ThumbnailSize.list)
                 .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.small))
 
@@ -74,7 +74,7 @@ struct ItemRowView: View {
 // MARK: - Item Thumbnail View
 
 private struct ItemThumbnailView: View {
-    let photo: ItemPhoto?
+    let itemID: PersistentIdentifier
     @State private var loadedImage: Image?
 
     var body: some View {
@@ -93,13 +93,20 @@ private struct ItemThumbnailView: View {
                     }
             }
         }
-        .task(id: photo?.persistentModelID) {
-            guard let photo else { loadedImage = nil; return }
-            let data = photo.imageData   // Read on MainActor — @Model requires it
-            loadedImage = await Task.detached(priority: .userInitiated) {
-                guard let ui = UIImage(data: data) else { return nil }
-                return Image(uiImage: ui)
-            }.value
+        .task(id: itemID) {
+#if os(iOS)
+            let key = "cover_\(itemID)"
+            if let cached = await ImageCache.shared.image(for: key) {
+                loadedImage = Image(uiImage: cached)
+                return
+            }
+            guard let ui = await ThumbnailLoader.shared?.thumbnail(for: itemID) else {
+                loadedImage = nil
+                return
+            }
+            await ImageCache.shared.store(ui, for: key)
+            loadedImage = Image(uiImage: ui)
+#endif
         }
     }
 }

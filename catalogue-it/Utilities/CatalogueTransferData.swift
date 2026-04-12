@@ -143,10 +143,17 @@ extension ItemPhotoDTO {
 
 extension CatalogueDTO {
     /// Creates a new Catalogue (and all its children) in the given context.
-    /// - Parameter priorityOffset: Added to the stored priority so the imported catalogue
-    ///   appends after any existing catalogues rather than colliding with them.
+    /// - Parameters:
+    ///   - priorityOffset: Added to the stored priority so the imported catalogue
+    ///     appends after any existing catalogues rather than colliding with them.
+    ///   - onProgress: Called on the main actor after each item is processed.
+    ///     Receives (completedItems, totalItems).
     @MainActor
-    func makeCatalogue(in context: ModelContext, priorityOffset: Int) -> Catalogue {
+    func makeCatalogue(
+        in context: ModelContext,
+        priorityOffset: Int,
+        onProgress: ((Int, Int) -> Void)? = nil
+    ) -> Catalogue {
         let catalogue = Catalogue(
             name: name,
             iconName: iconName,
@@ -175,7 +182,9 @@ extension CatalogueDTO {
         }
 
         // Create items, linking field values back to definitions via UUID map.
-        for itemDTO in items {
+        // coverThumbnailData is intentionally left nil here — ThumbnailLoader generates
+        // it on demand the first time an item is displayed (fallback path).
+        for (index, itemDTO) in items.enumerated() {
             let item = CatalogueItem(isWishlist: itemDTO.isWishlist, notes: itemDTO.notes)
             item.createdDate = itemDTO.createdDate
             item.catalogue = catalogue
@@ -206,8 +215,12 @@ extension CatalogueDTO {
                 photo.item = item
                 context.insert(photo)
             }
+
+            onProgress?(index + 1, items.count)
         }
 
         return catalogue
     }
+
 }
+

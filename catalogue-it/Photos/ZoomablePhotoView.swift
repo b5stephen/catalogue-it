@@ -26,6 +26,7 @@ struct ZoomablePhotoView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    @State private var loadedImage: Image?
     @State private var zoomScale: CGFloat = 1.0
     @State private var panOffset: CGSize = .zero
 
@@ -44,8 +45,8 @@ struct ZoomablePhotoView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .bottom) {
-                if let image = imageData.asImage() {
-                    image
+                if let loadedImage {
+                    loadedImage
                         .resizable()
                         .scaledToFit()
                         .scaleEffect(currentZoom)
@@ -110,6 +111,20 @@ struct ZoomablePhotoView: View {
                         .padding(.bottom, 20)
                 }
             }
+        }
+        .task(id: imageData) {
+            let data = imageData
+#if os(iOS)
+            let decoded = await Task.detached(priority: .userInitiated) {
+                UIImage(data: data).map { Image(uiImage: $0) }
+            }.value
+            loadedImage = decoded
+#else
+            let decoded = await Task.detached(priority: .userInitiated) {
+                NSImage(data: data).map { Image(nsImage: $0) }
+            }.value
+            loadedImage = decoded
+#endif
         }
     }
 

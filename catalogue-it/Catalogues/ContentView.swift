@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var showingAddCatalogue = false
     @State private var showingImporter = false
     @State private var importErrorMessage: String?
+    @State private var importProgress: (current: Int, total: Int)?
     @State private var selectedCatalogue: Catalogue?
     @State private var selectedItem: CatalogueItem?
     @State private var catalogueToEdit: Catalogue?
@@ -48,6 +49,11 @@ struct ContentView: View {
             }
 #endif
         }
+        .overlay {
+            if let progress = importProgress {
+                ImportProgressOverlay(current: progress.current, total: progress.total)
+            }
+        }
         .onChange(of: selectedCatalogue) {
             selectedItem = nil
         }
@@ -71,9 +77,12 @@ struct ContentView: View {
         ) {
             Button("Delete Catalogue", role: .destructive) {
                 if let catalogue = catalogueToDelete {
+                    // Nil out state before deleting: modelContext.delete() immediately
+                    // invalidates the model, and SwiftUI can re-evaluate the alert
+                    // message (which accesses catalogue.items) before the nil update lands.
+                    catalogueToDelete = nil
                     modelContext.delete(catalogue)
                 }
-                catalogueToDelete = nil
             }
             Button("Cancel", role: .cancel) { catalogueToDelete = nil }
         } message: {
@@ -118,12 +127,12 @@ struct ContentView: View {
                 EditButton()
             }
 #endif
-            ToolbarItem {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Import Catalogue", systemImage: "square.and.arrow.down") {
                     showingImporter = true
                 }
             }
-            ToolbarItem {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Add Catalogue", systemImage: "plus") {
                     showingAddCatalogue = true
                 }
@@ -158,12 +167,10 @@ struct ContentView: View {
             .tint(.blue)
 
             Button(role: .destructive) {
-                withAnimation {
-                    if selectedCatalogue == catalogue {
-                        selectedCatalogue = nil
-                    }
-                    deleteCatalogue(catalogue)
+                if selectedCatalogue == catalogue {
+                    selectedCatalogue = nil
                 }
+                deleteCatalogue(catalogue)
             } label: {
                 Label("Delete", systemImage: "trash")
             }
@@ -176,12 +183,10 @@ struct ContentView: View {
             }
 
             Button(role: .destructive) {
-                withAnimation {
-                    if selectedCatalogue == catalogue {
-                        selectedCatalogue = nil
-                    }
-                    deleteCatalogue(catalogue)
+                if selectedCatalogue == catalogue {
+                    selectedCatalogue = nil
                 }
+                deleteCatalogue(catalogue)
             } label: {
                 Label("Delete Catalogue", systemImage: "trash")
             }
@@ -195,13 +200,23 @@ struct ContentView: View {
                 guard url.startAccessingSecurityScopedResource() else { return }
                 defer { url.stopAccessingSecurityScopedResource() }
                 let data = try Data(contentsOf: url)
+                importProgress = (current: 0, total: 0)
                 let imported = try CatalogueImporter.importCatalogues(
                     from: data,
                     into: modelContext,
-                    priorityOffset: catalogues.count
+                    priorityOffset: catalogues.count,
+                    onProgress: { current, total in
+                        importProgress = (current: current, total: total)
+                    }
                 )
+                // Save immediately to assign permanent PersistentIdentifiers before
+                // any view renders the imported models. Temporary IDs handed to views
+                // before the save would crash if autosave fires while a view holds them.
+                try? modelContext.save()
+                importProgress = nil
                 selectedCatalogue = imported.first
             } catch {
+                importProgress = nil
                 importErrorMessage = error.localizedDescription
             }
         }
@@ -222,6 +237,38 @@ struct ContentView: View {
         reordered.move(fromOffsets: source, toOffset: destination)
         for (index, catalogue) in reordered.enumerated() {
             catalogue.priority = index
+        }
+    }
+}
+
+// MARK: - Import Progress Overlay
+
+private struct ImportProgressOverlay: View {
+    let current: Int
+    let total: Int
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                if total > 0 {
+                    ProgressView(value: Double(current), total: Double(total))
+                        .progressViewStyle(.linear)
+                        .frame(width: 220)
+                    Text("Processing \(current) of \(total) items…")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ProgressView()
+                    Text("Preparing import…")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(24)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         }
     }
 }

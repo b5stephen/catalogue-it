@@ -17,12 +17,15 @@ enum CatalogueImporter {
     ///   - context: The SwiftData context to insert models into.
     ///   - priorityOffset: Added to each catalogue's stored priority so imported catalogues
     ///     append after existing ones without colliding. Pass `catalogues.count`.
+    ///   - onProgress: Called on the main actor after each item is processed.
+    ///     Receives (completedItems, totalItems) across all imported catalogues.
     /// - Returns: The newly created `Catalogue` objects.
     @MainActor
     static func importCatalogues(
         from data: Data,
         into context: ModelContext,
-        priorityOffset: Int
+        priorityOffset: Int,
+        onProgress: ((Int, Int) -> Void)? = nil
     ) throws -> [Catalogue] {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -30,9 +33,21 @@ enum CatalogueImporter {
         guard file.version == 1 else {
             throw ImportError.unsupportedVersion(file.version)
         }
-        return file.catalogues.map { dto in
-            dto.makeCatalogue(in: context, priorityOffset: priorityOffset)
+        let totalItems = file.catalogues.reduce(0) { $0 + $1.items.count }
+        var completedBefore = 0
+        var imported: [Catalogue] = []
+        for dto in file.catalogues {
+            let catalogue = dto.makeCatalogue(
+                in: context,
+                priorityOffset: priorityOffset,
+                onProgress: { current, _ in
+                    onProgress?(completedBefore + current, totalItems)
+                }
+            )
+            completedBefore += dto.items.count
+            imported.append(catalogue)
         }
+        return imported
     }
 
     // MARK: - Errors

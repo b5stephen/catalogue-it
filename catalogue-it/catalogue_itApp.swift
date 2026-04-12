@@ -29,6 +29,8 @@ struct catalogue_itApp: App {
     }()
 
     init() {
+        ThumbnailLoader.shared = ThumbnailLoader(modelContainer: sharedModelContainer)
+
         // When running UI tests, force list layout so the test starts in a known state.
         if ProcessInfo.processInfo.arguments.contains("--ui-testing"),
            let layout = ProcessInfo.processInfo.environment["UITESTING_LAYOUT"] {

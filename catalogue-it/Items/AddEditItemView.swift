@@ -16,7 +16,7 @@ struct AddEditItemView: View {
 
     let catalogue: Catalogue
     let existingItem: CatalogueItem?
-    let cloneSource: CatalogueItem?
+    let duplicateSource: CatalogueItem?
     let defaultIsWishlist: Bool
 
     // MARK: - Form State
@@ -31,10 +31,10 @@ struct AddEditItemView: View {
 
     private var isEditing: Bool { existingItem != nil }
 
-    init(catalogue: Catalogue, item: CatalogueItem? = nil, cloneSource: CatalogueItem? = nil, defaultIsWishlist: Bool = false) {
+    init(catalogue: Catalogue, item: CatalogueItem? = nil, duplicateSource: CatalogueItem? = nil, defaultIsWishlist: Bool = false) {
         self.catalogue = catalogue
         self.existingItem = item
-        self.cloneSource = cloneSource
+        self.duplicateSource = duplicateSource
         self.defaultIsWishlist = defaultIsWishlist
     }
 
@@ -120,7 +120,7 @@ struct AddEditItemView: View {
 
             isWishlist = item.isWishlist
             notes = item.notes ?? ""
-        } else if let source = cloneSource {
+        } else if let source = duplicateSource {
             // Clone mode: populate from source item, saves as a new item
             fieldDrafts = sortedDefs.map { def in
                 var draft = FieldValueDraft(fieldDefinition: def, fieldType: def.fieldType)

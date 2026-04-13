@@ -18,7 +18,7 @@ struct ItemDetailView: View {
     @Binding var selectedItem: CatalogueItem?
 
     @State private var showingEditItem = false
-    @State private var showingCloneItem = false
+    @State private var showingDuplicateItem = false
     @State private var showingDeleteConfirmation = false
 
     // MARK: - Computed
@@ -94,9 +94,9 @@ struct ItemDetailView: View {
                         Label("Export", systemImage: "square.and.arrow.up")
                     }
                     Button {
-                        showingCloneItem = true
+                        showingDuplicateItem = true
                     } label: {
-                        Label("Clone", systemImage: "plus.square.on.square")
+                        Label("Duplicate", systemImage: "plus.square.on.square")
                     }
                     Divider()
                     Button(role: .destructive) {
@@ -136,9 +136,9 @@ struct ItemDetailView: View {
                         Label("Export", systemImage: "square.and.arrow.up")
                     }
                     Button {
-                        showingCloneItem = true
+                        showingDuplicateItem = true
                     } label: {
-                        Label("Clone", systemImage: "plus.square.on.square")
+                        Label("Duplicate", systemImage: "plus.square.on.square")
                     }
                     Divider()
                     Button(role: .destructive) {
@@ -176,8 +176,8 @@ struct ItemDetailView: View {
         .sheet(isPresented: $showingEditItem) {
             AddEditItemView(catalogue: catalogue, item: item)
         }
-        .sheet(isPresented: $showingCloneItem) {
-            AddEditItemView(catalogue: catalogue, cloneSource: item)
+        .sheet(isPresented: $showingDuplicateItem) {
+            AddEditItemView(catalogue: catalogue, duplicateSource: item)
         }
     }
 

@@ -29,7 +29,23 @@ private struct FieldRowView: View {
 
             Divider()
         }
+        .contextMenu {
+            Button {
+                copyToClipboard(value)
+            } label: {
+                Label("Copy", systemImage: "doc.on.doc")
+            }
+        }
     }
+}
+
+private func copyToClipboard(_ string: String) {
+#if os(macOS)
+    NSPasteboard.general.clearContents()
+    NSPasteboard.general.setString(string, forType: .string)
+#else
+    UIPasteboard.general.string = string
+#endif
 }
 
 // MARK: - Item Fields Section

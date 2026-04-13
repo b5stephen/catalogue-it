@@ -88,22 +88,18 @@ struct ItemDetailView: View {
         .toolbar {
 #if os(iOS)
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showingEditItem = true
+                Menu {
+                    ShareLink(item: shareText) {
+                        Label("Export", systemImage: "square.and.arrow.up")
+                    }
+                    Divider()
+                    Button(role: .destructive) {
+                        showingDeleteConfirmation = true
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
                 } label: {
-                    Label("Edit", systemImage: "pencil")
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                ShareLink(item: shareText) {
-                    Label("Share", systemImage: "square.and.arrow.up")
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(role: .destructive) {
-                    showingDeleteConfirmation = true
-                } label: {
-                    Label("Delete", systemImage: "trash")
+                    Label("More Options", systemImage: "ellipsis")
                 }
                 .confirmationDialog(
                     "Delete \"\(primaryValue)\"?",
@@ -118,26 +114,29 @@ struct ItemDetailView: View {
                     Button("Cancel", role: .cancel) {}
                 } message: {
                     Text("The item will be moved to Recently Deleted.")
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingEditItem = true
+                } label: {
+                    Label("Edit", systemImage: "pencil")
                 }
             }
 #else
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showingEditItem = true
+                Menu {
+                    ShareLink(item: shareText) {
+                        Label("Export", systemImage: "square.and.arrow.up")
+                    }
+                    Divider()
+                    Button(role: .destructive) {
+                        showingDeleteConfirmation = true
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
                 } label: {
-                    Label("Edit", systemImage: "pencil")
-                }
-            }
-            ToolbarItem(placement: .primaryAction) {
-                ShareLink(item: shareText) {
-                    Label("Share", systemImage: "square.and.arrow.up")
-                }
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button(role: .destructive) {
-                    showingDeleteConfirmation = true
-                } label: {
-                    Label("Delete", systemImage: "trash")
+                    Label("More Options", systemImage: "ellipsis.circle")
                 }
                 .confirmationDialog(
                     "Delete \"\(primaryValue)\"?",
@@ -152,6 +151,13 @@ struct ItemDetailView: View {
                     Button("Cancel", role: .cancel) {}
                 } message: {
                     Text("The item will be moved to Recently Deleted.")
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showingEditItem = true
+                } label: {
+                    Label("Edit", systemImage: "pencil")
                 }
             }
 #endif

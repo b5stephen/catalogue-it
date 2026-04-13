@@ -15,6 +15,7 @@ struct ItemGridView: View {
     let gridColumns: [GridItem]
     let showWishlistBadge: Bool
     @Binding var selectedItem: CatalogueItem?
+    @Binding var scrollPosition: ScrollPosition
     let hasMore: Bool
     let isLoadingMore: Bool
     let onLoadMore: () -> Void
@@ -46,6 +47,7 @@ struct ItemGridView: View {
             }
             .padding(.vertical)
         }
+        .scrollPosition($scrollPosition, anchor: .top)
         .padding(.horizontal, 16)
     }
 }
@@ -90,6 +92,7 @@ struct ItemGridView: View {
         gridColumns: columns,
         showWishlistBadge: true,
         selectedItem: .constant(nil),
+        scrollPosition: .constant(ScrollPosition()),
         hasMore: false,
         isLoadingMore: false,
         onLoadMore: {}

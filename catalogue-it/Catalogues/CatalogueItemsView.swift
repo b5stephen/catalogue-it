@@ -20,6 +20,10 @@ struct CatalogueItemsView: View {
 
     @Environment(\.modelContext) private var modelContext
     @State private var pagination = ItemPaginationController()
+    @State private var scrollPosition = ScrollPosition()
+    // ID of the item the user tapped most recently. Used to restore scroll position
+    // after a force reset (e.g. when the user edits an item and navigates back).
+    @State private var scrollAnchorID: PersistentIdentifier?
 
     private var filterFingerprint: FilterFingerprint {
         FilterFingerprint(
@@ -50,6 +54,7 @@ struct CatalogueItemsView: View {
                         gridColumns: gridColumns,
                         showWishlistBadge: tab == .all,
                         selectedItem: $selectedItem,
+                        scrollPosition: $scrollPosition,
                         hasMore: pagination.hasMore,
                         isLoadingMore: pagination.isLoadingMore,
                         onLoadMore: { pagination.loadMore(context: modelContext) }
@@ -60,6 +65,7 @@ struct CatalogueItemsView: View {
                         catalogue: catalogue,
                         showWishlistBadge: tab == .all,
                         selectedItem: $selectedItem,
+                        scrollPosition: $scrollPosition,
                         hasMore: pagination.hasMore,
                         isLoadingMore: pagination.isLoadingMore,
                         onLoadMore: { pagination.loadMore(context: modelContext) }
@@ -71,9 +77,29 @@ struct CatalogueItemsView: View {
             pagination.reset(fingerprint: filterFingerprint, context: modelContext)
         }
         .onAppear {
-            pagination.startObservingStoreChanges()
+            let didReset = pagination.startObservingStoreChanges()
+            if didReset, let anchorID = scrollAnchorID {
+                // A save happened while we were behind a navigation push. The list was
+                // reloaded from page 1. Load additional pages until the anchor item
+                // (the one the user just edited) is back in the items array, then
+                // scroll to it so the user is returned to roughly the same position.
+                while !pagination.items.contains(where: { $0.persistentModelID == anchorID }),
+                      pagination.hasMore {
+                    pagination.loadMore(context: modelContext)
+                }
+                scrollPosition = ScrollPosition(id: anchorID)
+                scrollAnchorID = nil
+            }
+        }
+        .onChange(of: selectedItem) { _, newItem in
+            // Capture the tapped item's ID so we can restore position after an edit.
+            if let item = newItem {
+                scrollAnchorID = item.persistentModelID
+            }
         }
         .onChange(of: filterFingerprint) {
+            scrollAnchorID = nil
+            scrollPosition = ScrollPosition(edge: .top)
             pagination.reset(fingerprint: filterFingerprint, context: modelContext)
         }
         .onChange(of: pagination.totalCount) {

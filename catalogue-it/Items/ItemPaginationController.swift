@@ -122,7 +122,10 @@ final class ItemPaginationController {
     /// Starts observing store changes. The controller resets automatically when the
     /// local context is saved or iCloud delivers remote changes.
     /// Call on view appear; pair with stopObservingStoreChanges on disappear.
-    func startObservingStoreChanges() {
+    /// Returns `true` if a pending store change was detected and a force reset was
+    /// performed — the caller should restore the scroll position in that case.
+    @discardableResult
+    func startObservingStoreChanges() -> Bool {
         // Disarm the standby observer that was watching for saves while we were inactive.
         if let standby = standbyObserver {
             NotificationCenter.default.removeObserver(standby)
@@ -153,7 +156,9 @@ final class ItemPaginationController {
             if let fp = currentFingerprint, let ctx = currentContext {
                 reset(fingerprint: fp, context: ctx, force: true)
             }
+            return true
         }
+        return false
     }
 
     func stopObservingStoreChanges() {

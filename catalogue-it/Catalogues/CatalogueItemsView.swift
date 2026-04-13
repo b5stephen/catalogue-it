@@ -69,6 +69,8 @@ struct CatalogueItemsView: View {
         }
         .task {
             pagination.reset(fingerprint: filterFingerprint, context: modelContext)
+        }
+        .onAppear {
             pagination.startObservingStoreChanges()
         }
         .onChange(of: filterFingerprint) {

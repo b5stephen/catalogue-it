@@ -56,7 +56,18 @@ final class ItemPaginationController {
 
     /// Clears pagination state, recomputes counts and (for custom sort) the sorted ID index,
     /// then loads the first page. Call this whenever filter or sort inputs change.
-    func reset(fingerprint: FilterFingerprint, context: ModelContext) {
+    ///
+    /// Pass `force: true` when the underlying data has changed (e.g. a store save) so that
+    /// an already-loaded list is refreshed. Without `force`, a call with an identical
+    /// fingerprint and existing items is a no-op — this preserves the scroll position when
+    /// navigating back from a detail view.
+    func reset(fingerprint: FilterFingerprint, context: ModelContext, force: Bool = false) {
+        // Skip redundant resets caused by the view re-appearing (e.g. navigating back from
+        // item detail). The scroll position is preserved because the items array is unchanged.
+        if !force, fingerprint == currentFingerprint, !items.isEmpty {
+            return
+        }
+
         currentFingerprint = fingerprint
         currentContext = context
 
@@ -135,7 +146,7 @@ final class ItemPaginationController {
 
     private func handleStoreChange() {
         guard let fp = currentFingerprint, let ctx = currentContext else { return }
-        reset(fingerprint: fp, context: ctx)
+        reset(fingerprint: fp, context: ctx, force: true)
     }
 
     // MARK: - Custom Sort Path

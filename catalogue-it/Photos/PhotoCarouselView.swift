@@ -83,18 +83,39 @@ struct PhotoCarouselView: View {
 
     @ViewBuilder
     private func photoPage(photo: ItemPhoto) -> some View {
-        if let image = photo.imageData.asImage() {
-            image
-                .resizable()
-                .scaledToFit()
-        } else {
-            Rectangle()
-                .fill(.secondary.opacity(0.2))
-                .overlay {
-                    Image(systemName: "photo")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                }
+        Group {
+            if let image = photo.imageData.asImage() {
+                image
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                Rectangle()
+                    .fill(.secondary.opacity(0.2))
+                    .overlay {
+                        Image(systemName: "photo")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                    }
+            }
+        }
+        .contentShape(Rectangle())
+        .contextMenu {
+            Button {
+                copyImageToClipboard(photo.imageData)
+            } label: {
+                Label("Copy Image", systemImage: "doc.on.doc")
+            }
         }
     }
+}
+
+private func copyImageToClipboard(_ data: Data) {
+#if os(macOS)
+    if let nsImage = NSImage(data: data) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([nsImage])
+    }
+#else
+    UIPasteboard.general.image = UIImage(data: data)
+#endif
 }

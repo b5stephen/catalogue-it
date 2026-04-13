@@ -18,6 +18,7 @@ struct ItemDetailView: View {
     @Binding var selectedItem: CatalogueItem?
 
     @State private var showingEditItem = false
+    @State private var showingCloneItem = false
     @State private var showingDeleteConfirmation = false
 
     // MARK: - Computed
@@ -92,6 +93,11 @@ struct ItemDetailView: View {
                     ShareLink(item: shareText) {
                         Label("Export", systemImage: "square.and.arrow.up")
                     }
+                    Button {
+                        showingCloneItem = true
+                    } label: {
+                        Label("Clone", systemImage: "plus.square.on.square")
+                    }
                     Divider()
                     Button(role: .destructive) {
                         showingDeleteConfirmation = true
@@ -129,6 +135,11 @@ struct ItemDetailView: View {
                     ShareLink(item: shareText) {
                         Label("Export", systemImage: "square.and.arrow.up")
                     }
+                    Button {
+                        showingCloneItem = true
+                    } label: {
+                        Label("Clone", systemImage: "plus.square.on.square")
+                    }
                     Divider()
                     Button(role: .destructive) {
                         showingDeleteConfirmation = true
@@ -164,6 +175,9 @@ struct ItemDetailView: View {
         }
         .sheet(isPresented: $showingEditItem) {
             AddEditItemView(catalogue: catalogue, item: item)
+        }
+        .sheet(isPresented: $showingCloneItem) {
+            AddEditItemView(catalogue: catalogue, cloneSource: item)
         }
     }
 

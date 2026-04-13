@@ -16,6 +16,7 @@ struct AddEditItemView: View {
 
     let catalogue: Catalogue
     let existingItem: CatalogueItem?
+    let cloneSource: CatalogueItem?
     let defaultIsWishlist: Bool
 
     // MARK: - Form State
@@ -30,9 +31,10 @@ struct AddEditItemView: View {
 
     private var isEditing: Bool { existingItem != nil }
 
-    init(catalogue: Catalogue, item: CatalogueItem? = nil, defaultIsWishlist: Bool = false) {
+    init(catalogue: Catalogue, item: CatalogueItem? = nil, cloneSource: CatalogueItem? = nil, defaultIsWishlist: Bool = false) {
         self.catalogue = catalogue
         self.existingItem = item
+        self.cloneSource = cloneSource
         self.defaultIsWishlist = defaultIsWishlist
     }
 
@@ -118,6 +120,28 @@ struct AddEditItemView: View {
 
             isWishlist = item.isWishlist
             notes = item.notes ?? ""
+        } else if let source = cloneSource {
+            // Clone mode: populate from source item, saves as a new item
+            fieldDrafts = sortedDefs.map { def in
+                var draft = FieldValueDraft(fieldDefinition: def, fieldType: def.fieldType)
+                if let fv = source.value(for: def) {
+                    switch def.fieldType {
+                    case .text, .optionList: draft.textValue = fv.textValue ?? ""
+                    case .number:            draft.numberValue = fv.numberValue
+                    case .date:              draft.dateValue = fv.dateValue
+                    case .boolean:           draft.boolValue = fv.boolValue ?? false
+                    }
+                }
+                return draft
+            }
+            photoDrafts = source.photos
+                .sorted { $0.priority < $1.priority }
+                .enumerated()
+                .map { index, photo in
+                    PhotoDraft(imageData: photo.imageData, caption: photo.caption ?? "", priority: index)
+                }
+            isWishlist = source.isWishlist
+            notes = source.notes ?? ""
         } else {
             // Create mode: blank drafts, pre-populate option list defaults
             fieldDrafts = sortedDefs.map { def in

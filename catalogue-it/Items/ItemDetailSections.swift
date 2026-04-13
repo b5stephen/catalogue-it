@@ -29,6 +29,7 @@ private struct FieldRowView: View {
 
             Divider()
         }
+        .contentShape(Rectangle())
         .contextMenu {
             Button {
                 copyToClipboard(value)

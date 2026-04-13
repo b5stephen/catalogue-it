@@ -52,11 +52,27 @@ final class ItemPaginationController {
     private var currentContext: ModelContext?
     private var observers: [NSObjectProtocol] = []
 
+    // Set by the standby observer when a store save fires while active observing is paused
+    // (e.g. during navigation to item detail). Triggers a force refresh on the next appear.
+    private var pendingStoreChange = false
+    private var standbyObserver: NSObjectProtocol?
+
     // MARK: - Public API
 
     /// Clears pagination state, recomputes counts and (for custom sort) the sorted ID index,
     /// then loads the first page. Call this whenever filter or sort inputs change.
-    func reset(fingerprint: FilterFingerprint, context: ModelContext) {
+    ///
+    /// Pass `force: true` when the underlying data has changed (e.g. a store save) so that
+    /// an already-loaded list is refreshed. Without `force`, a call with an identical
+    /// fingerprint and existing items is a no-op — this preserves the scroll position when
+    /// navigating back from a detail view.
+    func reset(fingerprint: FilterFingerprint, context: ModelContext, force: Bool = false) {
+        // Skip redundant resets caused by the view re-appearing (e.g. navigating back from
+        // item detail). The scroll position is preserved because the items array is unchanged.
+        if !force, fingerprint == currentFingerprint, !items.isEmpty {
+            return
+        }
+
         currentFingerprint = fingerprint
         currentContext = context
 
@@ -105,9 +121,16 @@ final class ItemPaginationController {
 
     /// Starts observing store changes. The controller resets automatically when the
     /// local context is saved or iCloud delivers remote changes.
-    /// Call once on view appear; pair with stopObservingStoreChanges on disappear.
-    func startObservingStoreChanges() {
-        guard observers.isEmpty else { return }
+    /// Call on view appear; pair with stopObservingStoreChanges on disappear.
+    /// Returns `true` if a pending store change was detected and a force reset was
+    /// performed — the caller should restore the scroll position in that case.
+    @discardableResult
+    func startObservingStoreChanges() -> Bool {
+        // Disarm the standby observer that was watching for saves while we were inactive.
+        if let standby = standbyObserver {
+            NotificationCenter.default.removeObserver(standby)
+            standbyObserver = nil
+        }
 
         // NSManagedObjectContextDidSave fires only on explicit context.save() calls —
         // not during read-only fetch operations. This avoids an infinite loop where
@@ -115,27 +138,51 @@ final class ItemPaginationController {
         // NSManagedObjectContextObjectsDidChange, triggering another reset().
         // SwiftData merges iCloud changes into the main context and then saves, so
         // this notification covers both local saves and remote sync.
-        let token = NotificationCenter.default.addObserver(
-            forName: .NSManagedObjectContextDidSave,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.handleStoreChange() }
+        if observers.isEmpty {
+            let token = NotificationCenter.default.addObserver(
+                forName: .NSManagedObjectContextDidSave,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.handleStoreChange() }
+            }
+            observers = [token]
         }
 
-        observers = [token]
+        // A save fired while we were paused (e.g. user edited an item in the detail view).
+        // Force a full refresh so sort order and search index reflect the latest data.
+        if pendingStoreChange {
+            pendingStoreChange = false
+            if let fp = currentFingerprint, let ctx = currentContext {
+                reset(fingerprint: fp, context: ctx, force: true)
+            }
+            return true
+        }
+        return false
     }
 
     func stopObservingStoreChanges() {
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         observers = []
+
+        // Arm a lightweight standby observer so we notice saves that occur while the view
+        // is behind a navigation push (e.g. the user edits an item in detail view).
+        // The full refresh is deferred until the view reappears via startObservingStoreChanges.
+        guard standbyObserver == nil else { return }
+        standbyObserver = NotificationCenter.default.addObserver(
+            forName: .NSManagedObjectContextDidSave,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.pendingStoreChange = true }
+        }
     }
 
     // MARK: - Reactivity
 
     private func handleStoreChange() {
         guard let fp = currentFingerprint, let ctx = currentContext else { return }
-        reset(fingerprint: fp, context: ctx)
+        reset(fingerprint: fp, context: ctx, force: true)
     }
 
     // MARK: - Custom Sort Path

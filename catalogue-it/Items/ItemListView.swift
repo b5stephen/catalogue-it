@@ -14,6 +14,7 @@ struct ItemListView: View {
     let catalogue: Catalogue
     let showWishlistBadge: Bool
     @Binding var selectedItem: CatalogueItem?
+    @Binding var scrollPosition: ScrollPosition
     let hasMore: Bool
     let isLoadingMore: Bool
     let onLoadMore: () -> Void
@@ -35,6 +36,7 @@ struct ItemListView: View {
                 scrollSentinel
             }
             .listStyle(.plain)
+            .scrollPosition($scrollPosition, anchor: .top)
         } else {
             regularList
         }
@@ -52,6 +54,7 @@ struct ItemListView: View {
             scrollSentinel
         }
         .listStyle(.plain)
+        .scrollPosition($scrollPosition, anchor: .top)
     }
 
     @ViewBuilder

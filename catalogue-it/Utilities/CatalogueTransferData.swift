@@ -182,8 +182,6 @@ extension CatalogueDTO {
         }
 
         // Create items, linking field values back to definitions via UUID map.
-        // coverThumbnailData is intentionally left nil here — ThumbnailLoader generates
-        // it on demand the first time an item is displayed (fallback path).
         for (index, itemDTO) in items.enumerated() {
             let item = CatalogueItem(isWishlist: itemDTO.isWishlist, notes: itemDTO.notes)
             item.createdDate = itemDTO.createdDate
@@ -214,6 +212,12 @@ extension CatalogueDTO {
                 )
                 photo.item = item
                 context.insert(photo)
+            }
+
+            // Pre-compute coverThumbnailData so list views never need to fault in
+            // the photos relationship to render thumbnails for imported items.
+            if let coverPhotoDTO = itemDTO.photos.min(by: { $0.priority < $1.priority }) {
+                item.coverThumbnailData = makeThumbnailData(from: coverPhotoDTO.imageData)
             }
 
             onProgress?(index + 1, items.count)

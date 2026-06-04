@@ -28,26 +28,40 @@ final actor ThumbnailLoader {
 #if os(iOS)
     /// Returns a thumbnail UIImage for the item, on this actor's background thread.
     /// Fast path: reads pre-generated coverThumbnailData (items added/edited in-app).
-    /// Fallback: generates a thumbnail from the cover photo's imageData on demand
-    /// (imported items, where coverThumbnailData was not pre-computed).
+    /// Fallback: fetches only the cover photo via a targeted query, generates the thumbnail,
+    /// and writes it back to coverThumbnailData so subsequent calls use the fast path.
     func thumbnail(for itemID: PersistentIdentifier) -> UIImage? {
         guard let item = self[itemID, as: CatalogueItem.self] else { return nil }
-        if let data = item.coverThumbnailData {
-            return UIImage(data: data)
-        }
-        guard let photoData = item.photos.min(by: { $0.priority < $1.priority })?.imageData,
-              let thumbData = makeThumbnailData(from: photoData) else { return nil }
-        return UIImage(data: thumbData)
+        guard let data = coverThumbnailData(for: item) else { return nil }
+        return UIImage(data: data)
     }
 #else
     func thumbnail(for itemID: PersistentIdentifier) -> NSImage? {
         guard let item = self[itemID, as: CatalogueItem.self] else { return nil }
-        if let data = item.coverThumbnailData {
-            return NSImage(data: data)
-        }
-        guard let photoData = item.photos.min(by: { $0.priority < $1.priority })?.imageData,
-              let thumbData = makeThumbnailData(from: photoData) else { return nil }
-        return NSImage(data: thumbData)
+        guard let data = coverThumbnailData(for: item) else { return nil }
+        return NSImage(data: data)
     }
 #endif
+
+    // MARK: - Private
+
+    private func coverThumbnailData(for item: CatalogueItem) -> Data? {
+        if let data = item.coverThumbnailData { return data }
+
+        // Fallback: load only the single lowest-priority photo rather than faulting
+        // in the entire photos relationship just to call .min() on it.
+        let coverItemID = item.persistentModelID
+        var descriptor = FetchDescriptor<ItemPhoto>(
+            predicate: #Predicate { $0.item?.persistentModelID == coverItemID },
+            sortBy: [SortDescriptor(\.priority)]
+        )
+        descriptor.fetchLimit = 1
+        guard let coverPhoto = try? modelContext.fetch(descriptor).first,
+              let thumbData = makeThumbnailData(from: coverPhoto.imageData) else { return nil }
+
+        // Cache so this fallback is never needed again for this item.
+        item.coverThumbnailData = thumbData
+        try? modelContext.save()
+        return thumbData
+    }
 }

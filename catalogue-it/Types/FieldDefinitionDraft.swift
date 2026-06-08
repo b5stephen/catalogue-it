@@ -43,7 +43,7 @@ struct FieldValueDraft: Identifiable {
 // MARK: - Photo Draft
 
 /// Lightweight form state for a photo during item editing.
-struct PhotoDraft: Identifiable {
+struct PhotoDraft: Identifiable, Equatable {
     let id: UUID = UUID()
     var imageData: Data
     var caption: String = ""

@@ -19,7 +19,7 @@ struct PhotoPickerView: View {
     @State private var isLoadingPhotos: Bool = false
     @State private var loadError: Error? = nil
     @State private var loadTask: Task<Void, Never>?
-    @State private var isEditingPhotos = false
+    @State private var isEditingPhotos: Bool
     @State private var pendingDeleteId: UUID? = nil
     @State private var previewDraft: PhotoDraft? = nil
     #if os(iOS)
@@ -27,20 +27,33 @@ struct PhotoPickerView: View {
     @State private var cameraCoordinator: CameraCoordinator?
     #endif
 
+    init(photos: Binding<[PhotoDraft]>, startEditing: Bool = false) {
+        self._photos = photos
+        self._isEditingPhotos = State(initialValue: startEditing)
+    }
+
     var body: some View {
         let loading = isLoadingPhotos
         Section {
             if isEditingPhotos {
-                ForEach($photos) { $photo in
-                    PhotoListRow(photo: $photo)
+                List {
+                    ForEach($photos) { $photo in
+                        PhotoListRow(photo: $photo)
+                    }
+                    .onMove { from, to in
+                        photos.move(fromOffsets: from, toOffset: to)
+                        for index in photos.indices { photos[index].priority = index }
+                    }
+                    .onDelete { offsets in
+                        offsets.forEach { pendingDeleteId = photos[$0].id }
+                    }
                 }
-                .onMove { from, to in
-                    photos.move(fromOffsets: from, toOffset: to)
-                    for index in photos.indices { photos[index].priority = index }
-                }
-                .onDelete { offsets in
-                    offsets.forEach { pendingDeleteId = photos[$0].id }
-                }
+                .environment(\.editMode, .constant(.active))
+                .frame(height: CGFloat(photos.count) * 66)
+                .scrollDisabled(true)
+                .listStyle(.plain)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
             } else {
                 PhotoGridView(
                     photos: $photos,
@@ -88,7 +101,6 @@ struct PhotoPickerView: View {
                 }
             }
         }
-        .environment(\.editMode, .constant(isEditingPhotos ? .active : .inactive))
         .onChange(of: photos.isEmpty) { _, isEmpty in
             if isEmpty { isEditingPhotos = false }
         }
@@ -314,3 +326,30 @@ private struct PhotoEditDetailSheet: View {
         PhotoPickerView(photos: .constant([]))
     }
 }
+
+#if os(iOS)
+#Preview("Edit Mode") {
+    struct Container: View {
+        @State var photos: [PhotoDraft] = {
+            func makePhoto(_ color: UIColor, priority: Int) -> PhotoDraft {
+                let renderer = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 100))
+                let data = renderer.jpegData(withCompressionQuality: 0.8) { ctx in
+                    color.setFill()
+                    ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
+                }
+                return PhotoDraft(imageData: data, priority: priority)
+            }
+            return [
+                makePhoto(.systemBlue, priority: 0),
+                makePhoto(.systemRed, priority: 1),
+                makePhoto(.systemGreen, priority: 2),
+            ]
+        }()
+
+        var body: some View {
+            Form { PhotoPickerView(photos: $photos, startEditing: true) }
+        }
+    }
+    return Container()
+}
+#endif

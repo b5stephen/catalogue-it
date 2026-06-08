@@ -64,28 +64,30 @@ struct PhotoPickerView: View {
                 )
             }
 
-            PhotosPicker(
-                selection: $selectedItems,
-                maxSelectionCount: 10,
-                matching: .images
-            ) {
-                Label(
-                    loading ? "Loading…" : "Add Photos",
-                    systemImage: loading ? "hourglass" : "photo.badge.plus"
-                )
-            }
-            .disabled(isLoadingPhotos)
-            .onChange(of: selectedItems) {
-                loadPhotos()
-            }
-            #if os(iOS)
-            if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                Button { isCameraPresented = true } label: {
-                    Label("Take Photo", systemImage: "camera")
+            if !isEditingPhotos {
+                PhotosPicker(
+                    selection: $selectedItems,
+                    maxSelectionCount: 10,
+                    matching: .images
+                ) {
+                    Label(
+                        loading ? "Loading…" : "Add Photos",
+                        systemImage: loading ? "hourglass" : "photo.badge.plus"
+                    )
                 }
                 .disabled(isLoadingPhotos)
+                .onChange(of: selectedItems) {
+                    loadPhotos()
+                }
+                #if os(iOS)
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    Button { isCameraPresented = true } label: {
+                        Label("Take Photo", systemImage: "camera")
+                    }
+                    .disabled(isLoadingPhotos)
+                }
+                #endif
             }
-            #endif
         } header: {
             HStack {
                 Text("Photos")

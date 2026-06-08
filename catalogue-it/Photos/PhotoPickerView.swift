@@ -19,38 +19,114 @@ struct PhotoPickerView: View {
     @State private var isLoadingPhotos: Bool = false
     @State private var loadError: Error? = nil
     @State private var loadTask: Task<Void, Never>?
+    @State private var isEditingPhotos: Bool
+    @State private var pendingDeleteId: UUID? = nil
+    @State private var previewDraft: PhotoDraft? = nil
     #if os(iOS)
     @State private var isCameraPresented = false
     @State private var cameraCoordinator: CameraCoordinator?
     #endif
 
+    init(photos: Binding<[PhotoDraft]>, startEditing: Bool = false) {
+        self._photos = photos
+        self._isEditingPhotos = State(initialValue: startEditing)
+    }
+
     var body: some View {
         let loading = isLoadingPhotos
-        Section("Photos") {
-            PhotoGridView(photos: $photos, onDelete: deletePhoto, onMove: movePhoto)
-
-            PhotosPicker(
-                selection: $selectedItems,
-                maxSelectionCount: 10,
-                matching: .images
-            ) {
-                Label(
-                    loading ? "Loading…" : "Select Photos",
-                    systemImage: loading ? "hourglass" : "photo.badge.plus"
+        Section {
+            if isEditingPhotos {
+                List {
+                    ForEach($photos) { $photo in
+                        PhotoListRow(photo: $photo)
+                    }
+                    .onMove { from, to in
+                        photos.move(fromOffsets: from, toOffset: to)
+                        for index in photos.indices { photos[index].priority = index }
+                    }
+                    .onDelete { offsets in
+                        offsets.forEach { pendingDeleteId = photos[$0].id }
+                    }
+                }
+                .environment(\.editMode, .constant(.active))
+                .frame(height: CGFloat(photos.count) * 66)
+                .scrollDisabled(true)
+                .listStyle(.plain)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            } else {
+                PhotoGridView(
+                    photos: $photos,
+                    onTap: { id in
+                        guard let draft = photos.first(where: { $0.id == id }) else { return }
+                        previewDraft = draft
+                    }
                 )
             }
-            .disabled(isLoadingPhotos)
-            .onChange(of: selectedItems) {
-                loadPhotos()
-            }
-            #if os(iOS)
-            if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                Button { isCameraPresented = true } label: {
-                    Label("Take Photo", systemImage: "camera")
+
+            if !isEditingPhotos {
+                PhotosPicker(
+                    selection: $selectedItems,
+                    maxSelectionCount: 10,
+                    matching: .images
+                ) {
+                    Label(
+                        loading ? "Loading…" : "Add Photos",
+                        systemImage: loading ? "hourglass" : "photo.badge.plus"
+                    )
                 }
                 .disabled(isLoadingPhotos)
+                .onChange(of: selectedItems) {
+                    loadPhotos()
+                }
+                #if os(iOS)
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    Button { isCameraPresented = true } label: {
+                        Label("Take Photo", systemImage: "camera")
+                    }
+                    .disabled(isLoadingPhotos)
+                }
+                #endif
             }
-            #endif
+        } header: {
+            HStack {
+                Text("Photos")
+                Spacer()
+                if !photos.isEmpty {
+                    Button(isEditingPhotos ? "Done" : "Edit") {
+                        withAnimation(.spring(duration: 0.2)) {
+                            isEditingPhotos.toggle()
+                        }
+                    }
+                    .font(.subheadline)
+                    .textCase(nil)
+                }
+            }
+        }
+        .onChange(of: photos.isEmpty) { _, isEmpty in
+            if isEmpty { isEditingPhotos = false }
+        }
+        .confirmationDialog(
+            "Delete Photo?",
+            isPresented: Binding(
+                get: { pendingDeleteId != nil },
+                set: { if !$0 { pendingDeleteId = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let id = pendingDeleteId {
+                Button("Delete Photo", role: .destructive) {
+                    deletePhoto(id: id)
+                }
+            }
+        }
+        .sheet(item: $previewDraft) { draft in
+            PhotoEditDetailSheet(
+                draft: bindingFor(draft.id),
+                totalCount: photos.count,
+                position: (photos.firstIndex(where: { $0.id == draft.id }) ?? 0) + 1,
+                onDelete: { deletePhoto(id: draft.id) }
+            )
         }
         .alert("Couldn't Load Photo", isPresented: Binding<Bool>(
             get: { loadError != nil },
@@ -71,6 +147,19 @@ struct PhotoPickerView: View {
             coordinator.present()
         }
         #endif
+    }
+
+    // MARK: - Helpers
+
+    private func bindingFor(_ id: UUID) -> Binding<PhotoDraft> {
+        Binding(
+            get: { photos.first(where: { $0.id == id }) ?? PhotoDraft(imageData: Data(), priority: 0) },
+            set: { newDraft in
+                if let index = photos.firstIndex(where: { $0.id == id }) {
+                    photos[index] = newDraft
+                }
+            }
+        )
     }
 
     private func loadPhotos() {
@@ -108,29 +197,12 @@ struct PhotoPickerView: View {
     #endif
 
     private func deletePhoto(id: UUID) {
-        photos.removeAll { $0.id == id }
-        for index in photos.indices {
-            photos[index].priority = index
+        withAnimation {
+            photos.removeAll { $0.id == id }
+            for index in photos.indices {
+                photos[index].priority = index
+            }
         }
-    }
-
-    private func movePhoto(fromId: UUID, toId: UUID) {
-        guard fromId != toId,
-              let from = photos.firstIndex(where: { $0.id == fromId }),
-              let to = photos.firstIndex(where: { $0.id == toId }) else { return }
-        photos.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
-        for index in photos.indices {
-            photos[index].priority = index
-        }
-    }
-}
-
-// MARK: - Cell Frame Preference
-
-private struct CellFramePreference: PreferenceKey {
-    static let defaultValue: [UUID: CGRect] = [:]
-    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { $1 })
     }
 }
 
@@ -139,13 +211,7 @@ private struct CellFramePreference: PreferenceKey {
 @MainActor
 private struct PhotoGridView: View {
     @Binding var photos: [PhotoDraft]
-    let onDelete: (UUID) -> Void
-    let onMove: (UUID, UUID) -> Void
-
-    @Namespace private var gridNamespace
-    @State private var draggingId: UUID?
-    @State private var dragPosition: CGPoint = .zero
-    @State private var cellFrames: [UUID: CGRect] = [:]
+    let onTap: (UUID) -> Void
 
     private let cellSize = AppConstants.ThumbnailSize.photoPicker
     private let spacing: CGFloat = 12
@@ -157,77 +223,12 @@ private struct PhotoGridView: View {
                 spacing: spacing
             ) {
                 ForEach($photos) { $photo in
-                    let isLifted = draggingId == photo.id
-                    PhotoThumbnailView(photo: $photo, onDelete: { onDelete(photo.id) })
-                        .matchedGeometryEffect(id: photo.id, in: gridNamespace, isSource: !isLifted)
-                        .opacity(isLifted ? 0 : 1)
-                        .background(
-                            GeometryReader { geo in
-                                Color.clear.preference(
-                                    key: CellFramePreference.self,
-                                    value: [photo.id: geo.frame(in: .named("photoGrid"))]
-                                )
-                            }
-                        )
-                        .gesture(reorderGesture(for: photo.id))
+                    PhotoThumbnailView(photo: $photo)
+                        .onTapGesture { onTap(photo.id) }
                 }
             }
             .padding(.vertical, 4)
-            .coordinateSpace(.named("photoGrid"))
-            .overlay(alignment: .topLeading) { liftedPhotoOverlay }
-            .onPreferenceChange(CellFramePreference.self) { cellFrames = $0 }
         }
-    }
-
-    @ViewBuilder
-    private var liftedPhotoOverlay: some View {
-        if let id = draggingId,
-           let snapshot = photos.first(where: { $0.id == id }) {
-            // Use an ID-based binding so it never holds a stale array index.
-            let safeBinding = Binding<PhotoDraft>(
-                get: { photos.first(where: { $0.id == id }) ?? snapshot },
-                set: { _ in }
-            )
-            PhotoThumbnailView(photo: safeBinding, onDelete: {})
-                .matchedGeometryEffect(id: id, in: gridNamespace, isSource: true)
-                .scaleEffect(1.06)
-                .shadow(color: .black.opacity(0.25), radius: 8, y: 4)
-                .position(dragPosition)
-                .allowsHitTesting(false)
-        }
-    }
-
-    private func reorderGesture(for id: UUID) -> some Gesture {
-        DragGesture(minimumDistance: 5, coordinateSpace: .named("photoGrid"))
-            .onChanged { drag in
-                if draggingId == nil {
-                    if let frame = cellFrames[id] {
-                        dragPosition = CGPoint(x: frame.midX, y: frame.midY)
-                    }
-                    withAnimation(.spring(duration: 0.2)) { draggingId = id }
-                    #if os(iOS)
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    #endif
-                }
-                dragPosition = drag.location
-                swapIfNeeded(id: id)
-            }
-            .onEnded { _ in
-                withAnimation(.spring(duration: 0.1)) { draggingId = nil }
-            }
-    }
-
-    private func swapIfNeeded(id: UUID) {
-        guard let targetId = cellFrames.first(where: {
-            $0.key != id && $0.value.contains(dragPosition)
-        })?.key else { return }
-
-        withAnimation(.spring(duration: 0.25, bounce: 0.1)) {
-            onMove(id, targetId)
-        }
-        #if os(iOS)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        #endif
     }
 }
 
@@ -235,33 +236,87 @@ private struct PhotoGridView: View {
 
 private struct PhotoThumbnailView: View {
     @Binding var photo: PhotoDraft
-    let onDelete: () -> Void
 
     var body: some View {
-        VStack(spacing: 4) {
-            ZStack(alignment: .topTrailing) {
-                if let image = photo.imageData.asImage() {
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: AppConstants.ThumbnailSize.photoPicker,
-                               height: AppConstants.ThumbnailSize.photoPicker)
-                        .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.small))
-                }
+        if let image = photo.imageData.asImage() {
+            image
+                .resizable()
+                .scaledToFill()
+                .frame(
+                    width: AppConstants.ThumbnailSize.photoPicker,
+                    height: AppConstants.ThumbnailSize.photoPicker
+                )
+                .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.small))
+                .contentShape(.rect)
+        }
+    }
+}
 
-                Button(action: onDelete) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.white, .black.opacity(0.6))
-                        .font(.system(size: 18))
-                }
-                .accessibilityLabel("Delete Photo")
-                .padding(4)
+// MARK: - Photo List Row
+
+private struct PhotoListRow: View {
+    @Binding var photo: PhotoDraft
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if let image = photo.imageData.asImage() {
+                image
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 44, height: 44)
+                    .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.small))
             }
+            Text(photo.caption.isEmpty ? "No caption" : photo.caption)
+                .foregroundStyle(photo.caption.isEmpty ? .secondary : .primary)
+                .lineLimit(1)
+            Spacer()
+        }
+    }
+}
 
-            TextField("Caption", text: $photo.caption)
-                .font(.caption)
-                .frame(width: AppConstants.ThumbnailSize.photoPicker)
-                .multilineTextAlignment(.center)
+// MARK: - Photo Edit Detail Sheet
+
+private struct PhotoEditDetailSheet: View {
+    @Binding var draft: PhotoDraft
+    let totalCount: Int
+    let position: Int
+    let onDelete: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    if let image = draft.imageData.asImage() {
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.medium))
+                    }
+
+                    TextField("Caption (optional)", text: $draft.caption)
+                        .multilineTextAlignment(.center)
+                        .textFieldStyle(.roundedBorder)
+                        .padding(.horizontal)
+                }
+                .padding()
+            }
+            .navigationTitle(totalCount > 1 ? "Photo \(position) of \(totalCount)" : "Photo")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .destructiveAction) {
+                    Button("Delete", role: .destructive) {
+                        dismiss()
+                        onDelete()
+                    }
+                }
+            }
         }
     }
 }
@@ -273,3 +328,30 @@ private struct PhotoThumbnailView: View {
         PhotoPickerView(photos: .constant([]))
     }
 }
+
+#if os(iOS)
+#Preview("Edit Mode") {
+    struct Container: View {
+        @State var photos: [PhotoDraft] = {
+            func makePhoto(_ color: UIColor, priority: Int) -> PhotoDraft {
+                let renderer = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 100))
+                let data = renderer.jpegData(withCompressionQuality: 0.8) { ctx in
+                    color.setFill()
+                    ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
+                }
+                return PhotoDraft(imageData: data, priority: priority)
+            }
+            return [
+                makePhoto(.systemBlue, priority: 0),
+                makePhoto(.systemRed, priority: 1),
+                makePhoto(.systemGreen, priority: 2),
+            ]
+        }()
+
+        var body: some View {
+            Form { PhotoPickerView(photos: $photos, startEditing: true) }
+        }
+    }
+    return Container()
+}
+#endif

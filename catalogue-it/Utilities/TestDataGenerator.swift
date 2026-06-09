@@ -179,6 +179,7 @@ enum TestDataGenerator {
                 let photo = ItemPhoto(imageData: photoData, thumbnailData: thumbnail, priority: 0)
                 photo.item = item
                 context.insert(photo)
+                item.coverThumbnailData = thumbnail
             }
 
             onProgress?(index + 1, itemCount)

@@ -39,6 +39,7 @@ struct PhotoPickerView: View {
                 List {
                     ForEach($photos) { $photo in
                         PhotoListRow(photo: $photo)
+                            .listRowInsets(EdgeInsets(top: 11, leading: 0, bottom: 11, trailing: 0))
                     }
                     .onMove { from, to in
                         photos.move(fromOffsets: from, toOffset: to)
@@ -49,7 +50,7 @@ struct PhotoPickerView: View {
                     }
                 }
                 .environment(\.editMode, .constant(.active))
-                .frame(height: CGFloat(photos.count) * 66)
+                .frame(height: CGFloat(photos.count) * PhotoListRow.rowHeight + 4)
                 .scrollDisabled(true)
                 .listStyle(.plain)
                 .listRowInsets(EdgeInsets())
@@ -222,6 +223,9 @@ private struct PhotoThumbnailView: View {
 // MARK: - Photo List Row
 
 private struct PhotoListRow: View {
+    static let contentHeight: CGFloat = 44
+    static let rowHeight: CGFloat = contentHeight + 22  // 11pt top inset + 11pt bottom inset
+
     @Binding var photo: PhotoDraft
 
     var body: some View {
@@ -230,13 +234,14 @@ private struct PhotoListRow: View {
                 image
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 44, height: 44)
+                    .frame(width: Self.contentHeight, height: Self.contentHeight)
                     .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.small))
             }
             TextField("Caption (optional)", text: $photo.caption)
                 .foregroundStyle(photo.caption.isEmpty ? .secondary : .primary)
             Spacer()
         }
+        .frame(height: Self.contentHeight)
     }
 }
 

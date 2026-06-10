@@ -264,9 +264,9 @@ struct PhotoEditDetailSheet: View {
                             .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.medium))
                     }
 
-                    TextField("Caption (optional)", text: $draft.caption)
+                    TextField("Caption (optional)", text: $draft.caption, axis: .vertical)
                         .multilineTextAlignment(.center)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
                         .padding(.horizontal)
                 }
                 .padding()

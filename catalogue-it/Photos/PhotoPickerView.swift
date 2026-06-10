@@ -230,6 +230,7 @@ private struct PhotoListRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            Spacer().frame(width: 4)
             if let image = photo.imageData.asImage() {
                 image
                     .resizable()

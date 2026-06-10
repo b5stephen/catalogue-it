@@ -21,7 +21,6 @@ struct PhotoPickerView: View {
     @State private var loadError: Error? = nil
     @State private var loadTask: Task<Void, Never>?
     @State private var isEditingPhotos: Bool
-    @State private var pendingDeleteId: UUID? = nil
     #if os(iOS)
     @State private var isCameraPresented = false
     @State private var cameraCoordinator: CameraCoordinator?
@@ -46,7 +45,7 @@ struct PhotoPickerView: View {
                         for index in photos.indices { photos[index].priority = index }
                     }
                     .onDelete { offsets in
-                        offsets.forEach { pendingDeleteId = photos[$0].id }
+                        offsets.forEach { deletePhoto(id: photos[$0].id) }
                     }
                 }
                 .environment(\.editMode, .constant(.active))
@@ -106,20 +105,6 @@ struct PhotoPickerView: View {
         }
         .onChange(of: photos.isEmpty) { _, isEmpty in
             if isEmpty { isEditingPhotos = false }
-        }
-        .confirmationDialog(
-            "Delete Photo?",
-            isPresented: Binding(
-                get: { pendingDeleteId != nil },
-                set: { if !$0 { pendingDeleteId = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            if let id = pendingDeleteId {
-                Button("Delete Photo", role: .destructive) {
-                    deletePhoto(id: id)
-                }
-            }
         }
         .alert("Couldn't Load Photo", isPresented: Binding<Bool>(
             get: { loadError != nil },

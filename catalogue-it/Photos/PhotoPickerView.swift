@@ -248,9 +248,8 @@ private struct PhotoListRow: View {
                     .frame(width: 44, height: 44)
                     .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.small))
             }
-            Text(photo.caption.isEmpty ? "No caption" : photo.caption)
+            TextField("Caption (optional)", text: $photo.caption)
                 .foregroundStyle(photo.caption.isEmpty ? .secondary : .primary)
-                .lineLimit(1)
             Spacer()
         }
     }

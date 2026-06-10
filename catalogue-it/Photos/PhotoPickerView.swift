@@ -14,6 +14,7 @@ import PhotosUI
 @MainActor
 struct PhotoPickerView: View {
     @Binding var photos: [PhotoDraft]
+    @Binding var previewDraft: PhotoDraft?
 
     @State private var selectedItems: [PhotosPickerItem] = []
     @State private var isLoadingPhotos: Bool = false
@@ -21,14 +22,14 @@ struct PhotoPickerView: View {
     @State private var loadTask: Task<Void, Never>?
     @State private var isEditingPhotos: Bool
     @State private var pendingDeleteId: UUID? = nil
-    @State private var previewDraft: PhotoDraft? = nil
     #if os(iOS)
     @State private var isCameraPresented = false
     @State private var cameraCoordinator: CameraCoordinator?
     #endif
 
-    init(photos: Binding<[PhotoDraft]>, startEditing: Bool = false) {
+    init(photos: Binding<[PhotoDraft]>, previewDraft: Binding<PhotoDraft?>, startEditing: Bool = false) {
         self._photos = photos
+        self._previewDraft = previewDraft
         self._isEditingPhotos = State(initialValue: startEditing)
     }
 
@@ -120,14 +121,6 @@ struct PhotoPickerView: View {
                 }
             }
         }
-        .sheet(item: $previewDraft) { draft in
-            PhotoEditDetailSheet(
-                draft: bindingFor(draft.id),
-                totalCount: photos.count,
-                position: (photos.firstIndex(where: { $0.id == draft.id }) ?? 0) + 1,
-                onDelete: { deletePhoto(id: draft.id) }
-            )
-        }
         .alert("Couldn't Load Photo", isPresented: Binding<Bool>(
             get: { loadError != nil },
             set: { if !$0 { loadError = nil } }
@@ -150,17 +143,6 @@ struct PhotoPickerView: View {
     }
 
     // MARK: - Helpers
-
-    private func bindingFor(_ id: UUID) -> Binding<PhotoDraft> {
-        Binding(
-            get: { photos.first(where: { $0.id == id }) ?? PhotoDraft(imageData: Data(), priority: 0) },
-            set: { newDraft in
-                if let index = photos.firstIndex(where: { $0.id == id }) {
-                    photos[index] = newDraft
-                }
-            }
-        )
-    }
 
     private func loadPhotos() {
         guard !selectedItems.isEmpty else { return }
@@ -276,7 +258,7 @@ private struct PhotoListRow: View {
 
 // MARK: - Photo Edit Detail Sheet
 
-private struct PhotoEditDetailSheet: View {
+struct PhotoEditDetailSheet: View {
     @Binding var draft: PhotoDraft
     let totalCount: Int
     let position: Int
@@ -325,7 +307,7 @@ private struct PhotoEditDetailSheet: View {
 
 #Preview {
     Form {
-        PhotoPickerView(photos: .constant([]))
+        PhotoPickerView(photos: .constant([]), previewDraft: .constant(nil))
     }
 }
 
@@ -349,7 +331,7 @@ private struct PhotoEditDetailSheet: View {
         }()
 
         var body: some View {
-            Form { PhotoPickerView(photos: $photos, startEditing: true) }
+            Form { PhotoPickerView(photos: $photos, previewDraft: .constant(nil), startEditing: true) }
         }
     }
     return Container()

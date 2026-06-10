@@ -26,6 +26,7 @@ struct AddEditItemView: View {
     @State private var photoDrafts: [PhotoDraft] = []
     @State private var isWishlist: Bool = false
     @State private var notes: String = ""
+    @State private var previewPhotoDraft: PhotoDraft? = nil
 
     // MARK: - Computed
 
@@ -43,7 +44,7 @@ struct AddEditItemView: View {
     var body: some View {
         NavigationStack {
             Form {
-                PhotoPickerView(photos: $photoDrafts)
+                PhotoPickerView(photos: $photoDrafts, previewDraft: $previewPhotoDraft)
 
                 Section("Details") {
                     ForEach(fieldDrafts.indices, id: \.self) { index in
@@ -77,7 +78,33 @@ struct AddEditItemView: View {
             .onAppear {
                 loadItemData()
             }
+            .sheet(item: $previewPhotoDraft) { draft in
+                PhotoEditDetailSheet(
+                    draft: bindingFor(draft.id),
+                    totalCount: photoDrafts.count,
+                    position: (photoDrafts.firstIndex(where: { $0.id == draft.id }) ?? 0) + 1,
+                    onDelete: {
+                        withAnimation {
+                            photoDrafts.removeAll { $0.id == draft.id }
+                            for index in photoDrafts.indices { photoDrafts[index].priority = index }
+                        }
+                    }
+                )
+            }
         }
+    }
+
+    // MARK: - Helpers
+
+    private func bindingFor(_ id: UUID) -> Binding<PhotoDraft> {
+        Binding(
+            get: { photoDrafts.first(where: { $0.id == id }) ?? PhotoDraft(imageData: Data(), priority: 0) },
+            set: { newDraft in
+                if let index = photoDrafts.firstIndex(where: { $0.id == id }) {
+                    photoDrafts[index] = newDraft
+                }
+            }
+        )
     }
 
     // MARK: - Load

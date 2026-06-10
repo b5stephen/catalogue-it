@@ -26,7 +26,7 @@ struct AddEditItemView: View {
     @State private var photoDrafts: [PhotoDraft] = []
     @State private var isWishlist: Bool = false
     @State private var notes: String = ""
-    @State private var previewPhotoDraft: PhotoDraft? = nil
+    @State private var previewPhotoID: UUID? = nil
 
     // MARK: - Computed
 
@@ -44,7 +44,7 @@ struct AddEditItemView: View {
     var body: some View {
         NavigationStack {
             Form {
-                PhotoPickerView(photos: $photoDrafts, previewDraft: $previewPhotoDraft)
+                PhotoPickerView(photos: $photoDrafts, previewPhotoID: $previewPhotoID)
 
                 Section("Details") {
                     ForEach(fieldDrafts.indices, id: \.self) { index in
@@ -78,18 +78,23 @@ struct AddEditItemView: View {
             .onAppear {
                 loadItemData()
             }
-            .sheet(item: $previewPhotoDraft) { draft in
-                PhotoEditDetailSheet(
-                    draft: bindingFor(draft.id),
-                    totalCount: photoDrafts.count,
-                    position: (photoDrafts.firstIndex(where: { $0.id == draft.id }) ?? 0) + 1,
-                    onDelete: {
-                        withAnimation {
-                            photoDrafts.removeAll { $0.id == draft.id }
-                            for index in photoDrafts.indices { photoDrafts[index].priority = index }
+            .sheet(isPresented: Binding(
+                get: { previewPhotoID != nil },
+                set: { if !$0 { previewPhotoID = nil } }
+            )) {
+                if let id = previewPhotoID {
+                    PhotoEditDetailSheet(
+                        draft: bindingFor(id),
+                        totalCount: photoDrafts.count,
+                        position: (photoDrafts.firstIndex(where: { $0.id == id }) ?? 0) + 1,
+                        onDelete: {
+                            withAnimation {
+                                photoDrafts.removeAll { $0.id == id }
+                                for index in photoDrafts.indices { photoDrafts[index].priority = index }
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
     }

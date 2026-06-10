@@ -14,7 +14,7 @@ import PhotosUI
 @MainActor
 struct PhotoPickerView: View {
     @Binding var photos: [PhotoDraft]
-    @Binding var previewDraft: PhotoDraft?
+    @Binding var previewPhotoID: UUID?
 
     @State private var selectedItems: [PhotosPickerItem] = []
     @State private var isLoadingPhotos: Bool = false
@@ -26,9 +26,9 @@ struct PhotoPickerView: View {
     @State private var cameraCoordinator: CameraCoordinator?
     #endif
 
-    init(photos: Binding<[PhotoDraft]>, previewDraft: Binding<PhotoDraft?>, startEditing: Bool = false) {
+    init(photos: Binding<[PhotoDraft]>, previewPhotoID: Binding<UUID?>, startEditing: Bool = false) {
         self._photos = photos
-        self._previewDraft = previewDraft
+        self._previewPhotoID = previewPhotoID
         self._isEditingPhotos = State(initialValue: startEditing)
     }
 
@@ -58,10 +58,7 @@ struct PhotoPickerView: View {
             } else {
                 PhotoGridView(
                     photos: $photos,
-                    onTap: { id in
-                        guard let draft = photos.first(where: { $0.id == id }) else { return }
-                        previewDraft = draft
-                    }
+                    onTap: { id in previewPhotoID = id }
                 )
             }
 
@@ -297,7 +294,7 @@ struct PhotoEditDetailSheet: View {
 
 #Preview {
     Form {
-        PhotoPickerView(photos: .constant([]), previewDraft: .constant(nil))
+        PhotoPickerView(photos: .constant([]), previewPhotoID: .constant(nil))
     }
 }
 
@@ -321,7 +318,7 @@ struct PhotoEditDetailSheet: View {
         }()
 
         var body: some View {
-            Form { PhotoPickerView(photos: $photos, previewDraft: .constant(nil), startEditing: true) }
+            Form { PhotoPickerView(photos: $photos, previewPhotoID: .constant(nil), startEditing: true) }
         }
     }
     return Container()

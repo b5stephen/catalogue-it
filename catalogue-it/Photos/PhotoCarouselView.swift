@@ -12,7 +12,7 @@ import SwiftUI
 struct PhotoCarouselView: View {
     let photos: [ItemPhoto]
 
-    @State private var selectedIndex: Int? = 0
+    @State private var selectedIndex: Int = 0
 #if os(iOS)
     @Namespace private var photoNamespace
     @State private var showingFullScreen = false
@@ -27,7 +27,7 @@ struct PhotoCarouselView: View {
                 TabView(selection: $selectedIndex) {
                     ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
                         photoPage(photo: photo)
-                            .tag(index as Int?)
+                            .tag(index)
                             .onTapGesture {
                                 showingFullScreen = true
                             }
@@ -52,12 +52,15 @@ struct PhotoCarouselView: View {
                     .scrollTargetLayout()
                 }
                 .scrollTargetBehavior(.paging)
-                .scrollPosition(id: $selectedIndex)
+                .scrollPosition(id: Binding(
+                    get: { selectedIndex as Int? },
+                    set: { if let i = $0 { selectedIndex = i } }
+                ))
 #endif
             }
             .frame(height: AppConstants.PhotoHeight.detail)
 
-            let caption = (selectedIndex ?? 0) < photos.count ? photos[selectedIndex ?? 0].caption : nil
+            let caption = selectedIndex < photos.count ? photos[selectedIndex].caption : nil
             Text(caption ?? "")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -68,15 +71,15 @@ struct PhotoCarouselView: View {
         }
 #if os(iOS)
         .fullScreenCover(isPresented: $showingFullScreen) {
-            FullScreenPhotoView(photos: photos, initialIndex: selectedIndex ?? 0)
+            FullScreenPhotoView(photos: photos, initialIndex: selectedIndex)
                 .navigationTransition(.zoom(
-                    sourceID: photos[selectedIndex ?? 0].id,
+                    sourceID: photos[selectedIndex].id,
                     in: photoNamespace
                 ))
         }
 #else
         .sheet(isPresented: $showingFullScreen) {
-            FullScreenPhotoView(photos: photos, initialIndex: selectedIndex ?? 0)
+            FullScreenPhotoView(photos: photos, initialIndex: selectedIndex)
         }
 #endif
     }

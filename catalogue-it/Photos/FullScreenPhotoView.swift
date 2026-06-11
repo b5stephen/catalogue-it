@@ -66,27 +66,34 @@ struct FullScreenPhotoView: View {
 
                 // Photo pager — moves and scales during dismiss drag
                 GeometryReader { proxy in
-                    ScrollView(.horizontal) {
-                        HStack(spacing: 0) {
-                            ForEach(photos.enumerated(), id: \.element.id) { index, photo in
-                                ZoomablePhotoView(
-                                    imageData: photo.imageData,
-                                    isZoomed: $isZoomed,
-                                    isPinching: $isPinching
-                                )
-                                .frame(width: proxy.size.width, height: proxy.size.height)
-                                .id(index)
+                    ScrollViewReader { scrollProxy in
+                        ScrollView(.horizontal) {
+                            HStack(spacing: 0) {
+                                ForEach(photos.enumerated(), id: \.element.id) { index, photo in
+                                    ZoomablePhotoView(
+                                        imageData: photo.imageData,
+                                        isZoomed: $isZoomed,
+                                        isPinching: $isPinching
+                                    )
+                                    .frame(width: proxy.size.width, height: proxy.size.height)
+                                    .id(index)
+                                }
                             }
+                            .scrollTargetLayout()
                         }
-                        .scrollTargetLayout()
+                        .scrollIndicators(.hidden)
+                        .scrollTargetBehavior(.paging)
+                        .scrollPosition(id: Binding(
+                            get: { selectedIndex as Int? },
+                            set: { if let i = $0 { selectedIndex = i } }
+                        ))
+                        .scrollDisabled(isZoomed)
+                        // scrollPosition(id:) doesn't reliably set initial position on
+                        // first render; scrollTo with initial: true seeds it directly.
+                        .onChange(of: initialIndex, initial: true) { _, index in
+                            scrollProxy.scrollTo(index, anchor: .center)
+                        }
                     }
-                    .scrollIndicators(.hidden)
-                    .scrollTargetBehavior(.paging)
-                    .scrollPosition(id: Binding(
-                        get: { selectedIndex as Int? },
-                        set: { if let i = $0 { selectedIndex = i } }
-                    ))
-                    .scrollDisabled(isZoomed)
                 }
                 .offset(y: dismissOffset)
                 .scaleEffect(1.0 - dismissProgress * 0.1)

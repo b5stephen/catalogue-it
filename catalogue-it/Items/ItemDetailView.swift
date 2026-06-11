@@ -67,7 +67,6 @@ struct ItemDetailView: View {
             VStack(alignment: .leading, spacing: 0) {
                 if !sortedPhotos.isEmpty {
                     PhotoCarouselView(photos: sortedPhotos)
-                        .frame(height: AppConstants.PhotoHeight.detail)
                 }
 
                 VStack(alignment: .leading, spacing: 0) {
@@ -79,7 +78,7 @@ struct ItemDetailView: View {
                         ItemNotesSection(notes: notes)
                     }
                 }
-                .padding()
+                .padding([.horizontal, .bottom])
             }
         }
         .navigationTitle(primaryValue)
@@ -228,3 +227,48 @@ struct ItemDetailView: View {
     }
     .modelContainer(container)
 }
+
+#if os(iOS)
+#Preview("With Photo Caption") {
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: Catalogue.self, configurations: config)
+
+    let catalogue = Catalogue(name: "Films", iconName: "film", colorHex: "#FF3B30")
+    container.mainContext.insert(catalogue)
+
+    let field1 = FieldDefinition(name: "Title", fieldType: .text, priority: 0)
+    field1.catalogue = catalogue
+    container.mainContext.insert(field1)
+
+    let field2 = FieldDefinition(name: "Director", fieldType: .text, priority: 1)
+    field2.catalogue = catalogue
+    container.mainContext.insert(field2)
+
+    let item = CatalogueItem(isWishlist: false, notes: nil)
+    item.catalogue = catalogue
+    container.mainContext.insert(item)
+
+    let val1 = FieldValue(fieldDefinition: field1, fieldType: .text)
+    val1.textValue = "The Grand Illusion"
+    val1.item = item
+    container.mainContext.insert(val1)
+
+    let val2 = FieldValue(fieldDefinition: field2, fieldType: .text)
+    val2.textValue = "Jean Renoir"
+    val2.item = item
+    container.mainContext.insert(val2)
+
+    let imageData = UIGraphicsImageRenderer(size: CGSize(width: 400, height: 300)).jpegData(withCompressionQuality: 0.8) { ctx in
+        UIColor.systemTeal.setFill()
+        ctx.fill(CGRect(origin: .zero, size: CGSize(width: 400, height: 300)))
+    }
+    let photo = ItemPhoto(imageData: imageData, priority: 0, caption: "Small caption")
+    photo.item = item
+    container.mainContext.insert(photo)
+
+    return NavigationStack {
+        ItemDetailView(catalogue: catalogue, item: item, selectedItem: .constant(nil))
+    }
+    .modelContainer(container)
+}
+#endif

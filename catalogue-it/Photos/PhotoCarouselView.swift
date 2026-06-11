@@ -21,50 +21,50 @@ struct PhotoCarouselView: View {
 #endif
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        VStack(spacing: 0) {
+            ZStack(alignment: .bottom) {
 #if os(iOS)
-            TabView(selection: $selectedIndex) {
-                ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
-                    photoPage(photo: photo)
-                        .tag(index)
-                        .onTapGesture {
-                            showingFullScreen = true
-                        }
-                        .matchedTransitionSource(id: photo.id, in: photoNamespace)
-                }
-            }
-            .tabViewStyle(.page)
-            .indexViewStyle(.page(backgroundDisplayMode: .always))
-#else
-            // macOS: custom pager since TabView(.page) is iOS-only
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 0) {
+                TabView(selection: $selectedIndex) {
                     ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
                         photoPage(photo: photo)
-                            .containerRelativeFrame(.horizontal)
                             .tag(index)
                             .onTapGesture {
                                 showingFullScreen = true
                             }
+                            .matchedTransitionSource(id: photo.id, in: photoNamespace)
                     }
                 }
-                .scrollTargetLayout()
-            }
-            .scrollTargetBehavior(.paging)
-            .scrollPosition(id: $selectedIndex)
+                .tabViewStyle(.page)
+                .indexViewStyle(.page(backgroundDisplayMode: .always))
+#else
+                // macOS: custom pager since TabView(.page) is iOS-only
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 0) {
+                        ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
+                            photoPage(photo: photo)
+                                .containerRelativeFrame(.horizontal)
+                                .tag(index)
+                                .onTapGesture {
+                                    showingFullScreen = true
+                                }
+                        }
+                    }
+                    .scrollTargetLayout()
+                }
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: $selectedIndex)
 #endif
-
-            if (selectedIndex ?? 0) < photos.count,
-               let caption = photos[selectedIndex ?? 0].caption,
-               !caption.isEmpty {
-                Text(caption)
-                    .font(.caption)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(.black.opacity(0.5), in: Capsule())
-                    .padding(.bottom, 28)
             }
+            .frame(height: AppConstants.PhotoHeight.detail)
+
+            let caption = (selectedIndex ?? 0) < photos.count ? photos[selectedIndex ?? 0].caption : nil
+            Text(caption ?? "")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 5)
+                .frame(maxWidth: .infinity, minHeight: 24)
         }
 #if os(iOS)
         .fullScreenCover(isPresented: $showingFullScreen) {

@@ -27,7 +27,7 @@ struct PhotoCarouselView: View {
                 TabView(selection: $selectedIndex) {
                     ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
                         photoPage(photo: photo)
-                            .tag(index)
+                            .tag(index as Int?)
                             .onTapGesture {
                                 showingFullScreen = true
                             }

@@ -57,61 +57,77 @@ struct FullScreenPhotoView: View {
     // MARK: - iOS Body
 
     private var iOSBody: some View {
-        ZStack {
-            // Background fades during dismiss drag
-            Color.black
-                .opacity(1.0 - dismissProgress * 0.5)
-                .ignoresSafeArea()
+        NavigationStack {
+            ZStack {
+                // Background fades during dismiss drag
+                Color.black
+                    .opacity(1.0 - dismissProgress * 0.5)
+                    .ignoresSafeArea()
 
-            // Photo pager — moves and scales during dismiss drag
-            GeometryReader { proxy in
-                ScrollView(.horizontal) {
-                    HStack(spacing: 0) {
-                        ForEach(photos.enumerated(), id: \.element.id) { index, photo in
-                            ZoomablePhotoView(
-                                imageData: photo.imageData,
-                                caption: photo.caption,
-                                isZoomed: $isZoomed,
-                                isPinching: $isPinching
-                            )
-                            .frame(width: proxy.size.width, height: proxy.size.height)
-                            .id(index)
+                // Photo pager — moves and scales during dismiss drag
+                GeometryReader { proxy in
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 0) {
+                            ForEach(photos.enumerated(), id: \.element.id) { index, photo in
+                                ZoomablePhotoView(
+                                    imageData: photo.imageData,
+                                    isZoomed: $isZoomed,
+                                    isPinching: $isPinching
+                                )
+                                .frame(width: proxy.size.width, height: proxy.size.height)
+                                .id(index)
+                            }
                         }
+                        .scrollTargetLayout()
                     }
-                    .scrollTargetLayout()
+                    .scrollIndicators(.hidden)
+                    .scrollTargetBehavior(.paging)
+                    .scrollPosition(id: Binding(
+                        get: { selectedIndex as Int? },
+                        set: { if let i = $0 { selectedIndex = i } }
+                    ))
+                    .scrollDisabled(isZoomed)
                 }
-                .scrollIndicators(.hidden)
-                .scrollTargetBehavior(.paging)
-                .scrollPosition(id: Binding(
-                    get: { selectedIndex as Int? },
-                    set: { if let i = $0 { selectedIndex = i } }
-                ))
-                .scrollDisabled(isZoomed)
-            }
-            .offset(y: dismissOffset)
-            .scaleEffect(1.0 - dismissProgress * 0.1)
-            // simultaneousGesture lets the ScrollView's horizontal paging and
-            // this vertical dismiss gesture both recognise touches concurrently.
-            .simultaneousGesture(dismissGesture)
+                .offset(y: dismissOffset)
+                .scaleEffect(1.0 - dismissProgress * 0.1)
+                // simultaneousGesture lets the ScrollView's horizontal paging and
+                // this vertical dismiss gesture both recognise touches concurrently.
+                .simultaneousGesture(dismissGesture)
 
-            // Page indicator dots
-            if photos.count > 1 {
-                VStack {
-                    Spacer()
-                    HStack(spacing: 8) {
-                        ForEach(0..<photos.count, id: \.self) { i in
-                            Circle()
-                                .fill(.white.opacity(selectedIndex == i ? 1 : 0.4))
-                                .frame(width: 7, height: 7)
+                // Page indicator dots
+                if photos.count > 1 {
+                    VStack {
+                        Spacer()
+                        HStack(spacing: 8) {
+                            ForEach(0..<photos.count, id: \.self) { i in
+                                Circle()
+                                    .fill(.white.opacity(selectedIndex == i ? 1 : 0.4))
+                                    .frame(width: 7, height: 7)
+                            }
                         }
+                        .padding(.bottom, 20)
                     }
-                    .padding(.bottom, 20)
                 }
             }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark") {
+                        dismiss()
+                    }
+                }
+                if selectedIndex < photos.count {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        ShareLink(
+                            item: PhotoTransferable(data: photos[selectedIndex].imageData),
+                            preview: SharePreview(photos[selectedIndex].caption ?? "Photo")
+                        )
+                    }
+                }
+            }
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
         }
-        .overlay(alignment: .top) {
-            toolbarOverlay
-        }
+        .preferredColorScheme(.dark)
         .statusBarHidden(true)
         .onChange(of: selectedIndex) {
             let animation: Animation = reduceMotion ? .linear(duration: 0.1) : .spring
@@ -180,38 +196,6 @@ struct FullScreenPhotoView: View {
             }
     }
 
-    // MARK: - Toolbar Overlay
-
-    @ViewBuilder
-    private var toolbarOverlay: some View {
-        HStack {
-            Button("Close", systemImage: "xmark") {
-                dismiss()
-            }
-            .symbolVariant(.circle.fill)
-            .symbolRenderingMode(.palette)
-            .foregroundStyle(.white, .black.opacity(0.4))
-            .font(.title2)
-            .padding(.leading, 16)
-            .padding(.top, 8)
-
-            Spacer()
-
-            if selectedIndex < photos.count {
-                ShareLink(
-                    item: PhotoTransferable(data: photos[selectedIndex].imageData),
-                    preview: SharePreview(photos[selectedIndex].caption ?? "Photo")
-                ) {
-                    Image(systemName: "square.and.arrow.up.circle.fill")
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white, .black.opacity(0.4))
-                        .font(.title2)
-                }
-                .padding(.trailing, 16)
-                .padding(.top, 8)
-            }
-        }
-    }
 #endif
 
     // MARK: - macOS Body
@@ -288,7 +272,7 @@ private struct MacOSPhotoPage: View {
     @State private var loadedImage: Image?
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        Group {
             if let loadedImage {
                 loadedImage
                     .resizable()
@@ -301,16 +285,6 @@ private struct MacOSPhotoPage: View {
                             .font(.largeTitle)
                             .foregroundStyle(.secondary)
                     }
-            }
-
-            if let caption = photo.caption, !caption.isEmpty {
-                Text(caption)
-                    .font(.caption)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(.black.opacity(0.5), in: Capsule())
-                    .padding(.bottom, 20)
             }
         }
         .task(id: photo.persistentModelID) {

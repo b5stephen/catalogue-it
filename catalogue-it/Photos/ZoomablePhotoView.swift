@@ -20,7 +20,6 @@ import SwiftUI
 ///   so the pan overlay is the only gesture responder.
 struct ZoomablePhotoView: View {
     let imageData: Data
-    let caption: String?
     @Binding var isZoomed: Bool
     @Binding var isPinching: Bool
 
@@ -44,7 +43,7 @@ struct ZoomablePhotoView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ZStack(alignment: .bottom) {
+            ZStack {
                 if let loadedImage {
                     loadedImage
                         .resizable()
@@ -101,15 +100,6 @@ struct ZoomablePhotoView: View {
                         }
                 }
 
-                if let caption, !caption.isEmpty {
-                    Text(caption)
-                        .font(.caption)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(.black.opacity(0.5), in: Capsule())
-                        .padding(.bottom, 20)
-                }
             }
         }
         .task(id: imageData) {

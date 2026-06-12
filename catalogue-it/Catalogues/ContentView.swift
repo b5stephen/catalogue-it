@@ -84,7 +84,7 @@ struct ContentView: View {
                     // invalidates the model, and SwiftUI can re-evaluate the alert
                     // message (which accesses catalogue.items) before the nil update lands.
                     catalogueToDelete = nil
-                    modelContext.delete(catalogue)
+                    DeletionService.deleteCatalogueAndSave(catalogue, in: modelContext)
                 }
             }
             Button("Cancel", role: .cancel) { catalogueToDelete = nil }
@@ -262,7 +262,7 @@ struct ContentView: View {
         if hasItems || hasRecentlyDeleted {
             catalogueToDelete = catalogue
         } else {
-            modelContext.delete(catalogue)
+            DeletionService.deleteCatalogueAndSave(catalogue, in: modelContext)
         }
     }
 

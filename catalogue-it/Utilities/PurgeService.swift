@@ -22,8 +22,7 @@ enum PurgeService {
             to: Date.now
         ) else { return }
 
-        catalogue.items
-            .filter { guard let d = $0.deletedDate else { return false }; return d < cutoff }
-            .forEach { context.delete($0) }
+        let expired = catalogue.items.filter { guard let d = $0.deletedDate else { return false }; return d < cutoff }
+        DeletionService.deleteItemsAndSave(expired, in: context)
     }
 }

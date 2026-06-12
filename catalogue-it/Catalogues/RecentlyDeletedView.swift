@@ -53,7 +53,7 @@ struct RecentlyDeletedView: View {
                                 }
                                 .swipeActions(edge: .trailing) {
                                     Button("Delete", role: .destructive) {
-                                        modelContext.delete(item)
+                                        DeletionService.deleteItemsAndSave([item], in: modelContext)
                                     }
                                 }
                         }
@@ -82,7 +82,7 @@ struct RecentlyDeletedView: View {
                 titleVisibility: .visible
             ) {
                 Button("Delete All \(deletedItems.count) Items", role: .destructive) {
-                    for item in deletedItems { modelContext.delete(item) }
+                    DeletionService.deleteItemsAndSave(Array(deletedItems), in: modelContext)
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {

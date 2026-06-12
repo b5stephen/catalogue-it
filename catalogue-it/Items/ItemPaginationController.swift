@@ -203,28 +203,36 @@ final class ItemPaginationController {
         let ascending = (ItemSortDirection(rawValue: fingerprint.sortDirection) ?? .ascending) == .ascending
         let filterAll = fingerprint.tab == .all
         let filterWishlist = fingerprint.tab == .wishlist
+        let catalogueID = fingerprint.catalogueID
+        let hasSearch = !fingerprint.searchText.isEmpty
+        let lowercasedQuery = fingerprint.searchText.lowercased()
 
+        // Fetch sorted FieldValues with basic filters pushed to DB.
+        // Split predicate into simpler parts to avoid Swift compiler timeout.
+        let fieldPredicate = #Predicate<FieldValue> { fv in
+            fv.fieldDefinition?.fieldID == fieldID && fv.item?.deletedDate == nil
+        }
+        
         var fvDescriptor = FetchDescriptor<FieldValue>(
-            predicate: #Predicate { fv in
-                fv.fieldDefinition?.fieldID == fieldID
-                    && fv.item?.deletedDate == nil
-                    && (filterAll || fv.item?.isWishlist == filterWishlist)
-            },
+            predicate: fieldPredicate,
             sortBy: [SortDescriptor(\.sortKey, order: ascending ? .forward : .reverse)]
         )
         // Prefetch item relationship so .item access below doesn't fire N individual faults.
         fvDescriptor.relationshipKeyPathsForPrefetching = [\.item]
 
-        // Fetching candidates registers them in the context's identity map so that
-        // model(for:) in loadMoreCustomSort() resolves them cheaply from memory.
-        let candidatePredicate = makePredicate(fingerprint: fingerprint)
-        let candidates = try context.fetch(FetchDescriptor<CatalogueItem>(predicate: candidatePredicate))
-        let candidateIDs = Set(candidates.map(\.persistentModelID))
-
         let sortedFieldValues = try context.fetch(fvDescriptor)
-        sortedIDs = sortedFieldValues
-            .compactMap { $0.item?.persistentModelID }
-            .filter { candidateIDs.contains($0) }
+        
+        // Apply catalogue, tab, and search filters in-memory.
+        sortedIDs = sortedFieldValues.compactMap { fv in
+            guard let item = fv.item,
+                  item.catalogue?.persistentModelID == catalogueID,
+                  item.deletedDate == nil,
+                  (filterAll || item.isWishlist == filterWishlist),
+                  (!hasSearch || item.searchText.contains(lowercasedQuery)) else {
+                return nil
+            }
+            return item.persistentModelID
+        }
 
         hasMore = !sortedIDs.isEmpty
     }

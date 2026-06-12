@@ -27,6 +27,7 @@ struct AddEditItemView: View {
     @State private var isWishlist: Bool = false
     @State private var notes: String = ""
     @State private var previewPhotoID: UUID? = nil
+    @State private var hasLoaded: Bool = false
 
     // MARK: - Computed
 
@@ -76,6 +77,8 @@ struct AddEditItemView: View {
                 }
             }
             .onAppear {
+                guard !hasLoaded else { return }
+                hasLoaded = true
                 loadItemData()
             }
             .sheet(isPresented: Binding(

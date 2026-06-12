@@ -27,4 +27,8 @@ actor ImageCache {
     func store(_ image: PlatformImage, for key: String) {
         cache.setObject(image, forKey: key as NSString)
     }
+    
+    func removeImage(for key: String) {
+        cache.removeObject(forKey: key as NSString)
+    }
 }

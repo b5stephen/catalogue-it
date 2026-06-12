@@ -259,8 +259,14 @@ struct AddEditItemView: View {
 
         // Denormalised cover thumbnail — eliminates ItemPhoto relationship faults in list/grid views.
         targetItem.coverThumbnailData = photoDrafts
-            .min(by: { $0.priority < $1.priority })
+            .sorted(by: { $0.priority < $1.priority })
+            .first
             .flatMap { $0.imageData.makeThumbnail() }
+
+        // Invalidate cached thumbnail so views fetch the updated one
+        Task { @MainActor in
+            await ImageCache.shared.removeImage(for: "cover_\(targetItem.persistentModelID)")
+        }
 
         // Save immediately so newly inserted models get permanent PersistentIdentifiers
         // before any view renders them. Without this, autosave fires 20+ seconds later:

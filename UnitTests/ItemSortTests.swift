@@ -395,6 +395,147 @@ struct ItemSortTests {
         #expect(sorted[2] === itemC, "Third should be Charlie")
     }
 
+    // MARK: - Controller Wiring
+
+    /// Verifies that ItemPaginationController.reset drives sorting through CatalogueItemSort
+    /// (cascade tiebreakers) rather than the old single-key DB sort. Uses a catalogue where
+    /// all items share the same primary-field value so the tiebreaker *must* fire to produce
+    /// a determinate order.
+    @Test("ItemPaginationController: custom-field sort applies cascade tiebreakers")
+    func controllerSortWiring() throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+
+        let catalogue = Catalogue(name: "Wiring Test", iconName: "star", colorHex: "#000000")
+        ctx.insert(catalogue)
+
+        // Brand (priority 0): all items tied on "Acme"
+        let brandDef = FieldDefinition(name: "Brand", fieldType: .text, priority: 0)
+        brandDef.catalogue = catalogue
+        ctx.insert(brandDef)
+
+        // Model (priority 1): tiebreaker with distinct values
+        let modelDef = FieldDefinition(name: "Model", fieldType: .text, priority: 1)
+        modelDef.catalogue = catalogue
+        ctx.insert(modelDef)
+
+        func makeItem(model: String) -> CatalogueItem {
+            let item = CatalogueItem()
+            item.catalogue = catalogue
+            ctx.insert(item)
+            let fvBrand = FieldValue(fieldDefinition: brandDef, fieldType: .text)
+            fvBrand.textValue = "Acme"; fvBrand.item = item; ctx.insert(fvBrand)
+            let fvModel = FieldValue(fieldDefinition: modelDef, fieldType: .text)
+            fvModel.textValue = model; fvModel.item = item; ctx.insert(fvModel)
+            return item
+        }
+
+        let charlie = makeItem(model: "Charlie")
+        let alpha   = makeItem(model: "Alpha")
+        let bravo   = makeItem(model: "Bravo")
+        try ctx.save()
+
+        let pagination = ItemPaginationController()
+        let fp = FilterFingerprint(
+            catalogueID: catalogue.persistentModelID,
+            tab: .all,
+            searchText: "",
+            sortFieldKey: ItemSortField.field(brandDef.fieldID).rawValue,
+            sortDirection: ItemSortDirection.ascending.rawValue
+        )
+        pagination.reset(fingerprint: fp, context: ctx)
+
+        #expect(pagination.items.count == 3)
+        #expect(pagination.items[0] === alpha,   "Position 0: expected Alpha")
+        #expect(pagination.items[1] === bravo,   "Position 1: expected Bravo")
+        #expect(pagination.items[2] === charlie, "Position 2: expected Charlie")
+    }
+
+    // MARK: - Scale
+
+    /// Verifies sort correctness and performance at 100 / 1000 / 3000 items with 10 fields.
+    ///
+    /// Setup: 5 brands (low-cardinality primary field), unique sequential model number per
+    /// item within each brand (tiebreaker). After ascending sort by brand, adjacent items must
+    /// satisfy brand_a ≤ brand_b, and within the same brand, model_a < model_b.
+    ///
+    /// The .timeLimit trait acts as a coarse performance guard: a regression to the O(F²)
+    /// per-comparison scanning algorithm would blow this budget at 3000 items.
+    @Test("Custom-field sort is correct and fast at scale",
+          .timeLimit(.minutes(1)),
+          arguments: [100, 1000, 3000])
+    func scaleSortCorrectness(itemCount: Int) throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+
+        let catalogue = Catalogue(name: "Scale Test", iconName: "star", colorHex: "#000000")
+        ctx.insert(catalogue)
+
+        // Primary field: 5 brands creates ties requiring tiebreaker resolution
+        let brandDef = FieldDefinition(name: "Brand", fieldType: .text, priority: 0)
+        brandDef.catalogue = catalogue
+        ctx.insert(brandDef)
+
+        // Tiebreaker: unique sequential number within each brand group
+        let modelDef = FieldDefinition(name: "Model", fieldType: .number, priority: 1)
+        modelDef.catalogue = catalogue
+        ctx.insert(modelDef)
+
+        // 8 additional fields to simulate a real 10-field catalogue
+        for i in 2..<10 {
+            let fd = FieldDefinition(name: "Field\(i)", fieldType: .text, priority: i)
+            fd.catalogue = catalogue
+            ctx.insert(fd)
+        }
+
+        let brands = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon"]
+        var allItems: [CatalogueItem] = []
+        allItems.reserveCapacity(itemCount)
+
+        for i in 0..<itemCount {
+            let brand = brands[i % brands.count]
+            let modelNumber = Double(i / brands.count) // unique within brand group
+
+            let item = CatalogueItem()
+            item.catalogue = catalogue
+            item.createdDate = Date(timeIntervalSince1970: Double(i))
+            ctx.insert(item)
+
+            let fvBrand = FieldValue(fieldDefinition: brandDef, fieldType: .text)
+            fvBrand.textValue = brand; fvBrand.item = item; ctx.insert(fvBrand)
+
+            let fvModel = FieldValue(fieldDefinition: modelDef, fieldType: .number)
+            fvModel.numberValue = modelNumber; fvModel.item = item; ctx.insert(fvModel)
+
+            allItems.append(item)
+        }
+
+        let sorted = CatalogueItemSort.sorted(
+            allItems,
+            primaryField: .field(brandDef.fieldID),
+            direction: .ascending,
+            catalogue: catalogue
+        )
+
+        #expect(sorted.count == itemCount)
+
+        // O(N) verification: each adjacent pair must be correctly ordered.
+        // Within the same brand, model numbers must be strictly ascending (unique per brand).
+        let isOrdered = zip(sorted, sorted.dropFirst()).allSatisfy { a, b in
+            let brandA = a.value(for: brandDef)?.textValue ?? ""
+            let brandB = b.value(for: brandDef)?.textValue ?? ""
+            switch brandA.localizedCompare(brandB) {
+            case .orderedAscending:  return true   // different brands, correct order
+            case .orderedDescending: return false  // different brands, wrong order
+            case .orderedSame:
+                let modelA = a.value(for: modelDef)?.numberValue ?? 0
+                let modelB = b.value(for: modelDef)?.numberValue ?? 0
+                return modelA <= modelB             // same brand, tiebreaker must be ascending
+            }
+        }
+        #expect(isOrdered, "Items are not correctly sorted at scale (\(itemCount) items)")
+    }
+
     // MARK: - Per-Catalogue Sort Independence
 
     @Test("Per-catalogue sort keys are independent")

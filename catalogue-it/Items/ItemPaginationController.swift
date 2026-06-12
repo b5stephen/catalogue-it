@@ -189,43 +189,34 @@ final class ItemPaginationController {
 
     /// Builds the globally sorted PersistentIdentifier list for custom field sort.
     ///
-    /// Step 1: Fetch all FieldValues for the sort field ordered by sortKey (uses the
-    ///         (fieldDefinition, sortKey) compound index for an efficient indexed scan).
-    /// Step 2: Fetch all candidate CatalogueItem IDs matching the full predicate
-    ///         (catalogue + tab + search + soft-delete). No relationship prefetch —
-    ///         we only need scalars to build the ID set.
-    /// Step 3: Walk step 1 in order, keeping only IDs present in the step 2 candidate set.
+    /// Fetches all matching CatalogueItems (with fieldValues prefetched), then delegates
+    /// to CatalogueItemSort.sorted for a correct in-memory sort: primary field by the
+    /// chosen direction, ties broken by all other fields in priority order (ascending),
+    /// then finally by createdDate ascending. Text and option-list fields use locale-aware
+    /// localizedCompare; items with no value for the sort field sort last.
     ///
-    /// The resulting sortedIDs slice drives each loadMore() call. Items without a FieldValue
-    /// for the sort field are excluded (consistent with the previous computeDisplayedItems()
-    /// behaviour).
+    /// The resulting sortedIDs slice drives each loadMore() call.
     private func buildSortedIDs(fingerprint: FilterFingerprint, fieldID: UUID, context: ModelContext) throws {
-        let ascending = (ItemSortDirection(rawValue: fingerprint.sortDirection) ?? .ascending) == .ascending
-        let filterAll = fingerprint.tab == .all
-        let filterWishlist = fingerprint.tab == .wishlist
+        // Fetch matching items and prefetch fieldValues so CatalogueItemSort.sorted can build
+        // its per-item value maps without faulting each relationship individually.
+        var candidateDescriptor = FetchDescriptor<CatalogueItem>(predicate: makePredicate(fingerprint: fingerprint))
+        candidateDescriptor.relationshipKeyPathsForPrefetching = [\.fieldValues]
+        let candidates = try context.fetch(candidateDescriptor)
 
-        var fvDescriptor = FetchDescriptor<FieldValue>(
-            predicate: #Predicate { fv in
-                fv.fieldDefinition?.fieldID == fieldID
-                    && fv.item?.deletedDate == nil
-                    && (filterAll || fv.item?.isWishlist == filterWishlist)
-            },
-            sortBy: [SortDescriptor(\.sortKey, order: ascending ? .forward : .reverse)]
+        guard let catalogue = context.model(for: fingerprint.catalogueID) as? Catalogue else {
+            sortedIDs = []
+            hasMore = false
+            return
+        }
+
+        let direction = ItemSortDirection(rawValue: fingerprint.sortDirection) ?? .ascending
+        let ordered = CatalogueItemSort.sorted(
+            candidates,
+            primaryField: .field(fieldID),
+            direction: direction,
+            catalogue: catalogue
         )
-        // Prefetch item relationship so .item access below doesn't fire N individual faults.
-        fvDescriptor.relationshipKeyPathsForPrefetching = [\.item]
-
-        // Fetching candidates registers them in the context's identity map so that
-        // model(for:) in loadMoreCustomSort() resolves them cheaply from memory.
-        let candidatePredicate = makePredicate(fingerprint: fingerprint)
-        let candidates = try context.fetch(FetchDescriptor<CatalogueItem>(predicate: candidatePredicate))
-        let candidateIDs = Set(candidates.map(\.persistentModelID))
-
-        let sortedFieldValues = try context.fetch(fvDescriptor)
-        sortedIDs = sortedFieldValues
-            .compactMap { $0.item?.persistentModelID }
-            .filter { candidateIDs.contains($0) }
-
+        sortedIDs = ordered.map(\.persistentModelID)
         hasMore = !sortedIDs.isEmpty
     }
 

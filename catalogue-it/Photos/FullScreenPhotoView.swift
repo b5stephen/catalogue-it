@@ -87,7 +87,7 @@ struct FullScreenPhotoView: View {
                             get: { selectedIndex as Int? },
                             set: { if let i = $0 { selectedIndex = i } }
                         ))
-                        .scrollDisabled(isZoomed)
+                        .scrollDisabled(isZoomed || isPinching)
                         // scrollPosition(id:) doesn't reliably set initial position on
                         // first render; scrollTo with initial: true seeds it directly.
                         .onChange(of: initialIndex, initial: true) { _, index in

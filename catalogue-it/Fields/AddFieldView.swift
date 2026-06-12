@@ -11,7 +11,13 @@ import SwiftUI
 
 struct AddFieldView: View {
     @Environment(\.dismiss) private var dismiss
+    let existingNames: [String]
     let onAdd: (FieldDefinitionDraft) -> Void
+
+    init(existingNames: [String] = [], onAdd: @escaping (FieldDefinitionDraft) -> Void) {
+        self.existingNames = existingNames
+        self.onAdd = onAdd
+    }
 
     @State private var fieldName: String = ""
     @State private var selectedType: FieldType = .text
@@ -25,6 +31,11 @@ struct AddFieldView: View {
     private var trimmedNew: String { newOptionText.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var canAddOption: Bool { !trimmedNew.isEmpty && !optionListOptions.options.contains(trimmedNew) }
 
+    private var trimmedFieldName: String { fieldName.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var isDuplicateName: Bool {
+        !trimmedFieldName.isEmpty && existingNames.contains { $0.localizedCaseInsensitiveCompare(trimmedFieldName) == .orderedSame }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -34,6 +45,12 @@ struct AddFieldView: View {
                         .textInputAutocapitalization(.words)
 #endif
                         .accessibilityIdentifier("add-field-name")
+
+                    if isDuplicateName {
+                        Text("A field with this name already exists.")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
 
                     Picker("Type", selection: $selectedType) {
                         ForEach(FieldType.allCases, id: \.self) { type in
@@ -176,13 +193,13 @@ struct AddFieldView: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
-                        var field = FieldDefinitionDraft(name: fieldName.trimmingCharacters(in: .whitespacesAndNewlines), fieldType: selectedType, priority: 0)
+                        var field = FieldDefinitionDraft(name: trimmedFieldName, fieldType: selectedType, priority: 0)
                         field.numberOptions = numberOptions
                         field.optionListOptions = optionListOptions
                         onAdd(field)
                         dismiss()
                     }
-                    .disabled(fieldName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(trimmedFieldName.isEmpty || isDuplicateName)
                 }
             }
         }

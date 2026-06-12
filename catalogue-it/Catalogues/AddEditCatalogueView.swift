@@ -34,6 +34,11 @@ struct AddEditCatalogueView: View {
         catalogue != nil
     }
 
+    private var hasDuplicateFieldNames: Bool {
+        let names = fieldDefinitions.map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        return names.count != Set(names).count
+    }
+
     init(catalogue: Catalogue? = nil, nextPriority: Int = 0) {
         self.catalogue = catalogue
         self.nextPriority = nextPriority
@@ -88,7 +93,12 @@ struct AddEditCatalogueView: View {
                 } header: {
                     Text("Custom Fields")
                 } footer: {
-                    Text("Drag fields to reorder. The first field is used as each item's display name.")
+                    if hasDuplicateFieldNames {
+                        Text("Field names must be unique.")
+                            .foregroundStyle(.red)
+                    } else {
+                        Text("Drag fields to reorder. The first field is used as each item's display name.")
+                    }
                 }
             }
 #if os(iOS)
@@ -107,7 +117,7 @@ struct AddEditCatalogueView: View {
                     Button(isEditing ? "Save" : "Create") {
                         saveCatalogue()
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || fieldDefinitions.isEmpty)
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || fieldDefinitions.isEmpty || hasDuplicateFieldNames)
                 }
 
 #if os(iOS)
@@ -122,7 +132,7 @@ struct AddEditCatalogueView: View {
                 IconPickerView(selectedIcon: $selectedIcon)
             }
             .sheet(isPresented: $showingAddField) {
-                AddFieldView { field in
+                AddFieldView(existingNames: fieldDefinitions.map(\.name)) { field in
                     fieldDefinitions.append(field)
                 }
             }

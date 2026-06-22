@@ -235,7 +235,7 @@ struct ContentView: View {
                 defer { url.stopAccessingSecurityScopedResource() }
                 let data = try Data(contentsOf: url)
                 importProgress = (current: 0, total: 0)
-                let imported = try CatalogueImporter.importCatalogues(
+                let imported = try await CatalogueImporter.importCatalogues(
                     from: data,
                     into: modelContext,
                     priorityOffset: catalogues.count,

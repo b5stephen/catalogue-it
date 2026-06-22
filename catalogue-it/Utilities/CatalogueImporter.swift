@@ -26,7 +26,7 @@ enum CatalogueImporter {
         into context: ModelContext,
         priorityOffset: Int,
         onProgress: ((Int, Int) -> Void)? = nil
-    ) throws -> [Catalogue] {
+    ) async throws -> [Catalogue] {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let file = try decoder.decode(CatalogueExportFile.self, from: data)
@@ -37,7 +37,7 @@ enum CatalogueImporter {
         var completedBefore = 0
         var imported: [Catalogue] = []
         for dto in file.catalogues {
-            let catalogue = dto.makeCatalogue(
+            let catalogue = await dto.makeCatalogue(
                 in: context,
                 priorityOffset: priorityOffset,
                 onProgress: { current, _ in

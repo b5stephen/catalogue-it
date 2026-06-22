@@ -153,7 +153,7 @@ extension CatalogueDTO {
         in context: ModelContext,
         priorityOffset: Int,
         onProgress: ((Int, Int) -> Void)? = nil
-    ) -> Catalogue {
+    ) async -> Catalogue {
         let catalogue = Catalogue(
             name: name,
             iconName: iconName,
@@ -225,6 +225,9 @@ extension CatalogueDTO {
             }
 
             onProgress?(index + 1, items.count)
+            if index % 20 == 19 {
+                await Task.yield()
+            }
             if (index + 1) % 200 == 0 {
                 try? context.save()
                 for (savedItem, data) in pendingThumbnails {

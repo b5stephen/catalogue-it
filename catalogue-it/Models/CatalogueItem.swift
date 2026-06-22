@@ -19,7 +19,15 @@ final class CatalogueItem {
         [\.isWishlist, \.createdDate],
         [\.deletedDate],
         [\.deletedDate, \.isWishlist],
-        [\.deletedDate, \.searchText]   // enables DB-level search combined with soft-delete filter
+        [\.deletedDate, \.searchText],   // enables DB-level search combined with soft-delete filter
+        // Catalogue-scoped compound indexes: the most common access pattern is
+        // "items in catalogue X, not deleted, sorted by createdDate". Without these,
+        // every fetchCount and paginated fetch must scan all non-deleted rows and
+        // filter by catalogue FK in memory — O(n) scan + O(n log n) sort per page.
+        // With these indexes SQLite can seek directly into the right range and return
+        // rows in sorted order without a separate sort step.
+        [\.catalogue, \.deletedDate, \.createdDate],
+        [\.catalogue, \.deletedDate, \.isWishlist, \.createdDate]
     )
 
     var createdDate: Date
@@ -42,10 +50,6 @@ final class CatalogueItem {
 
     @Relationship(deleteRule: .cascade, inverse: \ItemPhoto.item)
     var photos: [ItemPhoto] = []
-
-    /// Thumbnail of the cover (lowest-priority) photo. Denormalised here so list/grid
-    /// views never need to fault in the ItemPhoto relationship. Updated on every item save.
-    @Attribute(.externalStorage) var coverThumbnailData: Data?
 
     init(isWishlist: Bool = false, notes: String? = nil) {
         self.createdDate = Date.now

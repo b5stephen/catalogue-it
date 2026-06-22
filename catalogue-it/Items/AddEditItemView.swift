@@ -257,16 +257,12 @@ struct AddEditItemView: View {
             modelContext.insert(photo)
         }
 
-        // Denormalised cover thumbnail — eliminates ItemPhoto relationship faults in list/grid views.
-        targetItem.coverThumbnailData = photoDrafts
+        // Compute cover thumbnail before saving so it's ready to write to the
+        // filesystem cache immediately after save (when the permanent ID is available).
+        let coverThumbnailData = photoDrafts
             .sorted(by: { $0.priority < $1.priority })
             .first
             .flatMap { $0.imageData.makeThumbnail() }
-
-        // Invalidate cached thumbnail so views fetch the updated one
-        Task { @MainActor in
-            await ImageCache.shared.removeImage(for: "cover_\(targetItem.persistentModelID)")
-        }
 
         // Save immediately so newly inserted models get permanent PersistentIdentifiers
         // before any view renders them. Without this, autosave fires 20+ seconds later:
@@ -274,6 +270,21 @@ struct AddEditItemView: View {
         // new item doesn't appear; and if temporary IDs are handed to views before the
         // save converts them, accessing the model via a stale temporary ID crashes.
         try? modelContext.save()
+
+        // Write the cover thumbnail to the filesystem cache (not the model).
+        // Storing thumbnails in the model bloats CatalogueItem SQLite rows — the main
+        // context reads those bytes on every page fetch even though it never uses them.
+        // The filesystem cache persists across launches and is regenerable from source photos.
+        let itemID = targetItem.persistentModelID
+        if let data = coverThumbnailData {
+            ThumbnailLoader.writeThumbnailToCache(data, for: itemID)
+        }
+
+        // Invalidate the in-memory decoded-image cache so the updated thumbnail is shown.
+        Task { @MainActor in
+            await ImageCache.shared.removeImage(for: "cover_\(itemID)")
+        }
+
         dismiss()
     }
 }

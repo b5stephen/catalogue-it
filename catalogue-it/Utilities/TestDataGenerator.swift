@@ -99,6 +99,7 @@ enum TestDataGenerator {
 
         let baseDate = ISO8601DateFormatter().date(from: "2020-01-01T00:00:00Z") ?? Date.now
         let calendar = Calendar.current
+        var pendingThumbnails: [(CatalogueItem, Data)] = []
 
         for index in 0..<itemCount {
             // Deterministic variety — same output on every seed call
@@ -179,15 +180,27 @@ enum TestDataGenerator {
                 let photo = ItemPhoto(imageData: photoData, thumbnailData: thumbnail, priority: 0)
                 photo.item = item
                 context.insert(photo)
-                item.coverThumbnailData = thumbnail
+                if let thumbnail { pendingThumbnails.append((item, thumbnail)) }
             }
 
             onProgress?(index + 1, itemCount)
             if (index + 1) % 200 == 0 {
                 try? context.save()
+                for (savedItem, data) in pendingThumbnails {
+                    ThumbnailLoader.writeThumbnailToCache(data, for: savedItem.persistentModelID)
+                }
+                pendingThumbnails = []
             }
             if index % 20 == 19 {
                 await Task.yield()
+            }
+        }
+
+        // Flush thumbnails for the final partial batch.
+        if !pendingThumbnails.isEmpty {
+            try? context.save()
+            for (savedItem, data) in pendingThumbnails {
+                ThumbnailLoader.writeThumbnailToCache(data, for: savedItem.persistentModelID)
             }
         }
 

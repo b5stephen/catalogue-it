@@ -182,6 +182,11 @@ extension CatalogueDTO {
         }
 
         // Create items, linking field values back to definitions via UUID map.
+        // Thumbnails are written to the filesystem cache (not the model) to avoid bloating
+        // CatalogueItem SQLite rows. We accumulate (item, thumbData) pairs and flush them
+        // to disk after each batch save so that permanent PersistentIdentifiers are available.
+        var pendingThumbnails: [(CatalogueItem, Data)] = []
+
         for (index, itemDTO) in items.enumerated() {
             let item = CatalogueItem(isWishlist: itemDTO.isWishlist, notes: itemDTO.notes)
             item.createdDate = itemDTO.createdDate
@@ -214,15 +219,26 @@ extension CatalogueDTO {
                 context.insert(photo)
             }
 
-            // Pre-compute coverThumbnailData so list views never need to fault in
-            // the photos relationship to render thumbnails for imported items.
-            if let coverPhotoDTO = itemDTO.photos.min(by: { $0.priority < $1.priority }) {
-                item.coverThumbnailData = makeThumbnailData(from: coverPhotoDTO.imageData)
+            if let coverPhotoDTO = itemDTO.photos.min(by: { $0.priority < $1.priority }),
+               let thumbData = makeThumbnailData(from: coverPhotoDTO.imageData) {
+                pendingThumbnails.append((item, thumbData))
             }
 
             onProgress?(index + 1, items.count)
             if (index + 1) % 200 == 0 {
                 try? context.save()
+                for (savedItem, data) in pendingThumbnails {
+                    ThumbnailLoader.writeThumbnailToCache(data, for: savedItem.persistentModelID)
+                }
+                pendingThumbnails = []
+            }
+        }
+
+        // Flush thumbnails for the final partial batch (< 200 items).
+        if !pendingThumbnails.isEmpty {
+            try? context.save()
+            for (savedItem, data) in pendingThumbnails {
+                ThumbnailLoader.writeThumbnailToCache(data, for: savedItem.persistentModelID)
             }
         }
 

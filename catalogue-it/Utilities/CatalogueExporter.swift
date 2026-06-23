@@ -94,32 +94,33 @@ enum CatalogueExporter {
 
 // MARK: - Catalogue CSV File (Transferable)
 
-struct CatalogueCSVFile: Transferable {
-    let content: String
+// @unchecked Sendable: Catalogue is main-actor bound; DataRepresentation calls the
+// exporting closure on the main actor before the share sheet appears, so this is safe.
+struct CatalogueCSVFile: Transferable, @unchecked Sendable {
+    let catalogue: Catalogue
     let filename: String
 
     static var transferRepresentation: some TransferRepresentation {
         DataRepresentation(exportedContentType: .commaSeparatedText) { file in
-            Data(file.content.utf8)
+            let csv = await MainActor.run { CatalogueExporter.csvString(for: file.catalogue) }
+            return Data(csv.utf8)
         }
-        .suggestedFileName { file in
-            file.filename
-        }
+        .suggestedFileName { $0.filename }
     }
 }
 
 // MARK: - Catalogue JSON File (Transferable)
 
-struct CatalogueJSONFile: Transferable {
-    let data: Data
+// @unchecked Sendable: same reasoning as CatalogueCSVFile above.
+struct CatalogueJSONFile: Transferable, @unchecked Sendable {
+    let catalogue: Catalogue
+    let includePhotos: Bool
     let filename: String
 
     static var transferRepresentation: some TransferRepresentation {
         DataRepresentation(exportedContentType: .json) { file in
-            file.data
+            try await MainActor.run { try CatalogueExporter.jsonData(for: file.catalogue, includePhotos: file.includePhotos) }
         }
-        .suggestedFileName { file in
-            file.filename
-        }
+        .suggestedFileName { $0.filename }
     }
 }

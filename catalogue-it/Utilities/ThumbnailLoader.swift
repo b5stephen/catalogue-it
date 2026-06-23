@@ -15,35 +15,17 @@ import AppKit
 
 // MARK: - Thumbnail Loader
 
-/// Reads and decodes item cover thumbnails on a background thread.
+/// Static utilities for item cover thumbnail caching.
 ///
-/// Uses a dedicated ModelContext (via @ModelActor) so the main thread never blocks
-/// on blob reads or image decoding. Initialised once at app startup with the shared
-/// ModelContainer; views call it via ThumbnailLoader.shared.
+/// The cold-path (DB fetch + decode) is intentionally NOT routed through a shared actor.
+/// Each row creates an ephemeral ModelContext in its own Task.detached so all visible rows
+/// fetch and decode in parallel — no serialisation through a single actor queue.
 ///
-/// Thumbnails are cached on the filesystem (Caches directory) rather than stored as
-/// Data on the CatalogueItem model. This keeps SQLite rows slim so that CatalogueItem
-/// fetches in the main context are not burdened with thumbnail bytes that the main
-/// context never reads directly.
-@ModelActor
-final actor ThumbnailLoader {
-    // nonisolated(unsafe): safe because `shared` is written once at app startup
-    // (in catalogue_itApp.init) before any view accesses it.
-    nonisolated(unsafe) static var shared: ThumbnailLoader?
-
-#if os(iOS)
-    func thumbnail(for itemID: PersistentIdentifier) -> UIImage? {
-        guard let item = self[itemID, as: CatalogueItem.self] else { return nil }
-        guard let data = coverThumbnailData(for: item) else { return nil }
-        return UIImage(data: data)
-    }
-#else
-    func thumbnail(for itemID: PersistentIdentifier) -> NSImage? {
-        guard let item = self[itemID, as: CatalogueItem.self] else { return nil }
-        guard let data = coverThumbnailData(for: item) else { return nil }
-        return NSImage(data: data)
-    }
-#endif
+/// Set `container` once at app startup before any view accesses these utilities.
+enum ThumbnailLoader {
+    // nonisolated(unsafe): written once at app startup (catalogue_itApp.init) before any
+    // view accesses it.
+    nonisolated(unsafe) static var container: ModelContainer?
 
     // MARK: - Filesystem Cache
 
@@ -62,38 +44,10 @@ final actor ThumbnailLoader {
     }
 
     /// Writes thumbnail data to the filesystem cache, creating the directory if needed.
-    /// Safe to call from any isolation context.
     nonisolated static func writeThumbnailToCache(_ data: Data, for itemID: PersistentIdentifier) {
         guard let fileURL = thumbnailCacheURL(for: itemID) else { return }
         let dir = fileURL.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try? data.write(to: fileURL)
-    }
-
-    // MARK: - Private
-
-    private func coverThumbnailData(for item: CatalogueItem) -> Data? {
-        let itemID = item.persistentModelID
-
-        // 1. Fast path: filesystem cache. No SQLite access, no SwiftData write.
-        if let fileURL = Self.thumbnailCacheURL(for: itemID),
-           let data = try? Data(contentsOf: fileURL) {
-            return data
-        }
-
-        // 2. Slow path: load cover photo and generate the thumbnail.
-        //    Fetches only the single cover (lowest-priority) photo to avoid faulting
-        //    in the entire photos relationship.
-        var descriptor = FetchDescriptor<ItemPhoto>(
-            predicate: #Predicate { $0.item?.persistentModelID == itemID },
-            sortBy: [SortDescriptor(\.priority)]
-        )
-        descriptor.fetchLimit = 1
-        guard let coverPhoto = try? modelContext.fetch(descriptor).first,
-              let thumbData = makeThumbnailData(from: coverPhoto.imageData) else { return nil }
-
-        // Persist to filesystem — no SwiftData write, so no merge noise on the main context.
-        Self.writeThumbnailToCache(thumbData, for: itemID)
-        return thumbData
     }
 }

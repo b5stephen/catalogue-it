@@ -22,7 +22,20 @@ enum PurgeService {
             to: Date.now
         ) else { return }
 
-        let expired = catalogue.items.filter { guard let d = $0.deletedDate else { return false }; return d < cutoff }
+        // Fetch only the expired rows from the DB — avoids faulting the entire items
+        // relationship into memory. Backed by #Index([\.catalogue, \.deletedDate, \.createdDate]).
+        // In the common case (nothing expired) this materialises zero rows and skips the save.
+        let catalogueID = catalogue.persistentModelID
+        // #Predicate can't resolve static properties (Date.distantFuture) — capture as a local.
+        let distantFuture = Date.distantFuture
+        let descriptor = FetchDescriptor<CatalogueItem>(
+            predicate: #Predicate { item in
+                item.catalogue?.persistentModelID == catalogueID
+                    && (item.deletedDate ?? distantFuture) < cutoff
+            }
+        )
+        let expired = (try? context.fetch(descriptor)) ?? []
+        guard !expired.isEmpty else { return }
         DeletionService.deleteItemsAndSave(expired, in: context)
     }
 }

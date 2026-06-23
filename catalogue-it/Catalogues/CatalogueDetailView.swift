@@ -33,9 +33,18 @@ struct CatalogueDetailView: View {
     @State private var searchText: String = ""
     @State private var appliedSearchText: String = ""
     @State private var displayedCount: Int = 0
+    /// Cached result of a cheap fetchCount — avoids faulting catalogue.items on every render.
+    @State private var hasRecentlyDeletedItems = false
 
-    private var hasRecentlyDeletedItems: Bool {
-        catalogue.items.contains { $0.deletedDate != nil }
+    /// Updates `hasRecentlyDeletedItems` via a single fetchLimit-1 count — no object
+    /// materialisation, O(1) via the deletedDate index.
+    private func refreshHasRecentlyDeleted() {
+        let id = catalogue.persistentModelID
+        var descriptor = FetchDescriptor<CatalogueItem>(
+            predicate: #Predicate { $0.catalogue?.persistentModelID == id && $0.deletedDate != nil }
+        )
+        descriptor.fetchLimit = 1
+        hasRecentlyDeletedItems = ((try? modelContext.fetchCount(descriptor)) ?? 0) > 0
     }
 
     private var countLabel: String {
@@ -106,6 +115,13 @@ struct CatalogueDetailView: View {
         }
         .task(id: catalogue.persistentModelID) {
             PurgeService.purgeExpiredItems(for: catalogue, in: modelContext)
+            // Refresh after purge — purging expired items may clear the deleted set.
+            refreshHasRecentlyDeleted()
+        }
+        .onChange(of: displayedCount) {
+            // A soft-delete or restore changes displayedCount; refresh so the toolbar
+            // entry appears/disappears without faulting the full items relationship.
+            refreshHasRecentlyDeleted()
         }
 #if !os(macOS)
         .navigationDestination(
@@ -183,30 +199,22 @@ struct CatalogueDetailView: View {
 private struct ExportMenuItems: View {
     let catalogue: Catalogue
 
-    private var csvFile: CatalogueCSVFile {
-        CatalogueCSVFile(
-            content: CatalogueExporter.csvString(for: catalogue),
-            filename: "\(catalogue.name).csv"
-        )
-    }
-    private var jsonFile: CatalogueJSONFile? {
-        guard let data = try? CatalogueExporter.jsonData(for: catalogue) else { return nil }
-        return CatalogueJSONFile(data: data, filename: "\(catalogue.name).json")
-    }
-    private var jsonFileNoPhotos: CatalogueJSONFile? {
-        guard let data = try? CatalogueExporter.jsonData(for: catalogue, includePhotos: false) else { return nil }
-        return CatalogueJSONFile(data: data, filename: "\(catalogue.name).json")
-    }
-
     var body: some View {
         Menu("Export", systemImage: "square.and.arrow.up") {
-            ShareLink(item: csvFile, preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells")))
-            if let jsonFile {
-                ShareLink("Export as JSON (with Photos)", item: jsonFile, preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text")))
-            }
-            if let jsonFileNoPhotos {
-                ShareLink("Export as JSON (no Photos)", item: jsonFileNoPhotos, preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text")))
-            }
+            ShareLink(
+                item: CatalogueCSVFile(catalogue: catalogue, filename: "\(catalogue.name).csv"),
+                preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells"))
+            )
+            ShareLink(
+                "Export as JSON (with Photos)",
+                item: CatalogueJSONFile(catalogue: catalogue, includePhotos: true, filename: "\(catalogue.name).json"),
+                preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text"))
+            )
+            ShareLink(
+                "Export as JSON (no Photos)",
+                item: CatalogueJSONFile(catalogue: catalogue, includePhotos: false, filename: "\(catalogue.name).json"),
+                preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text"))
+            )
         }
     }
 }

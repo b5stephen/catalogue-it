@@ -96,14 +96,43 @@ private struct ItemThumbnailView: View {
         .task(id: itemID) {
 #if os(iOS)
             let key = "cover_\(itemID)"
+            // Tier 1: in-memory cache — synchronous, no I/O.
             if let cached = await ImageCache.shared.image(for: key) {
                 loadedImage = Image(uiImage: cached)
                 return
             }
-            guard let ui = await ThumbnailLoader.shared?.thumbnail(for: itemID) else {
-                loadedImage = nil
+            // Let the navigation animation finish before starting any I/O. This ensures
+            // the list renders with placeholders first, then images fill in after.
+            try? await Task.sleep(for: .milliseconds(400))
+            // Tier 2: filesystem cache — off the actor so all visible rows read in parallel.
+            // preparingForDisplay() forces JPEG pixel-decode here off the main thread.
+            let diskImage = await Task.detached(priority: .utility) { () -> UIImage? in
+                guard let url = ThumbnailLoader.thumbnailCacheURL(for: itemID),
+                      let data = try? Data(contentsOf: url),
+                      let img = UIImage(data: data) else { return nil }
+                return img.preparingForDisplay()
+            }.value
+            if let ui = diskImage {
+                await ImageCache.shared.store(ui, for: key)
+                loadedImage = Image(uiImage: ui)
                 return
             }
+            // Tier 3: cold path — each row gets its own ephemeral ModelContext so all
+            // visible rows fetch and decode fully in parallel (no shared actor queue).
+            guard let container = ThumbnailLoader.container else { loadedImage = nil; return }
+            let ui = await Task.detached(priority: .utility) { () -> UIImage? in
+                let context = ModelContext(container)
+                var descriptor = FetchDescriptor<ItemPhoto>(
+                    predicate: #Predicate { $0.item?.persistentModelID == itemID },
+                    sortBy: [SortDescriptor(\.priority)]
+                )
+                descriptor.fetchLimit = 1
+                guard let imageData = try? context.fetch(descriptor).first?.imageData,
+                      let thumbData = makeThumbnailData(from: imageData) else { return nil }
+                ThumbnailLoader.writeThumbnailToCache(thumbData, for: itemID)
+                return UIImage(data: thumbData)?.preparingForDisplay()
+            }.value
+            guard let ui else { loadedImage = nil; return }
             await ImageCache.shared.store(ui, for: key)
             loadedImage = Image(uiImage: ui)
 #endif

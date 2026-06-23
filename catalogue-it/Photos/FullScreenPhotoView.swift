@@ -45,6 +45,14 @@ struct FullScreenPhotoView: View {
         _selectedIndex = State(initialValue: initialIndex)
     }
 
+    private var adaptiveBackground: Color {
+#if os(iOS)
+        Color(uiColor: .systemBackground)
+#else
+        Color(nsColor: .windowBackgroundColor)
+#endif
+    }
+
     var body: some View {
 #if os(iOS)
         iOSBody
@@ -60,7 +68,7 @@ struct FullScreenPhotoView: View {
         NavigationStack {
             ZStack {
                 // Background fades during dismiss drag
-                Color.black
+                adaptiveBackground
                     .opacity(1.0 - dismissProgress * 0.5)
                     .ignoresSafeArea()
 
@@ -108,7 +116,7 @@ struct FullScreenPhotoView: View {
                         HStack(spacing: 8) {
                             ForEach(0..<photos.count, id: \.self) { i in
                                 Circle()
-                                    .fill(.white.opacity(selectedIndex == i ? 1 : 0.4))
+                                    .fill(.primary.opacity(selectedIndex == i ? 1 : 0.4))
                                     .frame(width: 7, height: 7)
                             }
                         }
@@ -134,7 +142,6 @@ struct FullScreenPhotoView: View {
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
         }
-        .preferredColorScheme(.dark)
         .statusBarHidden(true)
         .onChange(of: selectedIndex) {
             let animation: Animation = reduceMotion ? .linear(duration: 0.1) : .spring
@@ -211,7 +218,7 @@ struct FullScreenPhotoView: View {
     private var macOSBody: some View {
         NavigationStack {
             ZStack {
-                Color.black.ignoresSafeArea()
+                adaptiveBackground.ignoresSafeArea()
 
                 GeometryReader { proxy in
                     ScrollView(.horizontal) {
@@ -265,7 +272,6 @@ struct FullScreenPhotoView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
     }
 #endif
 

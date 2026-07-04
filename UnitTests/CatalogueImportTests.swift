@@ -112,10 +112,10 @@ struct CatalogueImportTests {
         )
     }
 
-    private func importFixture(priorityOffset: Int = 0) throws -> (container: ModelContainer, catalogues: [Catalogue]) {
+    private func importFixture(priorityOffset: Int = 0) async throws -> (container: ModelContainer, catalogues: [Catalogue]) {
         let container = try makeContainer()
         let data = try #require(Self.v1JSON.data(using: .utf8))
-        let catalogues = try CatalogueImporter.importCatalogues(
+        let catalogues = try await CatalogueImporter.importCatalogues(
             from: data,
             into: container.mainContext,
             priorityOffset: priorityOffset
@@ -126,8 +126,8 @@ struct CatalogueImportTests {
     // MARK: - Tests
 
     @Test("Catalogue metadata is imported correctly")
-    func importCatalogueMetadata() throws {
-        let (container, catalogues) = try importFixture(priorityOffset: 2)
+    func importCatalogueMetadata() async throws {
+        let (container, catalogues) = try await importFixture(priorityOffset: 2)
         #expect(catalogues.count == 1)
         let catalogue = try #require(catalogues.first)
         #expect(catalogue.name == "Model Planes")
@@ -140,8 +140,8 @@ struct CatalogueImportTests {
     }
 
     @Test("Field definitions are imported with correct names, types, and options")
-    func importFieldDefinitions() throws {
-        let (container, catalogues) = try importFixture()
+    func importFieldDefinitions() async throws {
+        let (container, catalogues) = try await importFixture()
         let catalogue = try #require(catalogues.first)
         let defs = catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
         #expect(defs.count == 4)
@@ -153,8 +153,8 @@ struct CatalogueImportTests {
     }
 
     @Test("Items are imported with correct isWishlist flag and notes")
-    func importItems() throws {
-        let (container, catalogues) = try importFixture()
+    func importItems() async throws {
+        let (container, catalogues) = try await importFixture()
         let catalogue = try #require(catalogues.first)
         let items = catalogue.items.sorted { $0.createdDate < $1.createdDate }
         #expect(items.count == 2)
@@ -166,8 +166,8 @@ struct CatalogueImportTests {
     }
 
     @Test("All four field value types decode correctly")
-    func importFieldValues() throws {
-        let (container, catalogues) = try importFixture()
+    func importFieldValues() async throws {
+        let (container, catalogues) = try await importFixture()
         let catalogue = try #require(catalogues.first)
         let ownedItem = try #require(catalogue.items.first { !$0.isWishlist })
 
@@ -187,8 +187,8 @@ struct CatalogueImportTests {
     }
 
     @Test("Photos are imported with correct data, priority, and caption")
-    func importPhotos() throws {
-        let (container, catalogues) = try importFixture()
+    func importPhotos() async throws {
+        let (container, catalogues) = try await importFixture()
         let catalogue = try #require(catalogues.first)
         let ownedItem    = try #require(catalogue.items.first { !$0.isWishlist })
         let wishlistItem = try #require(catalogue.items.first { $0.isWishlist })
@@ -205,8 +205,8 @@ struct CatalogueImportTests {
     }
 
     @Test("sortFieldKey UUID reference is preserved verbatim after import")
-    func importSortKeyPreserved() throws {
-        let (container, catalogues) = try importFixture()
+    func importSortKeyPreserved() async throws {
+        let (container, catalogues) = try await importFixture()
         let catalogue = try #require(catalogues.first)
         let manufacturerDef = try #require(catalogue.fieldDefinitions.first { $0.name == "Manufacturer" })
         // sortFieldKey must match the fieldID of the Manufacturer definition so that
@@ -216,12 +216,12 @@ struct CatalogueImportTests {
     }
 
     @Test("Unsupported version throws ImportError.unsupportedVersion with correct version number")
-    func importUnsupportedVersion() throws {
+    func importUnsupportedVersion() async throws {
         let container = try makeContainer()
         let badJSON = #"{"version":99,"exportedAt":"2026-03-26T10:00:00Z","catalogues":[]}"#
         let data = try #require(badJSON.data(using: .utf8))
-        #expect {
-            try CatalogueImporter.importCatalogues(
+        await #expect {
+            _ = try await CatalogueImporter.importCatalogues(
                 from: data,
                 into: container.mainContext,
                 priorityOffset: 0
@@ -233,7 +233,7 @@ struct CatalogueImportTests {
     }
 
     @Test("Field values referencing unknown definitions are skipped silently")
-    func importOrphanedFieldValueSkipped() throws {
+    func importOrphanedFieldValueSkipped() async throws {
         let container = try makeContainer()
         let json = #"""
         {
@@ -258,7 +258,7 @@ struct CatalogueImportTests {
         }
         """#
         let data = try #require(json.data(using: .utf8))
-        let catalogues = try CatalogueImporter.importCatalogues(
+        let catalogues = try await CatalogueImporter.importCatalogues(
             from: data,
             into: container.mainContext,
             priorityOffset: 0

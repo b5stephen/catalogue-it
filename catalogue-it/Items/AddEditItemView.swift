@@ -33,6 +33,23 @@ struct AddEditItemView: View {
 
     private var isEditing: Bool { existingItem != nil }
 
+    // Boolean fields always have a value (true/false), so they don't count toward "has content" —
+    // otherwise every item would trivially pass validation regardless of user input.
+    private var hasNoContent: Bool {
+        photoDrafts.isEmpty && fieldDrafts.allSatisfy { draft in
+            switch draft.fieldType {
+            case .text, .optionList:
+                return draft.textValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            case .number:
+                return draft.numberValue == nil
+            case .date:
+                return draft.dateValue == nil
+            case .boolean:
+                return true
+            }
+        }
+    }
+
     init(catalogue: Catalogue, item: CatalogueItem? = nil, duplicateSource: CatalogueItem? = nil, defaultIsWishlist: Bool = false) {
         self.catalogue = catalogue
         self.existingItem = item
@@ -74,6 +91,7 @@ struct AddEditItemView: View {
                     Button(isEditing ? "Save" : "Add") {
                         saveItem()
                     }
+                    .disabled(hasNoContent)
                 }
             }
             .onAppear {

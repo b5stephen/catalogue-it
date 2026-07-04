@@ -19,6 +19,17 @@ struct ItemGridView: View {
     let isLoadingMore: Bool
     let onLoadMore: () -> Void
 
+#if !os(macOS)
+    // On compact width, selecting an item pushes ItemDetailView via the same
+    // `selectedItem` binding, so the border would flash for a frame before the
+    // push transition covers it. Only show it where selection persists on-screen
+    // (regular width split view / macOS detail column).
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    private var showsSelectionBorder: Bool { horizontalSizeClass != .compact }
+#else
+    private let showsSelectionBorder = true
+#endif
+
 #if os(macOS)
     @AppStorage("itemGridCardSize_mac") private var persistedCardSize: Double = Double(AppConstants.GridCardSize.defaultSize)
 #else
@@ -41,7 +52,7 @@ struct ItemGridView: View {
                     ItemCardView(item: item, showWishlistBadge: showWishlistBadge)
                         .onTapGesture { selectedItem = item }
                         .overlay {
-                            if selectedItem == item {
+                            if showsSelectionBorder && selectedItem == item {
                                 RoundedRectangle(cornerRadius: AppConstants.CornerRadius.medium)
                                     .strokeBorder(.tint, lineWidth: 2.5)
                             }

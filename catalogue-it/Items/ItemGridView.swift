@@ -32,13 +32,13 @@ struct ItemGridView: View {
     @State private var livePinchSize: CGFloat?
 
     private var cardSize: CGFloat { livePinchSize ?? CGFloat(persistedCardSize) }
-    private var gridColumns: [GridItem] { [GridItem(.adaptive(minimum: cardSize), spacing: 16)] }
+    private var gridColumns: [GridItem] { [GridItem(.adaptive(minimum: cardSize), spacing: 16, alignment: .top)] }
 
     var body: some View {
         ScrollView {
             LazyVGrid(columns: gridColumns, spacing: 16) {
                 ForEach(items) { item in
-                    ItemCardView(item: item, cardSize: cardSize, showWishlistBadge: showWishlistBadge)
+                    ItemCardView(item: item, showWishlistBadge: showWishlistBadge)
                         .onTapGesture { selectedItem = item }
                         .overlay {
                             if selectedItem == item {

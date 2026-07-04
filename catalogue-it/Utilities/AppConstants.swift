@@ -19,15 +19,11 @@ enum AppConstants {
         static let photoPicker: CGFloat = 90
     }
     enum PhotoHeight {
-        static let card: CGFloat = 150
         static let detail: CGFloat = 280
     }
     enum GridCardSize {
         static let min: CGFloat = 100
         static let max: CGFloat = 320
         static let defaultSize: CGFloat = 160
-        /// Ratio of photo height to card width, derived from today's fixed values
-        /// (150 / 160) so cards render identically to today at defaultSize.
-        static let photoAspectRatio: CGFloat = PhotoHeight.card / defaultSize
     }
 }

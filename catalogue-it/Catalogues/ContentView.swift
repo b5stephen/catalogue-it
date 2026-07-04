@@ -140,11 +140,6 @@ struct ContentView: View {
         .navigationSplitViewColumnWidth(min: 180, ideal: 220)
 #endif
         .toolbar {
-#if os(iOS)
-            ToolbarItem(placement: .topBarTrailing) {
-                EditButton()
-            }
-#endif
 #if DEBUG
             DebugToolbarItem(
                 onLoadTestData: { showingSeedSheet = true },
@@ -206,6 +201,7 @@ struct ContentView: View {
                 Label("Delete", systemImage: "trash")
             }
         }
+#if os(macOS)
         .contextMenu {
             Button {
                 catalogueToEdit = catalogue
@@ -222,6 +218,7 @@ struct ContentView: View {
                 Label("Delete Catalogue", systemImage: "trash")
             }
         }
+#endif
     }
 
 #if DEBUG

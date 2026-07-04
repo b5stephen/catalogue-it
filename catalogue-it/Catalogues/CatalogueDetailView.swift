@@ -15,12 +15,6 @@ struct CatalogueDetailView: View {
     @Bindable var catalogue: Catalogue
     @Binding var selectedItem: CatalogueItem?
 
-#if os(macOS)
-    @AppStorage("itemLayoutStyle_mac")   private var layout: ItemLayout = .list
-#else
-    @AppStorage("itemLayoutStyle_ios")   private var layout: ItemLayout = .list
-#endif
-
 #if !os(macOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
@@ -79,7 +73,6 @@ struct CatalogueDetailView: View {
                 searchText: appliedSearchText,
                 sortFieldKey: $catalogue.sortFieldKey,
                 sortDirection: $catalogue.sortDirection,
-                layout: layout,
                 selectedItem: $selectedItem,
                 displayedCount: $displayedCount
             )
@@ -137,7 +130,7 @@ struct CatalogueDetailView: View {
 #if os(iOS)
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    LayoutToggleButton(layout: $layout)
+                    LayoutToggleButton(layout: $catalogue.itemLayout)
                     SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
                     Divider()
                     ExportMenuItems(catalogue: catalogue)
@@ -162,7 +155,7 @@ struct CatalogueDetailView: View {
                 AddItemButton(showingAddItem: $showingAddItem)
             }
             ToolbarItem(placement: .primaryAction) {
-                LayoutToggleButton(layout: $layout)
+                LayoutToggleButton(layout: $catalogue.itemLayout)
             }
             ToolbarItem(placement: .primaryAction) {
                 SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)

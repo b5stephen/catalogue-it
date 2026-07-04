@@ -13,6 +13,7 @@ import SwiftData
 struct ItemGridView: View {
     let items: [CatalogueItem]
     let showWishlistBadge: Bool
+    @Bindable var catalogue: Catalogue
     @Binding var selectedItem: CatalogueItem?
     @Binding var scrollPosition: ScrollPosition
     let hasMore: Bool
@@ -30,19 +31,13 @@ struct ItemGridView: View {
     private let showsSelectionBorder = true
 #endif
 
-#if os(macOS)
-    @AppStorage("itemGridCardSize_mac") private var persistedCardSize: Double = Double(AppConstants.GridCardSize.defaultSize)
-#else
-    @AppStorage("itemGridCardSize_ios") private var persistedCardSize: Double = Double(AppConstants.GridCardSize.defaultSize)
-#endif
-
     // Pinch gesture state — @State only, never @GestureState (see ZoomablePhotoView:
     // @GestureState resets before onEnded fires, causing a one-frame snap-back).
     @State private var isPinching = false
     @State private var pinchStartSize: CGFloat = AppConstants.GridCardSize.defaultSize
     @State private var livePinchSize: CGFloat?
 
-    private var cardSize: CGFloat { livePinchSize ?? CGFloat(persistedCardSize) }
+    private var cardSize: CGFloat { livePinchSize ?? CGFloat(catalogue.gridCardSize) }
     private var gridColumns: [GridItem] { [GridItem(.adaptive(minimum: cardSize), spacing: 16, alignment: .top)] }
 
     var body: some View {
@@ -90,7 +85,7 @@ struct ItemGridView: View {
             }
             .onEnded { value in
                 isPinching = false
-                persistedCardSize = Double(clamp(pinchStartSize * value.magnification))
+                catalogue.gridCardSize = Double(clamp(pinchStartSize * value.magnification))
                 livePinchSize = nil
             }
     }
@@ -136,6 +131,7 @@ struct ItemGridView: View {
     return ItemGridView(
         items: [item1, item2, item3],
         showWishlistBadge: true,
+        catalogue: catalogue,
         selectedItem: .constant(nil),
         scrollPosition: .constant(ScrollPosition()),
         hasMore: false,

@@ -30,12 +30,6 @@ struct catalogue_itApp: App {
 
     init() {
         ThumbnailLoader.container = sharedModelContainer
-
-        // When running UI tests, force list layout so the test starts in a known state.
-        if ProcessInfo.processInfo.arguments.contains("--ui-testing"),
-           let layout = ProcessInfo.processInfo.environment["UITESTING_LAYOUT"] {
-            UserDefaults.standard.set(layout, forKey: "itemLayoutStyle_ios")
-        }
     }
 
     var body: some Scene {
@@ -54,6 +48,12 @@ struct catalogue_itApp: App {
 
         let catalogue = Catalogue(name: "Test Catalogue", iconName: "star", colorHex: "#007AFF")
         ctx.insert(catalogue)
+
+        // Force a known layout so the UI test starts in a predictable state.
+        if let layoutRaw = ProcessInfo.processInfo.environment["UITESTING_LAYOUT"],
+           let layout = ItemLayout(rawValue: layoutRaw) {
+            catalogue.itemLayout = layout
+        }
 
         let fieldDef = FieldDefinition(name: "Name", fieldType: .text, priority: 0)
         fieldDef.catalogue = catalogue

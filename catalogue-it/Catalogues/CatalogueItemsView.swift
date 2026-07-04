@@ -14,7 +14,6 @@ struct CatalogueItemsView: View {
     let searchText: String
     @Binding var sortFieldKey: String
     @Binding var sortDirection: String
-    let layout: ItemLayout
     @Binding var selectedItem: CatalogueItem?
     @Binding var displayedCount: Int
 
@@ -43,11 +42,12 @@ struct CatalogueItemsView: View {
                     isFiltered: !searchText.isEmpty && pagination.hasAnyItems
                 )
             } else {
-                switch layout {
+                switch catalogue.itemLayout {
                 case .grid:
                     ItemGridView(
                         items: pagination.items,
                         showWishlistBadge: tab == .all,
+                        catalogue: catalogue,
                         selectedItem: $selectedItem,
                         scrollPosition: $scrollPosition,
                         hasMore: pagination.hasMore,

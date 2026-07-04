@@ -11,7 +11,10 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Catalogue.priority) private var catalogues: [Catalogue]
+    // Catalogues marked for deletion vanish from the sidebar instantly, while
+    // BackgroundDeletionActor tears their data down off the main thread.
+    @Query(filter: #Predicate<Catalogue> { !$0.pendingDeletion }, sort: \Catalogue.priority)
+    private var catalogues: [Catalogue]
     @State private var showingAddCatalogue = false
     @State private var showingImporter = false
     @State private var importErrorMessage: String?
@@ -95,11 +98,11 @@ struct ContentView: View {
         ) {
             Button("Delete Catalogue", role: .destructive) {
                 if let catalogue = catalogueToDelete {
-                    // Nil out state before deleting: modelContext.delete() immediately
-                    // invalidates the model, and SwiftUI can re-evaluate the alert
-                    // message (which accesses catalogue.items) before the nil update lands.
                     catalogueToDelete = nil
-                    DeletionService.deleteCatalogueAndSave(catalogue, in: modelContext)
+                    if selectedCatalogue == catalogue {
+                        selectedCatalogue = nil
+                    }
+                    DeletionService.markForBackgroundDeletion(catalogue, in: modelContext)
                 }
             }
             Button("Cancel", role: .cancel) { catalogueToDelete = nil }
@@ -300,7 +303,7 @@ struct ContentView: View {
         if hasItems || hasRecentlyDeleted {
             catalogueToDelete = catalogue
         } else {
-            DeletionService.deleteCatalogueAndSave(catalogue, in: modelContext)
+            DeletionService.markForBackgroundDeletion(catalogue, in: modelContext)
         }
     }
 

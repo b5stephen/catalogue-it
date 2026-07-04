@@ -30,12 +30,14 @@ struct catalogue_itApp: App {
 
     init() {
         ThumbnailLoader.container = sharedModelContainer
+        BackgroundDeletionActor.container = sharedModelContainer
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .onAppear { seedUITestDataIfNeeded() }
+                .task { BackgroundDeletionActor.resumePendingDeletions() }
                 .withModelContextUndoManager()
         }
         .modelContainer(sharedModelContainer)

@@ -23,6 +23,11 @@ final class Catalogue {
     var sortFieldKey: String = ItemSortField.dateAdded.rawValue
     var sortDirection: String = ItemSortDirection.ascending.rawValue
 
+    /// True once the user has confirmed deletion. The catalogue is hidden from the UI
+    /// immediately and its graph is torn down by `BackgroundDeletionActor`; the flag
+    /// persists (and syncs) so an interrupted deletion resumes on next launch.
+    var pendingDeletion: Bool = false
+
     var itemLayoutRaw_mac: String = ItemLayout.list.rawValue
     var itemLayoutRaw_ios: String = ItemLayout.list.rawValue
     var gridCardSize_mac: Double = Double(AppConstants.GridCardSize.defaultSize)

@@ -15,8 +15,12 @@ import os
 /// fetches return only live, fully-materialised rows, so deletion succeeds regardless of
 /// how the in-memory graph got into its current state — and also sweeps up orphaned rows
 /// (e.g. a FieldValue with a definition but no item) that a relationship walk would miss.
-@MainActor
-enum DeletionService {
+///
+/// Not actor-isolated (explicitly, since the module defaults to MainActor): every function
+/// operates solely on the `ModelContext` passed in, so it runs safely on whichever executor
+/// owns that context — the main actor for the main context, or `BackgroundDeletionActor`
+/// for its background context.
+nonisolated enum DeletionService {
     private static let logger = Logger(subsystem: "catalogue-it", category: "DeletionService")
 
     /// Deletes an item and its children bottom-up. Does NOT save — caller saves once after a batch.
@@ -52,22 +56,32 @@ enum DeletionService {
                 predicate: #Predicate { $0.catalogue?.persistentModelID == catalogueID }))
             for item in items { deleteItem(item, in: context) }
 
-            let definitions = try context.fetch(FetchDescriptor<FieldDefinition>(
-                predicate: #Predicate { $0.catalogue?.persistentModelID == catalogueID }))
-            for definition in definitions {
-                let definitionID = definition.persistentModelID
-                let orphanValues = try context.fetch(FetchDescriptor<FieldValue>(
-                    predicate: #Predicate { $0.fieldDefinition?.persistentModelID == definitionID }))
-                for value in orphanValues { context.delete(value) }
-                context.delete(definition)
-            }
-
-            let catalogues = try context.fetch(FetchDescriptor<Catalogue>(
-                predicate: #Predicate { $0.persistentModelID == catalogueID }))
-            for fetched in catalogues { context.delete(fetched) }
+            try deleteFieldDefinitionsAndCatalogueRow(catalogueID: catalogueID, in: context)
         } catch {
             logger.error("Catalogue delete fetch failed: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /// Final phase of catalogue deletion, once all items are gone: field definitions with
+    /// any field values orphaned from their item, then the catalogue row itself.
+    /// Also called directly by `BackgroundDeletionActor` after its batched item deletion.
+    static func deleteFieldDefinitionsAndCatalogueRow(
+        catalogueID: PersistentIdentifier,
+        in context: ModelContext
+    ) throws {
+        let definitions = try context.fetch(FetchDescriptor<FieldDefinition>(
+            predicate: #Predicate { $0.catalogue?.persistentModelID == catalogueID }))
+        for definition in definitions {
+            let definitionID = definition.persistentModelID
+            let orphanValues = try context.fetch(FetchDescriptor<FieldValue>(
+                predicate: #Predicate { $0.fieldDefinition?.persistentModelID == definitionID }))
+            for value in orphanValues { context.delete(value) }
+            context.delete(definition)
+        }
+
+        let catalogues = try context.fetch(FetchDescriptor<Catalogue>(
+            predicate: #Predicate { $0.persistentModelID == catalogueID }))
+        for fetched in catalogues { context.delete(fetched) }
     }
 
     /// Hard deletes are deliberately NOT undoable: the confirmation alert promises the
@@ -80,6 +94,20 @@ enum DeletionService {
             deleteCatalogue(catalogue, in: context)
             save(context)
         }
+    }
+
+    /// Hides a catalogue from the UI immediately and hands the actual teardown to
+    /// `BackgroundDeletionActor`, keeping the main thread free. The flag write is not
+    /// undoable for the same reason hard deletes aren't (see above) — and undoing it
+    /// mid-teardown would resurrect a half-deleted catalogue.
+    @MainActor
+    static func markForBackgroundDeletion(_ catalogue: Catalogue, in context: ModelContext) {
+        withSuspendedUndoRegistration(context) {
+            catalogue.pendingDeletion = true
+            save(context)
+        }
+        // Read the ID after saving: saving replaces a temporary ID with the permanent one.
+        BackgroundDeletionActor.scheduleDeletion(of: catalogue.persistentModelID)
     }
 
     static func deleteItemsAndSave(_ items: [CatalogueItem], in context: ModelContext) {

@@ -26,4 +26,31 @@ struct FieldOptionsTests {
         #expect(json["number"] != nil, "Expected top-level key 'number' in encoded FieldOptions")
         #expect(json.count == 1, "Expected exactly one top-level key")
     }
+
+    @Test func optionListOptionsRoundTrip() throws {
+        let original = FieldOptions.optionList(OptionListOptions(options: ["Mint", "Used"], defaultValue: "Mint"))
+        let encoded = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(FieldOptions.self, from: encoded)
+        #expect(decoded == original)
+    }
+
+    @Test func optionListOptionsKeyIsPinned() throws {
+        let options = FieldOptions.optionList(OptionListOptions())
+        let encoded = try JSONEncoder().encode(options)
+        let json = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+        #expect(json["optionList"] != nil, "Expected top-level key 'optionList' in encoded FieldOptions")
+        #expect(json.count == 1, "Expected exactly one top-level key")
+    }
+
+    @Test func optionListDefaultsAreEmpty() {
+        let options = OptionListOptions()
+        #expect(options.options.isEmpty)
+        #expect(options.defaultValue == nil)
+    }
+
+    @Test func numberOptionsDefaultsArePlainWholeNumbers() {
+        let options = NumberOptions()
+        #expect(options.format == .number)
+        #expect(options.precision == 0)
+    }
 }

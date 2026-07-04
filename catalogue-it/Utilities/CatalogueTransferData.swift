@@ -180,6 +180,7 @@ extension CatalogueDTO {
             context.insert(fd)
             defMap[fdDTO.fieldID] = fd
         }
+        let sortedFieldDefs = defMap.values.sorted { $0.priority < $1.priority }
 
         // Create items, linking field values back to definitions via UUID map.
         // Thumbnails are written to the filesystem cache (not the model) to avoid bloating
@@ -206,6 +207,14 @@ extension CatalogueDTO {
                 fv.item = item
                 context.insert(fv)
                 createdFieldValues.append(fv)
+            }
+            for fv in createdFieldValues {
+                fv.tiebreakKey = SortKeyEncoder.tiebreakKey(
+                    for: fv,
+                    allFieldValuesOnItem: createdFieldValues,
+                    fieldDefinitionsByPriority: sortedFieldDefs,
+                    itemCreatedDate: item.createdDate
+                )
             }
             item.searchText = SearchTextBuilder.build(from: createdFieldValues)
 

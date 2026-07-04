@@ -16,8 +16,8 @@ import SwiftData
 @Model
 final class FieldValue {
     // Compound index enables DB-level sort on a custom field:
-    // fetch FieldValues WHERE fieldDefinition = X ORDER BY sortKey.
-    #Index<FieldValue>([\.fieldDefinition, \.sortKey])
+    // fetch FieldValues WHERE fieldDefinition = X ORDER BY sortKey, tiebreakKey.
+    #Index<FieldValue>([\.fieldDefinition, \.sortKey, \.tiebreakKey])
 
     var fieldDefinition: FieldDefinition?
     var fieldType: FieldType
@@ -33,6 +33,15 @@ final class FieldValue {
     /// `SortKeyEncoder.missingValueSentinel` ("\u{FFFF}") when the field has no value (sorts last).
     /// Adding with a default value requires no SchemaMigrationPlan; existing rows get the sentinel.
     var sortKey: String = "\u{FFFF}"
+
+    /// All other fields on the item (priority order, excluding this one) + item.createdDate,
+    /// NUL-joined. Computed by `SortKeyEncoder.tiebreakKey`. Paired with `sortKey` as a second
+    /// SortDescriptor in ItemPaginationController.loadMoreCustomSort so ties on the primary
+    /// field are broken deterministically, entirely at the SwiftData fetch level.
+    /// Adding with a default value requires no SchemaMigrationPlan; existing rows get the
+    /// sentinel until a recompute trigger (item save, field add/remove/reorder, or the
+    /// one-time startup backfill) runs.
+    var tiebreakKey: String = "\u{FFFF}"
 
     init(fieldDefinition: FieldDefinition?, fieldType: FieldType) {
         self.fieldDefinition = fieldDefinition

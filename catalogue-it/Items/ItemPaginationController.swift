@@ -29,8 +29,11 @@ struct FilterFingerprint: Equatable {
 /// using DB-side sorting and filtering — no full in-memory scan:
 /// - dateAdded: FetchDescriptor with sortBy + fetchLimit/fetchOffset on CatalogueItem.
 /// - Custom field: FetchDescriptor with sortBy + fetchLimit/fetchOffset on FieldValue,
-///   leveraging the #Index([\.fieldDefinition, \.sortKey]) compound index. Tab filtering
-///   is pushed to the DB predicate; search is applied in-memory on each fetched batch
+///   leveraging the #Index([\.fieldDefinition, \.sortKey, \.tiebreakKey]) compound index.
+///   Sorting by both `sortKey` (the selected field's own value) and `tiebreakKey` (every
+///   other field, in priority order, then dateAdded) means ties on the primary field are
+///   still resolved entirely in the DB fetch — no in-memory re-sort. Tab filtering is
+///   pushed to the DB predicate; search is applied in-memory on each fetched batch
 ///   (50 rows) to avoid #Predicate macro compiler timeout on complex optional chains.
 ///
 /// Reactivity (replacing @Query): NSManagedObjectContextDidSave fires when the store
@@ -218,10 +221,10 @@ final class ItemPaginationController {
     /// Resolves the FieldDefinition for the active sort field, pre-computes the FieldValue
     /// predicate (tab-filtered, DB-sorted), and initialises totalCount and hasAnyItems.
     ///
-    /// The FieldValue predicate uses the #Index([\.fieldDefinition, \.sortKey]) compound
-    /// index on FieldValue via the fieldID equality constraint. Search filtering is deferred
-    /// to loadMoreCustomSort (in-memory on each 50-row batch) to avoid #Predicate compiler
-    /// timeout on optional-chained .contains expressions.
+    /// The FieldValue predicate uses the #Index([\.fieldDefinition, \.sortKey, \.tiebreakKey])
+    /// compound index on FieldValue via the fieldID equality constraint. Search filtering is
+    /// deferred to loadMoreCustomSort (in-memory on each 50-row batch) to avoid #Predicate
+    /// compiler timeout on optional-chained .contains expressions.
     private func setupCustomSort(fingerprint: FilterFingerprint, fieldID: UUID, context: ModelContext) throws {
         let catalogueID = fingerprint.catalogueID
         var fieldDesc = FetchDescriptor<FieldDefinition>(
@@ -274,7 +277,10 @@ final class ItemPaginationController {
         repeat {
             var desc = FetchDescriptor<FieldValue>(
                 predicate: predicate,
-                sortBy: [SortDescriptor(\.sortKey, order: ascending ? .forward : .reverse)]
+                sortBy: [
+                    SortDescriptor(\.sortKey, order: ascending ? .forward : .reverse),
+                    SortDescriptor(\.tiebreakKey, order: .forward)
+                ]
             )
             desc.fetchLimit = Self.pageSize
             // customSortOffset tracks DB rows fetched so the offset stays correct even
@@ -381,7 +387,8 @@ final class ItemPaginationController {
     ///
     /// Filters on `fv.fieldDefinition?.persistentModelID == fieldDefID` (the FK column)
     /// rather than a secondary UUID property, so the DB can satisfy the equality constraint
-    /// directly from the FK index and then apply the compound #Index([\.fieldDefinition, \.sortKey]).
+    /// directly from the FK index and then apply the compound
+    /// #Index([\.fieldDefinition, \.sortKey, \.tiebreakKey]).
     ///
     /// Tab is encoded with literal `== true` / `== false` to avoid the Optional<Bool>
     /// type-inference issue that arises when capturing a Bool variable. Search filtering

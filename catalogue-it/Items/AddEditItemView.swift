@@ -241,6 +241,17 @@ struct AddEditItemView: View {
             createdFieldValues.append(fv)
         }
 
+        // Tiebreak key depends on every field's value on this item, so it's computed in a
+        // second pass once all of the item's FieldValues exist.
+        for fv in createdFieldValues {
+            fv.tiebreakKey = SortKeyEncoder.tiebreakKey(
+                for: fv,
+                allFieldValuesOnItem: createdFieldValues,
+                fieldDefinitionsByPriority: sortedDefs,
+                itemCreatedDate: targetItem.createdDate
+            )
+        }
+
         // Denormalised search blob — kept in sync so SQLite can filter without loading children.
         targetItem.searchText = SearchTextBuilder.build(from: createdFieldValues)
 

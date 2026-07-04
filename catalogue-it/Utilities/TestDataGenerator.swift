@@ -173,6 +173,15 @@ enum TestDataGenerator {
                 fieldValues.append(dateWatchedFV)
             }
 
+            for fv in fieldValues {
+                fv.tiebreakKey = SortKeyEncoder.tiebreakKey(
+                    for: fv,
+                    allFieldValuesOnItem: fieldValues,
+                    fieldDefinitionsByPriority: allDefs,
+                    itemCreatedDate: item.createdDate
+                )
+            }
+
             item.searchText = SearchTextBuilder.build(from: fieldValues)
 
             if includesPhotos, let photoData = makePhotoData(index: index) {

@@ -70,3 +70,41 @@ enum SortKeyEncoder {
         }
     }
 }
+
+// MARK: - Tiebreak Key
+
+extension SortKeyEncoder {
+
+    /// Separator between tiebreak segments in `FieldValue.tiebreakKey`. Sorts below any real
+    /// content character and below `missingValueSentinel` ("\u{FFFF}"), so it never disturbs
+    /// ordering within a segment. Deliberately NOT "\u{0000}" (NUL) — SwiftData's persisted
+    /// String storage truncates at the first NUL byte (confirmed: a saved-and-refetched
+    /// FieldValue.sortKey containing "\u{0000}" comes back truncated to the substring before
+    /// it), which silently dropped every tiebreak segment after the first. "\u{0001}" (SOH)
+    /// is not a string terminator anywhere in the storage pipeline and survives round-trips.
+    static let tiebreakSeparator = "\u{0001}"
+
+    /// Builds `FieldValue.tiebreakKey`: every other field's sortKey (in `FieldDefinition.priority`
+    /// order, excluding `fieldValue`'s own field), followed by the item's `createdDate` (ISO 8601),
+    /// joined by `tiebreakSeparator`. Always compared ascending — this is the tiebreak order
+    /// `CatalogueItemSort` specifies regardless of the primary field's sort direction.
+    static func tiebreakKey(
+        for fieldValue: FieldValue,
+        allFieldValuesOnItem: [FieldValue],
+        fieldDefinitionsByPriority: [FieldDefinition],
+        itemCreatedDate: Date
+    ) -> String {
+        let ownFieldID = fieldValue.fieldDefinition?.fieldID
+        var parts: [String] = []
+        for def in fieldDefinitionsByPriority where def.fieldID != ownFieldID {
+            var segment = missingValueSentinel
+            for sibling in allFieldValuesOnItem where sibling.fieldDefinition?.fieldID == def.fieldID {
+                segment = sortKey(for: sibling)
+                break
+            }
+            parts.append(segment)
+        }
+        parts.append(iso8601.string(from: itemCreatedDate))
+        return parts.joined(separator: tiebreakSeparator)
+    }
+}

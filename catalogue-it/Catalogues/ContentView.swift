@@ -22,6 +22,7 @@ struct ContentView: View {
     @State private var catalogueToDelete: Catalogue?
 #if DEBUG
     @State private var showingSeedSheet = false
+    @State private var sortKeyRecalcProgress: (current: Int, total: Int)?
 #endif
 
 #if !os(macOS)
@@ -54,8 +55,22 @@ struct ContentView: View {
         }
         .overlay {
             if let progress = importProgress {
-                ImportProgressOverlay(current: progress.current, total: progress.total)
+                ProgressOverlay(
+                    current: progress.current,
+                    total: progress.total,
+                    preparingText: "Preparing import…"
+                )
             }
+#if DEBUG
+            if let progress = sortKeyRecalcProgress {
+                ProgressOverlay(
+                    current: progress.current,
+                    total: progress.total,
+                    preparingText: "Recalculating sort keys…",
+                    processingText: { current, total in "Recalculating \(current) of \(total) items…" }
+                )
+            }
+#endif
         }
         .onChange(of: selectedCatalogue) {
             selectedItem = nil
@@ -131,7 +146,10 @@ struct ContentView: View {
             }
 #endif
 #if DEBUG
-            DebugToolbarItem { showingSeedSheet = true }
+            DebugToolbarItem(
+                onLoadTestData: { showingSeedSheet = true },
+                onRecalculateSortKeys: { recalculateAllSortKeys() }
+            )
 #endif
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Import Catalogue", systemImage: "square.and.arrow.down") {
@@ -225,6 +243,29 @@ struct ContentView: View {
             selectedCatalogue = catalogue
         }
     }
+
+    /// Recomputes `FieldValue.tiebreakKey` across every catalogue — a dev-only escape hatch
+    /// for refreshing sort order after changes to the tiebreak encoding itself, since the app
+    /// hasn't shipped yet and there's no real user data to migrate. Shows progress immediately
+    /// (no delay) since this is an explicit, deliberate action rather than an incidental one.
+    private func recalculateAllSortKeys() {
+        Task { @MainActor in
+            sortKeyRecalcProgress = (current: 0, total: 0)
+            let totalItems = catalogues.reduce(0) { $0 + $1.items.count { $0.deletedDate == nil } }
+            var completedBefore = 0
+            for catalogue in catalogues {
+                await CatalogueSortKeyMaintenance.recomputeTiebreakKeys(
+                    for: catalogue,
+                    in: modelContext,
+                    onProgress: { current, _ in
+                        sortKeyRecalcProgress = (current: completedBefore + current, total: totalItems)
+                    }
+                )
+                completedBefore += catalogue.items.count { $0.deletedDate == nil }
+            }
+            sortKeyRecalcProgress = nil
+        }
+    }
 #endif
 
     private func handleImport(result: Result<[URL], Error>) {
@@ -271,38 +312,6 @@ struct ContentView: View {
         reordered.move(fromOffsets: source, toOffset: destination)
         for (index, catalogue) in reordered.enumerated() {
             catalogue.priority = index
-        }
-    }
-}
-
-// MARK: - Import Progress Overlay
-
-private struct ImportProgressOverlay: View {
-    let current: Int
-    let total: Int
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.35)
-                .ignoresSafeArea()
-
-            VStack(spacing: 16) {
-                if total > 0 {
-                    ProgressView(value: Double(current), total: Double(total))
-                        .progressViewStyle(.linear)
-                        .frame(width: 220)
-                    Text("Processing \(current) of \(total) items…")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ProgressView()
-                    Text("Preparing import…")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(24)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         }
     }
 }

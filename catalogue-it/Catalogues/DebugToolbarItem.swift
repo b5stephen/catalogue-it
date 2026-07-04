@@ -1,17 +1,26 @@
 //
 //  DebugToolbarItem.swift
 //  catalogue-it
+//
 
 #if DEBUG
 import SwiftUI
 
 struct DebugToolbarItem: ToolbarContent {
-    var onTap: () -> Void
+    var onLoadTestData: () -> Void
+    var onRecalculateSortKeys: () -> Void
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Button("Load Test Data", systemImage: "hammer") {
-                onTap()
+            Menu {
+                Button("Load Test Data", systemImage: "hammer") {
+                    onLoadTestData()
+                }
+                Button("Recalculate Sort Keys", systemImage: "arrow.triangle.2.circlepath") {
+                    onRecalculateSortKeys()
+                }
+            } label: {
+                Image(systemName: "hammer")
             }
         }
     }

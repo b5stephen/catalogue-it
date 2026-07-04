@@ -30,6 +30,12 @@ struct AddEditCatalogueView: View {
     @State private var pendingDeleteItemCount = 0
     @State private var showingFieldDeleteConfirmation = false
 
+    // Sort-key recompute progress, shown only if the recompute after a structural field
+    // change (add/remove/reorder) is still running ~500ms after the save begins.
+    @State private var isSavingCatalogue = false
+    @State private var sortKeyRecomputeProgress: (current: Int, total: Int)?
+    @State private var showSortKeyRecomputeOverlay = false
+
     private var isEditing: Bool {
         catalogue != nil
     }
@@ -111,13 +117,14 @@ struct AddEditCatalogueView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .disabled(isSavingCatalogue)
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isEditing ? "Save" : "Create") {
-                        saveCatalogue()
+                        Task { await saveCatalogue() }
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || fieldDefinitions.isEmpty || hasDuplicateFieldNames)
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || fieldDefinitions.isEmpty || hasDuplicateFieldNames || isSavingCatalogue)
                 }
 
 #if os(iOS)
@@ -157,6 +164,16 @@ struct AddEditCatalogueView: View {
             .onAppear {
                 loadCatalogueData()
             }
+            .overlay {
+                if showSortKeyRecomputeOverlay, let progress = sortKeyRecomputeProgress {
+                    ProgressOverlay(
+                        current: progress.current,
+                        total: progress.total,
+                        preparingText: "Updating catalogue…",
+                        processingText: { current, total in "Updating \(current) of \(total) items…" }
+                    )
+                }
+            }
         }
     }
 
@@ -180,12 +197,27 @@ struct AddEditCatalogueView: View {
             .map { FieldDefinitionDraft(existingDefinition: $0, name: $0.name, fieldType: $0.fieldType, priority: $0.priority, numberOptions: $0.numberOptions ?? NumberOptions(), optionListOptions: $0.optionListOptions ?? OptionListOptions()) }
     }
 
-    private func saveCatalogue() {
+    private func saveCatalogue() async {
+        isSavingCatalogue = true
+        defer { isSavingCatalogue = false }
+
+        var structuralChange = false
+        var itemsNeedingSiblingRecompute: Set<PersistentIdentifier> = []
+        var catalogueForRecompute: Catalogue?
+
         if let existingCatalogue = catalogue {
             // Update existing
             existingCatalogue.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
             existingCatalogue.iconName = selectedIcon
             existingCatalogue.colorHex = selectedColor.toHex()
+
+            // Captured before any mutation so we can detect an add/remove/reorder below —
+            // any such change invalidates every FieldValue's tiebreakKey across the whole
+            // catalogue (not just the field that moved), since tiebreakKey encodes "every
+            // other field, in priority order".
+            let originalFieldIDsInOrder = existingCatalogue.fieldDefinitions
+                .sorted { $0.priority < $1.priority }
+                .map(\.fieldID)
 
             // Delete fields that were removed
             let retained = Set(fieldDefinitions.compactMap(\.existingDefinition?.persistentModelID))
@@ -208,12 +240,17 @@ struct AddEditCatalogueView: View {
                         for fv in existing.fieldValues where fv.fieldType == .optionList && fv.textValue == original {
                             fv.textValue = current
                             fv.sortKey = SortKeyEncoder.sortKey(for: fv)
+                            // The renamed value is embedded as a tiebreak segment on every
+                            // *other* FieldValue belonging to the same item — flag the item
+                            // for a sibling tiebreakKey recompute below.
+                            if let item = fv.item { itemsNeedingSiblingRecompute.insert(item.persistentModelID) }
                         }
                     }
                     for deleted in draft.pendingOptionDeletions {
                         for fv in existing.fieldValues where fv.fieldType == .optionList && fv.textValue == deleted {
                             fv.textValue = nil
                             fv.sortKey = SortKeyEncoder.sortKey(for: fv)
+                            if let item = fv.item { itemsNeedingSiblingRecompute.insert(item.persistentModelID) }
                         }
                     }
                 } else {
@@ -224,6 +261,11 @@ struct AddEditCatalogueView: View {
                     modelContext.insert(field)
                 }
             }
+
+            let newFieldIDsInOrder = fieldDefinitions.compactMap { $0.existingDefinition?.fieldID }
+            let hasNewFields = fieldDefinitions.contains { $0.existingDefinition == nil }
+            structuralChange = hasNewFields || newFieldIDsInOrder != originalFieldIDsInOrder
+            catalogueForRecompute = existingCatalogue
         } else {
             // Create new
             let newCatalogue = Catalogue(name: name.trimmingCharacters(in: .whitespacesAndNewlines), iconName: selectedIcon, colorHex: selectedColor.toHex(), priority: nextPriority)
@@ -236,9 +278,67 @@ struct AddEditCatalogueView: View {
                 field.catalogue = newCatalogue
                 modelContext.insert(field)
             }
+            // Brand new catalogue has no items yet — nothing to recompute.
+        }
+
+        // Persist field/priority changes first so the recompute below reads final priorities.
+        try? modelContext.save()
+
+        if let catalogueForRecompute {
+            if structuralChange {
+                await recomputeTiebreakKeysWithDelayedOverlay(for: catalogueForRecompute)
+            } else if !itemsNeedingSiblingRecompute.isEmpty {
+                // Cheap, bounded by how many items reference the renamed/deleted option
+                // value — no chunking needed (the full-catalogue path above already covers
+                // every item when a structural change also occurred, so this is skipped then).
+                recomputeSiblingTiebreakKeys(for: catalogueForRecompute, itemIDs: itemsNeedingSiblingRecompute)
+                try? modelContext.save()
+            }
         }
 
         dismiss()
+    }
+
+    /// Runs the full-catalogue tiebreakKey recompute, showing `ProgressOverlay` only if it's
+    /// still running ~500ms after starting — so a fast recompute on a small catalogue shows
+    /// nothing, while a large one gets clear feedback instead of the sheet appearing to hang.
+    private func recomputeTiebreakKeysWithDelayedOverlay(for catalogue: Catalogue) async {
+        sortKeyRecomputeProgress = (current: 0, total: 0)
+        let overlayDelay = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(500))
+            if !Task.isCancelled {
+                showSortKeyRecomputeOverlay = true
+            }
+        }
+
+        await CatalogueSortKeyMaintenance.recomputeTiebreakKeys(
+            for: catalogue,
+            in: modelContext,
+            onProgress: { current, total in sortKeyRecomputeProgress = (current: current, total: total) }
+        )
+
+        overlayDelay.cancel()
+        showSortKeyRecomputeOverlay = false
+        sortKeyRecomputeProgress = nil
+    }
+
+    /// Recomputes tiebreakKey for every FieldValue on the given items — used when an
+    /// option-list value is renamed or deleted, since that value is embedded as a tiebreak
+    /// segment on sibling FieldValues for the same items.
+    private func recomputeSiblingTiebreakKeys(for catalogue: Catalogue, itemIDs: Set<PersistentIdentifier>) {
+        let sortedDefs = catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
+        for itemID in itemIDs {
+            guard let item = modelContext.model(for: itemID) as? CatalogueItem else { continue }
+            let itemFieldValues = item.fieldValues
+            for fv in itemFieldValues {
+                fv.tiebreakKey = SortKeyEncoder.tiebreakKey(
+                    for: fv,
+                    allFieldValuesOnItem: itemFieldValues,
+                    fieldDefinitionsByPriority: sortedDefs,
+                    itemCreatedDate: item.createdDate
+                )
+            }
+        }
     }
 
     private func deleteField(at offsets: IndexSet) {

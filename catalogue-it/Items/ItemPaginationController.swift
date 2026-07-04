@@ -34,9 +34,10 @@ struct FilterFingerprint: Equatable {
 ///   (50 rows) to avoid #Predicate macro compiler timeout on complex optional chains.
 ///
 /// Reactivity (replacing @Query): NSManagedObjectContextDidSave fires when the store
-/// is modified. A count-based structural-change guard prevents benign saves (e.g.
-/// ThumbnailLoader writing back a computed thumbnail) from triggering unnecessary
-/// list rebuilds — a thumbnail write does not change the matching item count.
+/// is modified. For dateAdded sort, a count-based structural-change guard prevents
+/// benign saves that don't change the matching item count from triggering unnecessary
+/// list rebuilds. Custom-field sort always rebuilds on a store change instead, since an
+/// edit to the active sort field's value can reorder the list without changing the count.
 @MainActor
 @Observable
 final class ItemPaginationController {
@@ -190,9 +191,18 @@ final class ItemPaginationController {
 
     private func handleStoreChange() {
         guard let fp = currentFingerprint, let ctx = currentContext else { return }
-        // Guard against benign saves (e.g. ThumbnailLoader writing back a computed thumbnail)
-        // that don't change the matching item count. A thumbnail write changes no item counts,
-        // so it is silently skipped without rebuilding the list.
+
+        // Custom-field sort order can change from an edit that adds/removes no items
+        // (e.g. editing the value of the active sort field itself) — a count comparison
+        // can't detect that, so always rebuild. dateAdded order is stable across edits,
+        // so the cheap count-guard below remains safe (and valuable) there.
+        if case .field = ItemSortField(rawValue: fp.sortFieldKey) {
+            reset(fingerprint: fp, context: ctx, force: true)
+            return
+        }
+
+        // Guard against benign saves that don't change the matching item count, so a
+        // save unrelated to this list doesn't trigger a needless rebuild.
         guard (try? matchingItemCount(fingerprint: fp, context: ctx)) != totalCount else { return }
         reset(fingerprint: fp, context: ctx, force: true)
     }
@@ -230,15 +240,19 @@ final class ItemPaginationController {
         customSortFieldDefID = fieldDefID
         customSortPredicate = makeFieldValuePredicate(fieldDefID: fieldDefID, tab: fingerprint.tab)
 
-        // totalCount uses the CatalogueItem predicate (includes search) so the displayed
-        // count matches the dateAdded path and reflects the actual filtered item count.
-        totalCount = try context.fetchCount(FetchDescriptor<CatalogueItem>(predicate: makePredicate(fingerprint: fingerprint)))
+        // totalCount mirrors the same catalogue/tab/search filter as the dateAdded path,
+        // but additionally requires a FieldValue for the sort field — items without one
+        // are never surfaced by loadMoreCustomSort's FieldValue-based fetch, so counting
+        // them here would show a total the user can never fully scroll to.
+        totalCount = try context.fetchCount(FetchDescriptor<CatalogueItem>(
+            predicate: makeCustomSortTotalCountPredicate(fingerprint: fingerprint, fieldDefID: fieldDefID)
+        ))
         hasMore = totalCount > 0
 
         if fingerprint.searchText.isEmpty {
             hasAnyItems = totalCount > 0
         } else {
-            let noSearchPredicate = makePredicate(fingerprint: fingerprint, ignoreSearch: true)
+            let noSearchPredicate = makeCustomSortTotalCountPredicate(fingerprint: fingerprint, fieldDefID: fieldDefID, ignoreSearch: true)
             let anyCount = try context.fetchCount(FetchDescriptor<CatalogueItem>(predicate: noSearchPredicate))
             hasAnyItems = anyCount > 0
         }
@@ -341,6 +355,25 @@ final class ItemPaginationController {
                 && item.deletedDate == nil
                 && (filterAll || item.isWishlist == filterWishlist)
                 && (!hasSearch || item.searchText.contains(lowercasedQuery))
+        }
+    }
+
+    /// Builds the CatalogueItem predicate used for the custom-sort `totalCount`/`hasAnyItems`.
+    /// Same catalogue/tab/search filter as `makePredicate`, plus a check that the item has
+    /// a FieldValue for `fieldDefID` — matching exactly what loadMoreCustomSort can surface.
+    private func makeCustomSortTotalCountPredicate(fingerprint: FilterFingerprint, fieldDefID: PersistentIdentifier, ignoreSearch: Bool = false) -> Predicate<CatalogueItem> {
+        let targetID = fingerprint.catalogueID
+        let filterAll = fingerprint.tab == .all
+        let filterWishlist = fingerprint.tab == .wishlist
+        let hasSearch = !fingerprint.searchText.isEmpty && !ignoreSearch
+        let lowercasedQuery = fingerprint.searchText.lowercased()
+
+        return #Predicate<CatalogueItem> { item in
+            item.catalogue?.persistentModelID == targetID
+                && item.deletedDate == nil
+                && (filterAll || item.isWishlist == filterWishlist)
+                && (!hasSearch || item.searchText.contains(lowercasedQuery))
+                && item.fieldValues.contains(where: { $0.fieldDefinition.flatMap { $0.persistentModelID == fieldDefID } ?? false })
         }
     }
 

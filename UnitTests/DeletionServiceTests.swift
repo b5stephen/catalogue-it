@@ -29,22 +29,25 @@ struct DeletionServiceTests {
         let catalogue = Catalogue(name: "Test", iconName: "star", colorHex: "#000000")
         ctx.insert(catalogue)
 
+        // Relationships are assigned after insert: values assigned before insertion can
+        // be applied to the store lazily, leaving foreign keys unset until next touched.
         let fieldDef = FieldDefinition(name: "Name", fieldType: .text, priority: 0)
-        fieldDef.catalogue = catalogue
         ctx.insert(fieldDef)
+        fieldDef.catalogue = catalogue
 
         let item = CatalogueItem(isWishlist: false)
-        item.catalogue = catalogue
         ctx.insert(item)
+        item.catalogue = catalogue
 
-        let fv = FieldValue(fieldDefinition: fieldDef, fieldType: .text)
+        let fv = FieldValue(fieldDefinition: nil, fieldType: .text)
+        ctx.insert(fv)
+        fv.fieldDefinition = fieldDef
         fv.textValue = "Spitfire"
         fv.item = item
-        ctx.insert(fv)
 
         let photo = ItemPhoto(imageData: Data([0xFF, 0xD8, 0xFF]), priority: 0)
-        photo.item = item
         ctx.insert(photo)
+        photo.item = item
 
         return (catalogue, item)
     }
@@ -116,6 +119,116 @@ struct DeletionServiceTests {
 
         #expect(try ctx.fetch(FetchDescriptor<Catalogue>()).isEmpty)
         #expect(try ctx.fetch(FetchDescriptor<FieldDefinition>()).isEmpty)
+        #expect(try ctx.fetch(FetchDescriptor<CatalogueItem>()).isEmpty)
+        #expect(try ctx.fetch(FetchDescriptor<FieldValue>()).isEmpty)
+        #expect(try ctx.fetch(FetchDescriptor<ItemPhoto>()).isEmpty)
+    }
+
+    @Test("deleteCatalogue removes orphaned field values that have no item")
+    func deleteCatalogueRemovesOrphanedFieldValues() throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let (catalogue, _) = makePopulatedCatalogue(in: ctx)
+
+        // Orphan: reachable only via its field definition — a relationship walk over
+        // catalogue.items would never find it.
+        // Assign the relationship after insert: assigning it via init before insert can
+        // leave the store's foreign key unset until the property is next touched, which
+        // would make the orphan unreachable by predicate and this test flaky.
+        let orphan = FieldValue(fieldDefinition: nil, fieldType: .text)
+        ctx.insert(orphan)
+        orphan.fieldDefinition = catalogue.fieldDefinitions.first
+        try ctx.save()
+        #expect(orphan.fieldDefinition != nil)
+
+        DeletionService.deleteCatalogueAndSave(catalogue, in: ctx)
+
+        #expect(try ctx.fetch(FetchDescriptor<FieldValue>()).isEmpty)
+    }
+
+    @Test("deleteCatalogue succeeds before the graph has ever been saved")
+    func deleteCatalogueUnsavedGraph() throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let (catalogue, _) = makePopulatedCatalogue(in: ctx)
+
+        DeletionService.deleteCatalogueAndSave(catalogue, in: ctx)
+
+        #expect(try ctx.fetch(FetchDescriptor<Catalogue>()).isEmpty)
+        #expect(try ctx.fetch(FetchDescriptor<CatalogueItem>()).isEmpty)
+        #expect(try ctx.fetch(FetchDescriptor<FieldValue>()).isEmpty)
+        #expect(try ctx.fetch(FetchDescriptor<ItemPhoto>()).isEmpty)
+    }
+
+    @Test("deleting the same catalogue twice is harmless")
+    func deleteCatalogueTwice() throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let (catalogue, _) = makePopulatedCatalogue(in: ctx)
+        try ctx.save()
+
+        DeletionService.deleteCatalogueAndSave(catalogue, in: ctx)
+        DeletionService.deleteCatalogueAndSave(catalogue, in: ctx)
+
+        #expect(try ctx.fetch(FetchDescriptor<Catalogue>()).isEmpty)
+    }
+
+    @Test("deleteCatalogue succeeds after a rollback resurrected the graph")
+    func deleteCatalogueAfterRollback() throws {
+        // Regression test for "Unexpected backing data for snapshot creation:
+        // _FullFutureBackingData". Rolling back a pending delete resurrects the models
+        // with future backing data; deleting those instances again via the in-memory
+        // relationship arrays crashed. Fetch-based deletion must survive this.
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let (catalogue, _) = makePopulatedCatalogue(in: ctx)
+        try ctx.save()
+
+        DeletionService.deleteCatalogue(catalogue, in: ctx)
+        ctx.rollback()
+        DeletionService.deleteCatalogueAndSave(catalogue, in: ctx)
+
+        #expect(try ctx.fetch(FetchDescriptor<Catalogue>()).isEmpty)
+        #expect(try ctx.fetch(FetchDescriptor<CatalogueItem>()).isEmpty)
+        #expect(try ctx.fetch(FetchDescriptor<FieldDefinition>()).isEmpty)
+        #expect(try ctx.fetch(FetchDescriptor<FieldValue>()).isEmpty)
+        #expect(try ctx.fetch(FetchDescriptor<ItemPhoto>()).isEmpty)
+    }
+
+    @Test("deleteCatalogue succeeds when the graph was already deleted via another context")
+    func deleteCatalogueDeletedElsewhere() throws {
+        // Regression test for "backing data could no longer be found in the store":
+        // the main context still holds the models, but their rows are already gone.
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let (catalogue, item) = makePopulatedCatalogue(in: ctx)
+        try ctx.save()
+        _ = catalogue.items // fault relationships into this context
+        _ = item.fieldValues
+
+        let other = ModelContext(container)
+        let otherItems = try other.fetch(FetchDescriptor<CatalogueItem>())
+        for otherItem in otherItems {
+            for photo in Array(otherItem.photos) { other.delete(photo) }
+            for value in Array(otherItem.fieldValues) { other.delete(value) }
+            other.delete(otherItem)
+        }
+        try other.save()
+
+        DeletionService.deleteCatalogueAndSave(catalogue, in: ctx)
+
+        #expect(try ctx.fetch(FetchDescriptor<Catalogue>()).isEmpty)
+        #expect(try ctx.fetch(FetchDescriptor<FieldValue>()).isEmpty)
+    }
+
+    @Test("deleteItem succeeds on an item that was never saved")
+    func deleteUnsavedItem() throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let (_, item) = makePopulatedCatalogue(in: ctx)
+
+        DeletionService.deleteItemsAndSave([item], in: ctx)
+
         #expect(try ctx.fetch(FetchDescriptor<CatalogueItem>()).isEmpty)
         #expect(try ctx.fetch(FetchDescriptor<FieldValue>()).isEmpty)
         #expect(try ctx.fetch(FetchDescriptor<ItemPhoto>()).isEmpty)

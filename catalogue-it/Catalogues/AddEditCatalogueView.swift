@@ -219,12 +219,18 @@ struct AddEditCatalogueView: View {
                 .sorted { $0.priority < $1.priority }
                 .map(\.fieldID)
 
-            // Delete fields that were removed
+            // Delete fields that were removed. Snapshot the relationship array first —
+            // modelContext.delete(field) mutates it mid-iteration via inverse maintenance.
+            // Fetch-and-delete rather than delete(model:where:): the batch delete always
+            // throws "mandatory OTO nullify inverse on FieldValue/fieldDefinition" for this
+            // schema, silently leaving the removed field's values orphaned on every item.
             let retained = Set(fieldDefinitions.compactMap(\.existingDefinition?.persistentModelID))
-            for field in existingCatalogue.fieldDefinitions where !retained.contains(field.persistentModelID) {
+            let removedFields = existingCatalogue.fieldDefinitions.filter { !retained.contains($0.persistentModelID) }
+            for field in removedFields {
                 let fieldID = field.persistentModelID
-                try? modelContext.delete(model: FieldValue.self,
-                    where: #Predicate { $0.fieldDefinition?.persistentModelID == fieldID })
+                let values = (try? modelContext.fetch(FetchDescriptor<FieldValue>(
+                    predicate: #Predicate { $0.fieldDefinition?.persistentModelID == fieldID }))) ?? []
+                for value in values { modelContext.delete(value) }
                 modelContext.delete(field)
             }
 

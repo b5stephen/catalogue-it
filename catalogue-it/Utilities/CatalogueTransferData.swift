@@ -50,6 +50,10 @@ struct CatalogueItemDTO: Codable {
     var createdDate: Date
     var isWishlist: Bool
     var notes: String?
+    /// Soft-delete timestamp. Always nil in share/export files (exports exclude deleted
+    /// items); set by the deletion-undo snapshot so Recently Deleted items survive a
+    /// restore. Optional so files from older app versions still decode.
+    var deletedDate: Date?
     var fieldValues: [FieldValueDTO]
     var photos: [ItemPhotoDTO]
 }
@@ -111,6 +115,7 @@ extension CatalogueItemDTO {
         createdDate = item.createdDate
         isWishlist = item.isWishlist
         notes = item.notes
+        deletedDate = item.deletedDate
         fieldValues = item.fieldValues.compactMap(FieldValueDTO.init)
         photos = includePhotos
             ? item.photos.sorted { $0.priority < $1.priority }.map(ItemPhotoDTO.init)
@@ -191,6 +196,7 @@ extension CatalogueDTO {
         for (index, itemDTO) in items.enumerated() {
             let item = CatalogueItem(isWishlist: itemDTO.isWishlist, notes: itemDTO.notes)
             item.createdDate = itemDTO.createdDate
+            item.deletedDate = itemDTO.deletedDate
             item.catalogue = catalogue
             context.insert(item)
 

@@ -234,10 +234,10 @@ struct DeletionServiceTests {
         #expect(try ctx.fetch(FetchDescriptor<ItemPhoto>()).isEmpty)
     }
 
-    // MARK: - Undo / Restore
+    // MARK: - Undo Suppression
 
-    @Test("Deleting a catalogue registers an undoable restore action")
-    func deleteCatalogueRegistersUndo() throws {
+    @Test("Deleting a catalogue does not register a lying native undo action")
+    func deleteCatalogueRegistersNoUndo() throws {
         let container = try makeContainer()
         let ctx = container.mainContext
         let undoManager = UndoManager()
@@ -249,51 +249,14 @@ struct DeletionServiceTests {
         undoManager.beginUndoGrouping()
         DeletionService.deleteCatalogueAndSave(catalogue, in: ctx)
         undoManager.endUndoGrouping()
-
-        #expect(try ctx.fetch(FetchDescriptor<Catalogue>()).isEmpty)
-        #expect(undoManager.canUndo)
-    }
-
-    @Test("Undo after catalogue deletion restores the full graph, including soft-deleted items")
-    func undoRestoresDeletedCatalogue() async throws {
-        let container = try makeContainer()
-        let ctx = container.mainContext
-        let undoManager = UndoManager()
-        undoManager.groupsByEvent = false
-        ctx.undoManager = undoManager
-        let (catalogue, _) = makePopulatedCatalogue(in: ctx)
-        catalogue.name = "Planes"
-
-        let softDeleted = CatalogueItem(isWishlist: false)
-        ctx.insert(softDeleted)
-        softDeleted.catalogue = catalogue
-        softDeleted.deletedDate = Date.now
-        try ctx.save()
-
-        undoManager.beginUndoGrouping()
-        DeletionService.deleteCatalogueAndSave(catalogue, in: ctx)
-        undoManager.endUndoGrouping()
         #expect(try ctx.fetch(FetchDescriptor<Catalogue>()).isEmpty)
 
+        // canUndo stays true here even for an empty group, so assert behavior instead:
+        // undoing must not resurrect the graph into the context (a native SwiftData undo
+        // registration would re-insert models that later vanish on save).
         undoManager.undo()
-
-        // The restore runs as a Task on the main actor; wait for it to land.
-        var restored: Catalogue?
-        for _ in 0..<200 where restored == nil {
-            try await Task.sleep(for: .milliseconds(10))
-            restored = try ctx.fetch(FetchDescriptor<Catalogue>()).first
-        }
-
-        let catalogueAfter = try #require(restored)
-        #expect(catalogueAfter.name == "Planes")
-        #expect(try ctx.fetch(FetchDescriptor<CatalogueItem>()).count == 2)
-        #expect(try ctx.fetch(FetchDescriptor<CatalogueItem>()).count { $0.deletedDate != nil } == 1)
-        #expect(try ctx.fetch(FetchDescriptor<FieldDefinition>()).count == 1)
-        let values = try ctx.fetch(FetchDescriptor<FieldValue>())
-        #expect(values.map(\.textValue) == ["Spitfire"])
-        #expect(values.first?.fieldDefinition != nil)
-        let photos = try ctx.fetch(FetchDescriptor<ItemPhoto>())
-        #expect(photos.map(\.imageData) == [Data([0xFF, 0xD8, 0xFF])])
+        #expect(try ctx.fetch(FetchDescriptor<Catalogue>()).isEmpty)
+        #expect(ctx.insertedModelsArray.isEmpty)
     }
 
     @Test("Hard-deleting items does not register a lying native undo action")

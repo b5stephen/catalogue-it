@@ -92,9 +92,6 @@ private struct ItemCardPhotoView: View {
                 loadedImage = Image(uiImage: cached)
                 return
             }
-            // Let the navigation animation finish before starting any I/O. This ensures
-            // the list renders with placeholders first, then images fill in after.
-            try? await Task.sleep(for: .milliseconds(400))
             // Tier 2: filesystem cache — off the actor so all visible cards read in parallel.
             // preparingForDisplay() forces JPEG pixel-decode here off the main thread.
             let diskImage = await Task.detached(priority: .utility) { () -> UIImage? in

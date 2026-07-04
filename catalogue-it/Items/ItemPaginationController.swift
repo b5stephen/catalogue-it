@@ -251,39 +251,47 @@ final class ItemPaginationController {
         let hasSearch = !fingerprint.searchText.isEmpty
         let lowercasedQuery = fingerprint.searchText.lowercased()
 
-        var desc = FetchDescriptor<FieldValue>(
-            predicate: predicate,
-            sortBy: [SortDescriptor(\.sortKey, order: ascending ? .forward : .reverse)]
-        )
-        desc.fetchLimit = Self.pageSize
-        // customSortOffset tracks DB rows fetched so the offset stays correct even
-        // when the in-memory search filter drops some rows from the appended items.
-        desc.fetchOffset = customSortOffset
-        desc.relationshipKeyPathsForPrefetching = [\.item]
+        // Keep fetching DB pages until at least one item is appended or the FieldValue
+        // stream is exhausted. A single page can match zero search results while more
+        // matches exist further down; without the loop that would append nothing yet
+        // leave hasMore true, and the scroll sentinel (which only re-fires onLoadMore
+        // when the list grows) would stall forever.
+        let countBeforeLoad = items.count
+        repeat {
+            var desc = FetchDescriptor<FieldValue>(
+                predicate: predicate,
+                sortBy: [SortDescriptor(\.sortKey, order: ascending ? .forward : .reverse)]
+            )
+            desc.fetchLimit = Self.pageSize
+            // customSortOffset tracks DB rows fetched so the offset stays correct even
+            // when the in-memory search filter drops some rows from the appended items.
+            desc.fetchOffset = customSortOffset
+            desc.relationshipKeyPathsForPrefetching = [\.item]
 
-        let fieldValues = try context.fetch(desc)
-        customSortOffset += fieldValues.count
+            let fieldValues = try context.fetch(desc)
+            customSortOffset += fieldValues.count
 
-        // Access item.fieldValues on each result before appending. Items reached via
-        // relationship traversal (fv.item) may not have their fieldValues fault resolved
-        // yet; touching the property here forces the load before SwiftUI renders the row,
-        // preventing "Untitled Item" placeholders for items whose name field is present
-        // in the store but appears empty until the fault fires.
-        if hasSearch {
-            items += fieldValues.compactMap { fv in
-                guard let item = fv.item, item.searchText.contains(lowercasedQuery) else { return nil }
-                _ = item.fieldValues
-                return item
+            // Access item.fieldValues on each result before appending. Items reached via
+            // relationship traversal (fv.item) may not have their fieldValues fault resolved
+            // yet; touching the property here forces the load before SwiftUI renders the row,
+            // preventing "Untitled Item" placeholders for items whose name field is present
+            // in the store but appears empty until the fault fires.
+            if hasSearch {
+                items += fieldValues.compactMap { fv in
+                    guard let item = fv.item, item.searchText.contains(lowercasedQuery) else { return nil }
+                    _ = item.fieldValues
+                    return item
+                }
+            } else {
+                items += fieldValues.compactMap { fv in
+                    guard let item = fv.item else { return nil }
+                    _ = item.fieldValues
+                    return item
+                }
             }
-        } else {
-            items += fieldValues.compactMap { fv in
-                guard let item = fv.item else { return nil }
-                _ = item.fieldValues
-                return item
-            }
-        }
 
-        hasMore = fieldValues.count == Self.pageSize
+            hasMore = fieldValues.count == Self.pageSize
+        } while hasMore && items.count == countBeforeLoad
     }
 
     // MARK: - Date Added Sort Setup

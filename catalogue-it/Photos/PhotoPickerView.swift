@@ -158,6 +158,9 @@ struct PhotoPickerView: View {
     private func appendCapturedPhoto(_ image: UIImage) {
         guard let data = image.jpegData(compressionQuality: 0.8) else { return }
         photos.append(PhotoDraft(imageData: data, priority: photos.count))
+        Task {
+            await PhotoLibrarySaver.saveIfAuthorized(data)
+        }
     }
     #endif
 

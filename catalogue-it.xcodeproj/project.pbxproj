@@ -476,6 +476,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Catalogue It";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphoneos*]" = "Catalogue It uses the camera to add photos to your collection of items.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphonesimulator*]" = "Catalogue It uses the camera to add photos to your collection of items.";
+				"INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription[sdk=iphoneos*]" = "Catalogue It saves photos you take with the camera to your Photos library.";
+				"INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription[sdk=iphonesimulator*]" = "Catalogue It saves photos you take with the camera to your Photos library.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -522,6 +524,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Catalogue It";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphoneos*]" = "Catalogue It uses the camera to add photos to your collection of items.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphonesimulator*]" = "Catalogue It uses the camera to add photos to your collection of items.";
+				"INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription[sdk=iphoneos*]" = "Catalogue It saves photos you take with the camera to your Photos library.";
+				"INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription[sdk=iphonesimulator*]" = "Catalogue It saves photos you take with the camera to your Photos library.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;

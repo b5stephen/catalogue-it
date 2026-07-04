@@ -26,20 +26,23 @@ struct ItemCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Photo or placeholder
-            ItemCardPhotoView(itemID: item.persistentModelID)
-                .aspectRatio(1, contentMode: .fit)
-                .frame(maxWidth: .infinity)
-                .clipped()
-                .overlay(alignment: .topTrailing) {
-                    if showWishlistBadge && item.isWishlist {
-                        Image(systemName: "heart.fill")
-                            .font(.caption)
-                            .foregroundStyle(.white)
-                            .padding(5)
-                            .background(.pink, in: Circle())
-                            .padding(6)
-                    }
+            GeometryReader { geometry in
+                ItemCardPhotoView(itemID: item.persistentModelID)
+                    .frame(width: geometry.size.width, height: geometry.size.width)
+                    .clipped()
+            }
+            .aspectRatio(1, contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .overlay(alignment: .topTrailing) {
+                if showWishlistBadge && item.isWishlist {
+                    Image(systemName: "heart.fill")
+                        .font(.caption)
+                        .foregroundStyle(.white)
+                        .padding(5)
+                        .background(.pink, in: Circle())
+                        .padding(6)
                 }
+            }
 
             // Item name
             Text(primaryValue)

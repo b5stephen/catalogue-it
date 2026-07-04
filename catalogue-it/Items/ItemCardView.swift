@@ -12,7 +12,12 @@ import SwiftData
 
 struct ItemCardView: View {
     let item: CatalogueItem
+    var cardSize: CGFloat = AppConstants.GridCardSize.defaultSize
     var showWishlistBadge: Bool = false
+
+    private var photoHeight: CGFloat {
+        cardSize * AppConstants.GridCardSize.photoAspectRatio
+    }
 
     private var primaryValue: String {
         guard let catalogue = item.catalogue,
@@ -27,7 +32,7 @@ struct ItemCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Photo or placeholder
             ItemCardPhotoView(itemID: item.persistentModelID)
-                .frame(height: AppConstants.PhotoHeight.card)
+                .frame(height: photoHeight)
                 .frame(maxWidth: .infinity)
                 .clipped()
                 .overlay(alignment: .topTrailing) {

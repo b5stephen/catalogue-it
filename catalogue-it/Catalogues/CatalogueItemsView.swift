@@ -35,10 +35,6 @@ struct CatalogueItemsView: View {
         )
     }
 
-    private let gridColumns = [
-        GridItem(.adaptive(minimum: 160), spacing: 16)
-    ]
-
     var body: some View {
         Group {
             if pagination.items.isEmpty && !pagination.isLoadingMore {
@@ -51,7 +47,6 @@ struct CatalogueItemsView: View {
                 case .grid:
                     ItemGridView(
                         items: pagination.items,
-                        gridColumns: gridColumns,
                         showWishlistBadge: tab == .all,
                         selectedItem: $selectedItem,
                         scrollPosition: $scrollPosition,

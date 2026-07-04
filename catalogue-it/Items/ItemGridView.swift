@@ -12,7 +12,6 @@ import SwiftData
 
 struct ItemGridView: View {
     let items: [CatalogueItem]
-    let gridColumns: [GridItem]
     let showWishlistBadge: Bool
     @Binding var selectedItem: CatalogueItem?
     @Binding var scrollPosition: ScrollPosition
@@ -20,11 +19,26 @@ struct ItemGridView: View {
     let isLoadingMore: Bool
     let onLoadMore: () -> Void
 
+#if os(macOS)
+    @AppStorage("itemGridCardSize_mac") private var persistedCardSize: Double = Double(AppConstants.GridCardSize.defaultSize)
+#else
+    @AppStorage("itemGridCardSize_ios") private var persistedCardSize: Double = Double(AppConstants.GridCardSize.defaultSize)
+#endif
+
+    // Pinch gesture state — @State only, never @GestureState (see ZoomablePhotoView:
+    // @GestureState resets before onEnded fires, causing a one-frame snap-back).
+    @State private var isPinching = false
+    @State private var pinchStartSize: CGFloat = AppConstants.GridCardSize.defaultSize
+    @State private var livePinchSize: CGFloat?
+
+    private var cardSize: CGFloat { livePinchSize ?? CGFloat(persistedCardSize) }
+    private var gridColumns: [GridItem] { [GridItem(.adaptive(minimum: cardSize), spacing: 16)] }
+
     var body: some View {
         ScrollView {
             LazyVGrid(columns: gridColumns, spacing: 16) {
                 ForEach(items) { item in
-                    ItemCardView(item: item, showWishlistBadge: showWishlistBadge)
+                    ItemCardView(item: item, cardSize: cardSize, showWishlistBadge: showWishlistBadge)
                         .onTapGesture { selectedItem = item }
                         .overlay {
                             if selectedItem == item {
@@ -49,6 +63,29 @@ struct ItemGridView: View {
         }
         .scrollPosition($scrollPosition, anchor: .top)
         .padding(.horizontal, 16)
+        .simultaneousGesture(pinchGesture)
+    }
+
+    // MARK: - Gesture
+
+    private var pinchGesture: some Gesture {
+        MagnifyGesture()
+            .onChanged { value in
+                if !isPinching {
+                    isPinching = true
+                    pinchStartSize = cardSize
+                }
+                livePinchSize = clamp(pinchStartSize * value.magnification)
+            }
+            .onEnded { value in
+                isPinching = false
+                persistedCardSize = Double(clamp(pinchStartSize * value.magnification))
+                livePinchSize = nil
+            }
+    }
+
+    private func clamp(_ value: CGFloat) -> CGFloat {
+        min(AppConstants.GridCardSize.max, max(AppConstants.GridCardSize.min, value))
     }
 }
 
@@ -85,11 +122,8 @@ struct ItemGridView: View {
     item3.catalogue = catalogue
     container.mainContext.insert(item3)
 
-    let columns = [GridItem(.adaptive(minimum: 160), spacing: 16)]
-
     return ItemGridView(
         items: [item1, item2, item3],
-        gridColumns: columns,
         showWishlistBadge: true,
         selectedItem: .constant(nil),
         scrollPosition: .constant(ScrollPosition()),

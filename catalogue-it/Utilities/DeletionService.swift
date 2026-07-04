@@ -16,9 +16,15 @@ enum DeletionService {
     /// = .cascade and FieldDefinition.fieldValues = .nullify), which corrupts the delete snapshot.
     /// Does NOT save — caller saves once after a batch.
     static func deleteItem(_ item: CatalogueItem, in context: ModelContext) {
+        let itemID = item.persistentModelID
         for photo in Array(item.photos) { context.delete(photo) }
         for value in Array(item.fieldValues) { context.delete(value) }
         context.delete(item)
+        Task.detached {
+            if let url = ThumbnailLoader.thumbnailCacheURL(for: itemID) {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
     }
 
     /// Manually deletes a catalogue and its entire graph bottom-up (items + their children first,

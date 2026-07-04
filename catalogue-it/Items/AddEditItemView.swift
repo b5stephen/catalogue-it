@@ -278,6 +278,11 @@ struct AddEditItemView: View {
         let itemID = targetItem.persistentModelID
         if let data = coverThumbnailData {
             ThumbnailLoader.writeThumbnailToCache(data, for: itemID)
+        } else {
+            // All photos removed — delete the stale disk thumbnail so tier-2 doesn't serve it.
+            if let url = ThumbnailLoader.thumbnailCacheURL(for: itemID) {
+                try? FileManager.default.removeItem(at: url)
+            }
         }
 
         // Invalidate the in-memory decoded-image cache so the updated thumbnail is shown.

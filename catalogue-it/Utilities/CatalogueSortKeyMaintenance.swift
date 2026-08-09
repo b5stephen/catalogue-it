@@ -26,20 +26,71 @@ enum CatalogueSortKeyMaintenance {
         in context: ModelContext,
         onProgress: ((Int, Int) -> Void)? = nil
     ) async {
+        await recomputeDerivedData(
+            for: catalogue,
+            in: context,
+            tiebreakKeys: true,
+            facets: false,
+            onProgress: onProgress
+        )
+    }
+
+    /// Rebuilds `CatalogueItem.statusValue` / `.flagKeys` across a whole catalogue.
+    ///
+    /// Needed whenever a field's display role or its option set changes: those columns are
+    /// a denormalised mirror of field values interpreted through the field's configuration,
+    /// so changing the configuration changes what the mirror should contain even though no
+    /// item was edited. Without this, renaming a status option (or promoting a field to
+    /// `.statusTabs`) would leave every existing item filtered into the wrong tab.
+    @MainActor
+    static func recomputeFacets(
+        for catalogue: Catalogue,
+        in context: ModelContext,
+        onProgress: ((Int, Int) -> Void)? = nil
+    ) async {
+        await recomputeDerivedData(
+            for: catalogue,
+            in: context,
+            tiebreakKeys: false,
+            facets: true,
+            onProgress: onProgress
+        )
+    }
+
+    /// Single chunked sweep over the catalogue's items, recomputing whichever derived data
+    /// is requested. Both kinds are done in one pass when both are needed — a catalogue with
+    /// 2000+ items shouldn't be walked twice for one save.
+    @MainActor
+    static func recomputeDerivedData(
+        for catalogue: Catalogue,
+        in context: ModelContext,
+        tiebreakKeys: Bool,
+        facets: Bool,
+        onProgress: ((Int, Int) -> Void)? = nil
+    ) async {
+        guard tiebreakKeys || facets else { return }
+
         let sortedDefs = catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
         let items = catalogue.items.filter { $0.deletedDate == nil }
         let total = items.count
 
         for (index, item) in items.enumerated() {
             let itemFieldValues = item.fieldValues
-            for fv in itemFieldValues {
-                fv.tiebreakKey = SortKeyEncoder.tiebreakKey(
-                    for: fv,
-                    allFieldValuesOnItem: itemFieldValues,
-                    fieldDefinitionsByPriority: sortedDefs,
-                    itemCreatedDate: item.createdDate
-                )
+
+            if tiebreakKeys {
+                for fv in itemFieldValues {
+                    fv.tiebreakKey = SortKeyEncoder.tiebreakKey(
+                        for: fv,
+                        allFieldValuesOnItem: itemFieldValues,
+                        fieldDefinitionsByPriority: sortedDefs,
+                        itemCreatedDate: item.createdDate
+                    )
+                }
             }
+            if facets {
+                ItemFacetBuilder.apply(to: item, fieldValues: itemFieldValues, definitions: sortedDefs)
+            }
+
             onProgress?(index + 1, total)
             if index % 20 == 19 {
                 await Task.yield()

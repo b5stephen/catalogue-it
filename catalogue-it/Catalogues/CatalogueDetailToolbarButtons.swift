@@ -50,6 +50,68 @@ struct AddItemButton: View {
     }
 }
 
+// MARK: - Flag Filter Button
+
+/// Surfaces the catalogue's `.flagFilter` fields as filter controls.
+///
+/// One flag gets a direct toggle button — the star/favourite pattern, one tap to filter.
+/// Several collapse into a menu of independent toggles, since a row of toolbar icons
+/// would crowd out everything else. Renders nothing when the catalogue defines no flags.
+struct FlagFilterButton: View {
+    let flagFields: [FieldDefinition]
+    @Binding var activeFlagIDs: Set<UUID>
+
+    private var isAnyActive: Bool { !activeFlagIDs.isEmpty }
+
+    var body: some View {
+        if flagFields.count == 1, let flag = flagFields.first {
+            let isActive = activeFlagIDs.contains(flag.fieldID)
+            Button {
+                toggle(flag.fieldID)
+            } label: {
+                Label(flag.name, systemImage: flag.flagIconName)
+            }
+            // The active state fills the chosen symbol and applies its tint. `.symbolVariant`
+            // rather than a hardcoded ".fill" name, so a symbol with no filled counterpart
+            // still renders instead of vanishing.
+            .symbolVariant(isActive ? .fill : .none)
+            .tint(isActive ? flag.flagColor : nil)
+        } else if flagFields.count > 1 {
+            Menu {
+                ForEach(flagFields) { flag in
+                    Toggle(isOn: Binding(
+                        get: { activeFlagIDs.contains(flag.fieldID) },
+                        set: { _ in toggle(flag.fieldID) }
+                    )) {
+                        Label(flag.name, systemImage: flag.flagIconName)
+                    }
+                }
+                if isAnyActive {
+                    Divider()
+                    Button("Clear Filters", systemImage: "xmark.circle") {
+                        activeFlagIDs.removeAll()
+                    }
+                }
+            } label: {
+                Label(
+                    "Filter",
+                    systemImage: isAnyActive
+                        ? "line.3.horizontal.decrease.circle.fill"
+                        : "line.3.horizontal.decrease.circle"
+                )
+            }
+        }
+    }
+
+    private func toggle(_ fieldID: UUID) {
+        if activeFlagIDs.contains(fieldID) {
+            activeFlagIDs.remove(fieldID)
+        } else {
+            activeFlagIDs.insert(fieldID)
+        }
+    }
+}
+
 // MARK: - Sort Menu Button
 
 struct SortMenuButton: View {

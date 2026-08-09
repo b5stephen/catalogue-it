@@ -19,7 +19,10 @@ struct CatalogueDetailView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
 
-    @State private var selectedTab: ItemTab = .owned
+    @State private var selectedTab: StatusTab = .all
+    /// `fieldID`s of the flag filters the user has switched on. ANDed with each other
+    /// and with the status tab.
+    @State private var activeFlagIDs: Set<UUID> = []
     @State private var showingEditCatalogue = false
     @State private var showingAddItem = false
     @State private var showingStats = false
@@ -41,8 +44,29 @@ struct CatalogueDetailView: View {
         hasRecentlyDeletedItems = ((try? modelContext.fetchCount(descriptor)) ?? 0) > 0
     }
 
+    private var statusTabs: [StatusTabDescriptor] {
+        catalogue.statusTabDescriptors
+    }
+
+    private var flagFields: [FieldDefinition] {
+        catalogue.flagFields
+    }
+
     private var countLabel: String {
         displayedCount == 1 ? "1 item" : "\(displayedCount) items"
+    }
+
+    /// Drops selections that no longer exist — the status field can be reconfigured here
+    /// or, via iCloud, on another device while this view is open. Without this the list
+    /// would filter on a tab the picker no longer shows, appearing permanently empty.
+    private func reconcileFilterSelections() {
+        let resolved = catalogue.resolvedStatusTab(selectedTab)
+        if resolved != selectedTab { selectedTab = resolved }
+
+        let liveFlagIDs = Set(flagFields.map(\.fieldID))
+        if !activeFlagIDs.isSubset(of: liveFlagIDs) {
+            activeFlagIDs.formIntersection(liveFlagIDs)
+        }
     }
     private let gridColumns = [
         GridItem(.adaptive(minimum: 160), spacing: 16)
@@ -52,15 +76,19 @@ struct CatalogueDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Tab", selection: $selectedTab) {
-                ForEach(ItemTab.allCases, id: \.self) { tab in
-                    Label(tab.rawValue, systemImage: tab.systemImage)
-                        .tag(tab)
+            // Tabs exist only when the catalogue defines a status field — a catalogue
+            // without one gets its full width back rather than a one-tab picker.
+            if !statusTabs.isEmpty {
+                Picker("Status", selection: $selectedTab) {
+                    ForEach(statusTabs) { descriptor in
+                        Label(descriptor.label, systemImage: descriptor.systemImage)
+                            .tag(descriptor.tab)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.vertical, 8)
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            .padding(.vertical, 8)
 
 #if !os(macOS)
             Text(countLabel)
@@ -69,7 +97,8 @@ struct CatalogueDetailView: View {
 #endif
             CatalogueItemsView(
                 catalogue: catalogue,
-                tab: selectedTab,
+                statusTab: selectedTab,
+                activeFlagIDs: Array(activeFlagIDs),
                 searchText: appliedSearchText,
                 sortFieldKey: $catalogue.sortFieldKey,
                 sortDirection: $catalogue.sortDirection,
@@ -94,11 +123,10 @@ struct CatalogueDetailView: View {
         .sheet(isPresented: $showingEditCatalogue) {
             AddEditCatalogueView(catalogue: catalogue)
         }
+        .onChange(of: statusTabs) { reconcileFilterSelections() }
+        .onChange(of: flagFields.map(\.fieldID)) { reconcileFilterSelections() }
         .sheet(isPresented: $showingAddItem) {
-            AddEditItemView(
-                catalogue: catalogue,
-                defaultIsWishlist: selectedTab == .wishlist
-            )
+            AddEditItemView(catalogue: catalogue, defaultStatusTab: selectedTab)
         }
         .sheet(isPresented: $showingStats) {
             CatalogueStatsView(catalogue: catalogue)
@@ -107,6 +135,8 @@ struct CatalogueDetailView: View {
             RecentlyDeletedView(catalogue: catalogue)
         }
         .task(id: catalogue.persistentModelID) {
+            selectedTab = catalogue.defaultStatusTab
+            reconcileFilterSelections()
             PurgeService.purgeExpiredItems(for: catalogue, in: modelContext)
             // Refresh after purge — purging expired items may clear the deleted set.
             refreshHasRecentlyDeleted()
@@ -147,12 +177,22 @@ struct CatalogueDetailView: View {
                     Label("More Options", systemImage: "ellipsis")
                 }
             }
+            if !flagFields.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    FlagFilterButton(flagFields: flagFields, activeFlagIDs: $activeFlagIDs)
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 AddItemButton(showingAddItem: $showingAddItem)
             }
 #else
             ToolbarItem(placement: .primaryAction) {
                 AddItemButton(showingAddItem: $showingAddItem)
+            }
+            if !flagFields.isEmpty {
+                ToolbarItem(placement: .primaryAction) {
+                    FlagFilterButton(flagFields: flagFields, activeFlagIDs: $activeFlagIDs)
+                }
             }
             ToolbarItem(placement: .primaryAction) {
                 LayoutToggleButton(layout: $catalogue.itemLayout)
@@ -229,7 +269,7 @@ private struct ExportMenuItems: View {
     field2.catalogue = catalogue
     container.mainContext.insert(field2)
 
-    let item1 = CatalogueItem(isWishlist: false)
+    let item1 = CatalogueItem()
     item1.catalogue = catalogue
     container.mainContext.insert(item1)
 
@@ -238,7 +278,7 @@ private struct ExportMenuItems: View {
     val1.item = item1
     container.mainContext.insert(val1)
 
-    let item2 = CatalogueItem(isWishlist: true)
+    let item2 = CatalogueItem()
     item2.catalogue = catalogue
     container.mainContext.insert(item2)
 

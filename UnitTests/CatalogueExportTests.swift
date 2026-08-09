@@ -36,7 +36,7 @@ struct CatalogueExportTests {
         yearField.catalogue = catalogue
         ctx.insert(yearField)
 
-        let item = CatalogueItem(isWishlist: false, notes: "First build")
+        let item = CatalogueItem(notes: "First build")
         item.catalogue = catalogue
         ctx.insert(item)
 
@@ -55,14 +55,14 @@ struct CatalogueExportTests {
 
     // MARK: - CSV
 
-    @Test("CSV header lists Tab, fields by priority, Notes, and Photo Count")
+    @Test("CSV header lists fields by priority, Notes, and Photo Count")
     func csvHeaderOrder() throws {
         let container = try makeContainer()
         let (catalogue, _, _) = makeSampleCatalogue(in: container.mainContext)
 
         let csv = CatalogueExporter.csvString(for: catalogue)
         let header = try #require(csv.components(separatedBy: "\n").first)
-        #expect(header == "Tab,Name,Year,Notes,Photo Count")
+        #expect(header == "Name,Year,Notes,Photo Count")
     }
 
     @Test("CSV data row contains tab, field values, notes, and photo count")
@@ -72,7 +72,7 @@ struct CatalogueExportTests {
 
         let rows = CatalogueExporter.csvString(for: catalogue).components(separatedBy: "\n")
         try #require(rows.count == 2)
-        #expect(rows[1] == "Owned,Spitfire,1936,First build,0")
+        #expect(rows[1] == "Spitfire,1936,First build,0")
     }
 
     @Test("CSV escapes cells containing commas, quotes, and newlines")
@@ -81,7 +81,7 @@ struct CatalogueExportTests {
         let ctx = container.mainContext
         let (catalogue, nameField, _) = makeSampleCatalogue(in: ctx)
 
-        let item = CatalogueItem(isWishlist: true, notes: "line one\nline two")
+        let item = CatalogueItem(notes: "line one\nline two")
         item.createdDate = Date.now.addingTimeInterval(60) // sorts after the sample item
         item.catalogue = catalogue
         ctx.insert(item)
@@ -94,7 +94,6 @@ struct CatalogueExportTests {
         let csv = CatalogueExporter.csvString(for: catalogue)
         #expect(csv.contains(#""Hawker ""Hurricane"", MkI""#), "Quotes doubled and cell wrapped in quotes")
         #expect(csv.contains("\"line one\nline two\""), "Newline cell wrapped in quotes")
-        #expect(csv.contains("Wishlist"))
     }
 
     @Test("CSV excludes soft-deleted items")
@@ -103,7 +102,7 @@ struct CatalogueExportTests {
         let ctx = container.mainContext
         let (catalogue, _, _) = makeSampleCatalogue(in: ctx)
 
-        let deleted = CatalogueItem(isWishlist: false, notes: "gone")
+        let deleted = CatalogueItem(notes: "gone")
         deleted.deletedDate = Date.now
         deleted.catalogue = catalogue
         ctx.insert(deleted)
@@ -119,7 +118,7 @@ struct CatalogueExportTests {
         let ctx = container.mainContext
         let (catalogue, _, yearField) = makeSampleCatalogue(in: ctx)
 
-        let item = CatalogueItem(isWishlist: false)
+        let item = CatalogueItem()
         item.createdDate = Date.now.addingTimeInterval(60)
         item.catalogue = catalogue
         ctx.insert(item)
@@ -134,7 +133,7 @@ struct CatalogueExportTests {
 
     // MARK: - JSON
 
-    @Test("JSON export decodes as version 1 with full catalogue content")
+    @Test("JSON export decodes as the current version with full catalogue content")
     func jsonExportStructure() throws {
         let container = try makeContainer()
         let (catalogue, _, _) = makeSampleCatalogue(in: container.mainContext)
@@ -144,7 +143,7 @@ struct CatalogueExportTests {
         decoder.dateDecodingStrategy = .iso8601
         let file = try decoder.decode(CatalogueExportFile.self, from: data)
 
-        #expect(file.version == 1)
+        #expect(file.version == CatalogueExportFile.currentVersion)
         let dto = try #require(file.catalogues.first)
         #expect(dto.name == "Planes")
         #expect(dto.fieldDefinitions.map(\.name) == ["Name", "Year"])
@@ -185,7 +184,7 @@ struct CatalogueExportTests {
         let ctx = container.mainContext
         let (catalogue, _, _) = makeSampleCatalogue(in: ctx)
 
-        let deleted = CatalogueItem(isWishlist: false)
+        let deleted = CatalogueItem()
         deleted.deletedDate = Date.now
         deleted.catalogue = catalogue
         ctx.insert(deleted)

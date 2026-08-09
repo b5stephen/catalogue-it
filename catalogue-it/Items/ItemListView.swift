@@ -12,7 +12,7 @@ import SwiftUI
 struct ItemListView: View {
     let items: [CatalogueItem]
     let catalogue: Catalogue
-    let showWishlistBadge: Bool
+    let showStatusChip: Bool
     @Binding var selectedItem: CatalogueItem?
     @Binding var scrollPosition: ScrollPosition
     let hasMore: Bool
@@ -28,7 +28,7 @@ struct ItemListView: View {
         if horizontalSizeClass == .compact {
             List {
                 ForEach(items) { item in
-                    ItemRowView(item: item, catalogue: catalogue, showWishlistBadge: showWishlistBadge)
+                    ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip)
                         .tag(item)
                         .contentShape(Rectangle())
                         .onTapGesture { selectedItem = item }
@@ -48,7 +48,7 @@ struct ItemListView: View {
     private var regularList: some View {
         List(selection: $selectedItem) {
             ForEach(items) { item in
-                ItemRowView(item: item, catalogue: catalogue, showWishlistBadge: showWishlistBadge)
+                ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip)
                     .tag(item)
             }
             scrollSentinel

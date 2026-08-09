@@ -28,6 +28,12 @@ final class Catalogue {
     /// persists (and syncs) so an interrupted deletion resumes on next launch.
     var pendingDeletion: Bool = false
 
+    /// Whether the synthetic "All" tab is shown ahead of the status field's own tabs.
+    /// Only meaningful when the catalogue has a `.statusTabs` field.
+    /// Off by default — a status field is usually added because the user wants to work in
+    /// one state at a time; the catch-all tab is opt-in.
+    var showAllTab: Bool = false
+
     var itemLayoutRaw_mac: String = ItemLayout.list.rawValue
     var itemLayoutRaw_ios: String = ItemLayout.list.rawValue
     var gridCardSize_mac: Double = Double(AppConstants.GridCardSize.defaultSize)

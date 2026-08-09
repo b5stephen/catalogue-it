@@ -12,15 +12,38 @@ import SwiftData
 
 struct ItemCardView: View {
     let item: CatalogueItem
-    var showWishlistBadge: Bool = false
+    /// Whether to show the status chip — see `ItemRowView.showStatusChip`.
+    var showStatusChip: Bool = false
 
     private var primaryValue: String {
+        // Status and flag fields are rendered as chips/badges, so they never stand in as
+        // the item's display name.
         guard let catalogue = item.catalogue,
-              let first = catalogue.fieldDefinitions.sorted(by: { $0.priority < $1.priority }).first,
+              let first = catalogue.fieldDefinitions
+                  .filter({ $0.displayRole == .none })
+                  .sorted(by: { $0.priority < $1.priority })
+                  .first,
               let fv = item.value(for: first),
               !fv.displayValue(options: first.fieldOptions).isEmpty
         else { return "Untitled Item" }
         return fv.displayValue(options: first.fieldOptions)
+    }
+
+    private var statusChip: (label: String, tint: Color)? {
+        guard showStatusChip,
+              let statusField = item.catalogue?.statusField,
+              let label = statusField.statusLabel(for: item.statusValue)
+        else { return nil }
+        return (label, statusField.statusChipTint(for: item.statusValue))
+    }
+
+    /// Flags set on this item, capped because a card thumbnail has no room for a long row.
+    private var setFlagFields: [FieldDefinition] {
+        guard let catalogue = item.catalogue else { return [] }
+        return catalogue.flagFields
+            .filter { item.flagKeys.contains(ItemFacetBuilder.flagToken(for: $0.fieldID)) }
+            .prefix(3)
+            .map { $0 }
     }
 
     var body: some View {
@@ -34,12 +57,23 @@ struct ItemCardView: View {
             .aspectRatio(1, contentMode: .fit)
             .frame(maxWidth: .infinity)
             .overlay(alignment: .topTrailing) {
-                if showWishlistBadge && item.isWishlist {
-                    Image(systemName: "heart.fill")
-                        .font(.caption)
-                        .foregroundStyle(.white)
-                        .padding(5)
-                        .background(.pink, in: Circle())
+                HStack(spacing: 4) {
+                    ForEach(setFlagFields) { flag in
+                        Image(systemName: flag.flagIconName)
+                            .symbolVariant(.fill)
+                            .font(.caption)
+                            .foregroundStyle(.white)
+                            .padding(5)
+                            .background(flag.flagColor, in: Circle())
+                            .accessibilityLabel(flag.name)
+                    }
+                }
+                .padding(6)
+            }
+            .overlay(alignment: .topLeading) {
+                if let chip = statusChip {
+                    FieldChipView(text: chip.label, tint: chip.tint)
+                        .background(.thinMaterial, in: Capsule())
                         .padding(6)
                 }
             }
@@ -137,7 +171,7 @@ private struct ItemCardPhotoView: View {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! ModelContainer(for: Catalogue.self, configurations: config)
 
-    let item = CatalogueItem(isWishlist: false)
+    let item = CatalogueItem()
     container.mainContext.insert(item)
 
     let catalogue = Catalogue(name: "Model Planes", iconName: "airplane", colorHex: "#007AFF")
@@ -154,7 +188,7 @@ private struct ItemCardPhotoView: View {
     val.item = item
     container.mainContext.insert(val)
 
-    let itemNoName = CatalogueItem(isWishlist: false)
+    let itemNoName = CatalogueItem()
     container.mainContext.insert(itemNoName)
 
     return ScrollView {

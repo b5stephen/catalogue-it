@@ -117,7 +117,7 @@ struct ItemPaginationControllerSortTests {
         let controller = ItemPaginationController()
         let fingerprint = FilterFingerprint(
             catalogueID: fixture.catalogue.persistentModelID,
-            tab: .all,
+            statusTab: .all,
             searchText: "",
             sortFieldKey: ItemSortField.field(fixture.airlineDef.fieldID).rawValue,
             sortDirection: direction.rawValue

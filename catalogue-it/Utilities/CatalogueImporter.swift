@@ -30,7 +30,9 @@ enum CatalogueImporter {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let file = try decoder.decode(CatalogueExportFile.self, from: data)
-        guard file.version == 1 else {
+        // v1 files are upgraded in place during import (see LegacyWishlistUpgrade), so every
+        // format this build knows about is accepted. Only newer formats are rejected.
+        guard file.version <= CatalogueExportFile.currentVersion else {
             throw ImportError.unsupportedVersion(file.version)
         }
         let totalItems = file.catalogues.reduce(0) { $0 + $1.items.count }

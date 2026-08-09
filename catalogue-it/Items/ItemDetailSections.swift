@@ -57,9 +57,44 @@ struct ItemFieldsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(fields, id: \.0.id) { def, val in
-                FieldRowView(label: def.name, value: val.displayValue(options: def.fieldOptions))
+                if def.isStatusField {
+                    // The status field gets the same chip treatment as the item row, and
+                    // resolves boolean statuses through their tab labels rather than showing
+                    // a bare "Yes"/"No" that doesn't match what the tab bar says.
+                    StatusFieldRowView(field: def, value: val)
+                } else {
+                    FieldRowView(label: def.name, value: val.displayValue(options: def.fieldOptions))
+                }
             }
         }
+    }
+}
+
+// MARK: - Status Field Row
+
+private struct StatusFieldRowView: View {
+    let field: FieldDefinition
+    let value: FieldValue
+
+    /// Recomputed from the field value rather than read from `CatalogueItem.statusValue`,
+    /// so the detail view shows what is actually stored on the item.
+    private var storedValue: String {
+        ItemFacetBuilder.statusValue(from: [value], definitions: [field])
+    }
+
+    var body: some View {
+        HStack {
+            Text(field.name)
+                .foregroundStyle(.secondary)
+            Spacer()
+            if let label = field.statusLabel(for: storedValue) {
+                FieldChipView(text: label, tint: field.statusChipTint(for: storedValue))
+            } else {
+                Text("—")
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.vertical, 6)
     }
 }
 

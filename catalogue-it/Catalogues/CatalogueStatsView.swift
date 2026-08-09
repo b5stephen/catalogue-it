@@ -26,13 +26,34 @@ struct CatalogueStatsView: View {
         catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
     }
 
+    /// One row per status tab (excluding the synthetic "All"), so a catalogue tracking
+    /// Owned/Wishlist/Ordered/Sold reports all four rather than a fixed pair.
+    private var statusCounts: [(label: String, count: Int)] {
+        catalogue.statusTabDescriptors
+            .filter { $0.tab != .all }
+            .compactMap { descriptor in
+                guard let stored = descriptor.tab.storedValue else { return nil }
+                return (descriptor.label, activeItems.count { $0.statusValue == stored })
+            }
+    }
+
+    /// Flags are independent of status, so they're counted separately rather than
+    /// partitioning the same total.
+    private var flagCounts: [(label: String, count: Int)] {
+        catalogue.flagFields.map { flag in
+            let token = ItemFacetBuilder.flagToken(for: flag.fieldID)
+            return (flag.name, activeItems.count { $0.flagKeys.contains(token) })
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section("Items") {
                     LabeledContent("Total", value: activeItems.count.formatted())
-                    LabeledContent("Owned", value: activeItems.count(where: { !$0.isWishlist }).formatted())
-                    LabeledContent("Wishlist", value: activeItems.count(where: { $0.isWishlist }).formatted())
+                    ForEach(statusCounts + flagCounts, id: \.label) { entry in
+                        LabeledContent(entry.label, value: entry.count.formatted())
+                    }
                     LabeledContent("Photos", value: totalPhotos.formatted())
                 }
 

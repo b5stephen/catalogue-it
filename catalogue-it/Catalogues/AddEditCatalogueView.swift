@@ -21,6 +21,8 @@ struct AddEditCatalogueView: View {
     @State private var selectedIcon: String = "square.grid.2x2"
     @State private var selectedColor: Color = .blue
     @State private var fieldDefinitions: [FieldDefinitionDraft] = []
+    // Off by default; configured in a status field's Display options, where it has meaning.
+    @State private var showAllTab: Bool = false
     @State private var showingIconPicker = false
     @State private var showingAddField = false
 
@@ -86,7 +88,15 @@ struct AddEditCatalogueView: View {
                 // MARK: - Field Definitions Section
                 Section {
                     ForEach($fieldDefinitions) { $field in
-                        FieldDefinitionRow(field: $field)
+                        FieldDefinitionRow(
+                            field: $field,
+                            otherStatusFieldName: FieldDefinitionValidation.statusFieldName(
+                                in: fieldDefinitions,
+                                excluding: field.id
+                            ),
+                            onClaimStatusRole: { claimStatusRole(for: field.id) },
+                            showAllTab: $showAllTab
+                        )
                     }
                     .onDelete(perform: deleteField)
                     .onMove(perform: moveField)
@@ -139,8 +149,17 @@ struct AddEditCatalogueView: View {
                 IconPickerView(selectedIcon: $selectedIcon)
             }
             .sheet(isPresented: $showingAddField) {
-                AddFieldView(existingNames: fieldDefinitions.map(\.name)) { field in
+                AddFieldView(
+                    existingNames: fieldDefinitions.map(\.name),
+                    currentStatusFieldName: FieldDefinitionValidation.statusFieldName(
+                        in: fieldDefinitions,
+                        excluding: nil
+                    ),
+                    showAllTab: $showAllTab
+                ) { field in
                     fieldDefinitions.append(field)
+                    // A new field claiming the tab bar takes it from whichever field held it.
+                    if field.displayRole == .statusTabs { claimStatusRole(for: field.id) }
                 }
             }
             .confirmationDialog(
@@ -192,16 +211,33 @@ struct AddEditCatalogueView: View {
         name = catalogue.name
         selectedIcon = catalogue.iconName
         selectedColor = catalogue.color
+        showAllTab = catalogue.showAllTab
         fieldDefinitions = catalogue.fieldDefinitions
             .sorted { $0.priority < $1.priority }
-            .map { FieldDefinitionDraft(existingDefinition: $0, name: $0.name, fieldType: $0.fieldType, priority: $0.priority, numberOptions: $0.numberOptions ?? NumberOptions(), optionListOptions: $0.optionListOptions ?? OptionListOptions()) }
+            .map {
+                FieldDefinitionDraft(
+                    existingDefinition: $0,
+                    name: $0.name,
+                    fieldType: $0.fieldType,
+                    priority: $0.priority,
+                    displayRole: $0.displayRole,
+                    numberOptions: $0.numberOptions ?? NumberOptions(),
+                    optionListOptions: $0.optionListOptions ?? OptionListOptions(),
+                    booleanOptions: $0.booleanOptions ?? BooleanOptions()
+                )
+            }
     }
 
     private func saveCatalogue() async {
         isSavingCatalogue = true
         defer { isSavingCatalogue = false }
 
+        // Normalise before persisting: a role its field type can't support is reset, and any
+        // status role beyond the first is dropped. Invalid combinations never reach the store.
+        fieldDefinitions = FieldDefinitionValidation.normalised(fieldDefinitions)
+
         var structuralChange = false
+        var facetChange = false
         var itemsNeedingSiblingRecompute: Set<PersistentIdentifier> = []
         var catalogueForRecompute: Catalogue?
 
@@ -210,6 +246,7 @@ struct AddEditCatalogueView: View {
             existingCatalogue.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
             existingCatalogue.iconName = selectedIcon
             existingCatalogue.colorHex = selectedColor.toHex()
+            existingCatalogue.showAllTab = showAllTab
 
             // Captured before any mutation so we can detect an add/remove/reorder below —
             // any such change invalidates every FieldValue's tiebreakKey across the whole
@@ -218,6 +255,11 @@ struct AddEditCatalogueView: View {
             let originalFieldIDsInOrder = existingCatalogue.fieldDefinitions
                 .sorted { $0.priority < $1.priority }
                 .map(\.fieldID)
+
+            // Captured for the same reason, but for the denormalised status/flag columns:
+            // they depend on which fields carry a display role and (for status) on the
+            // option set, so any change there invalidates every item's facets.
+            let originalFacetSignature = Self.facetSignature(of: existingCatalogue.fieldDefinitions)
 
             // Delete fields that were removed. Snapshot the relationship array first —
             // modelContext.delete(field) mutates it mid-iteration via inverse maintenance.
@@ -239,8 +281,10 @@ struct AddEditCatalogueView: View {
                 if let existing = draft.existingDefinition {
                     existing.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)  // rename applied here — no cascade needed
                     existing.priority = index
+                    existing.displayRole = draft.displayRole
                     existing.numberOptions = draft.numberOptions
                     existing.optionListOptions = draft.optionListOptions
+                    existing.booleanOptions = draft.booleanOptions
                     for (original, current) in draft.pendingOptionRenames where current != original {
                         guard draft.optionListOptions.options.contains(current) else { continue }
                         for fv in existing.fieldValues where fv.fieldType == .optionList && fv.textValue == original {
@@ -260,9 +304,15 @@ struct AddEditCatalogueView: View {
                         }
                     }
                 } else {
-                    let field = FieldDefinition(name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines), fieldType: draft.fieldType, priority: index)
+                    let field = FieldDefinition(
+                        name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines),
+                        fieldType: draft.fieldType,
+                        priority: index,
+                        displayRole: draft.displayRole
+                    )
                     field.numberOptions = draft.numberOptions
                     field.optionListOptions = draft.optionListOptions
+                    field.booleanOptions = draft.booleanOptions
                     field.catalogue = existingCatalogue
                     modelContext.insert(field)
                 }
@@ -271,16 +321,27 @@ struct AddEditCatalogueView: View {
             let newFieldIDsInOrder = fieldDefinitions.compactMap { $0.existingDefinition?.fieldID }
             let hasNewFields = fieldDefinitions.contains { $0.existingDefinition == nil }
             structuralChange = hasNewFields || newFieldIDsInOrder != originalFieldIDsInOrder
+            // Compared against the drafts rather than the relationship array: deleted fields
+            // linger in `fieldDefinitions` until the save below, so reading the model here
+            // would compute a signature that includes fields on their way out.
+            facetChange = Self.facetSignature(ofDrafts: fieldDefinitions) != originalFacetSignature
             catalogueForRecompute = existingCatalogue
         } else {
             // Create new
             let newCatalogue = Catalogue(name: name.trimmingCharacters(in: .whitespacesAndNewlines), iconName: selectedIcon, colorHex: selectedColor.toHex(), priority: nextPriority)
+            newCatalogue.showAllTab = showAllTab
             modelContext.insert(newCatalogue)
 
             for (index, draft) in fieldDefinitions.enumerated() {
-                let field = FieldDefinition(name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines), fieldType: draft.fieldType, priority: index)
+                let field = FieldDefinition(
+                    name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines),
+                    fieldType: draft.fieldType,
+                    priority: index,
+                    displayRole: draft.displayRole
+                )
                 field.numberOptions = draft.numberOptions
                 field.optionListOptions = draft.optionListOptions
+                field.booleanOptions = draft.booleanOptions
                 field.catalogue = newCatalogue
                 modelContext.insert(field)
             }
@@ -291,8 +352,18 @@ struct AddEditCatalogueView: View {
         try? modelContext.save()
 
         if let catalogueForRecompute {
-            if structuralChange {
-                await recomputeTiebreakKeysWithDelayedOverlay(for: catalogueForRecompute)
+            if structuralChange || facetChange {
+                await recomputeDerivedDataWithDelayedOverlay(
+                    for: catalogueForRecompute,
+                    tiebreakKeys: structuralChange,
+                    facets: facetChange
+                )
+                if !structuralChange && !itemsNeedingSiblingRecompute.isEmpty {
+                    // The full sweep above only rebuilt facets, so sibling tiebreak keys
+                    // invalidated by an option rename/delete still need their own pass.
+                    recomputeSiblingTiebreakKeys(for: catalogueForRecompute, itemIDs: itemsNeedingSiblingRecompute)
+                    try? modelContext.save()
+                }
             } else if !itemsNeedingSiblingRecompute.isEmpty {
                 // Cheap, bounded by how many items reference the renamed/deleted option
                 // value — no chunking needed (the full-catalogue path above already covers
@@ -305,10 +376,52 @@ struct AddEditCatalogueView: View {
         dismiss()
     }
 
-    /// Runs the full-catalogue tiebreakKey recompute, showing `ProgressOverlay` only if it's
-    /// still running ~500ms after starting — so a fast recompute on a small catalogue shows
+    /// A stable description of everything the denormalised status/flag columns depend on.
+    /// Comparing it before and after a save detects role changes, option renames/removals,
+    /// and role-carrying fields being added or deleted — all of which invalidate every
+    /// item's facets even though no item was edited.
+    private static func facetSignature(of fields: [FieldDefinition]) -> String {
+        signature(from: fields.map {
+            (
+                id: $0.fieldID.uuidString,
+                role: $0.displayRole,
+                type: $0.fieldType,
+                options: $0.optionListOptions?.options ?? []
+            )
+        })
+    }
+
+    /// Draft-side counterpart. New fields have no `fieldID` yet, so their index stands in —
+    /// any newly added role-carrying field changes the signature either way.
+    private static func facetSignature(ofDrafts drafts: [FieldDefinitionDraft]) -> String {
+        signature(from: drafts.enumerated().map { index, draft in
+            (
+                id: draft.existingDefinition?.fieldID.uuidString ?? "new-\(index)",
+                role: draft.displayRole,
+                type: draft.fieldType,
+                options: draft.optionListOptions.options
+            )
+        })
+    }
+
+    private static func signature(
+        from fields: [(id: String, role: DisplayRole, type: FieldType, options: [String])]
+    ) -> String {
+        fields
+            .filter { $0.role != .none }
+            .sorted { $0.id < $1.id }
+            .map { "\($0.id)\u{1E}\($0.role.rawValue)\u{1E}\($0.type.rawValue)\u{1E}\($0.options.joined(separator: "\u{1F}"))" }
+            .joined(separator: "\u{1D}")
+    }
+
+    /// Runs the full-catalogue recompute, showing `ProgressOverlay` only if it's still
+    /// running ~500ms after starting — so a fast recompute on a small catalogue shows
     /// nothing, while a large one gets clear feedback instead of the sheet appearing to hang.
-    private func recomputeTiebreakKeysWithDelayedOverlay(for catalogue: Catalogue) async {
+    private func recomputeDerivedDataWithDelayedOverlay(
+        for catalogue: Catalogue,
+        tiebreakKeys: Bool,
+        facets: Bool
+    ) async {
         sortKeyRecomputeProgress = (current: 0, total: 0)
         let overlayDelay = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(500))
@@ -317,9 +430,11 @@ struct AddEditCatalogueView: View {
             }
         }
 
-        await CatalogueSortKeyMaintenance.recomputeTiebreakKeys(
+        await CatalogueSortKeyMaintenance.recomputeDerivedData(
             for: catalogue,
             in: modelContext,
+            tiebreakKeys: tiebreakKeys,
+            facets: facets,
             onProgress: { current, total in sortKeyRecomputeProgress = (current: current, total: total) }
         )
 
@@ -345,6 +460,12 @@ struct AddEditCatalogueView: View {
                 )
             }
         }
+    }
+
+    /// Enforces the one-tab-bar-per-catalogue rule at the moment a field claims the role,
+    /// so the newest choice wins rather than being resolved away by field order on save.
+    private func claimStatusRole(for id: UUID) {
+        fieldDefinitions = FieldDefinitionValidation.assigningStatusRole(to: id, in: fieldDefinitions)
     }
 
     private func deleteField(at offsets: IndexSet) {

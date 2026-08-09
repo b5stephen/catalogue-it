@@ -10,15 +10,15 @@ import SwiftData
 
 // MARK: - Catalogue Item
 
-/// An individual item in a catalogue (can be owned or wishlist)
+/// An individual item in a catalogue
 @Model
 final class CatalogueItem {
     #Index<CatalogueItem>(
-        [\.isWishlist],
+        [\.statusValue],
         [\.createdDate],
-        [\.isWishlist, \.createdDate],
+        [\.statusValue, \.createdDate],
         [\.deletedDate],
-        [\.deletedDate, \.isWishlist],
+        [\.deletedDate, \.statusValue],
         [\.deletedDate, \.searchText],   // enables DB-level search combined with soft-delete filter
         // Catalogue-scoped compound indexes: the most common access pattern is
         // "items in catalogue X, not deleted, sorted by createdDate". Without these,
@@ -27,11 +27,10 @@ final class CatalogueItem {
         // With these indexes SQLite can seek directly into the right range and return
         // rows in sorted order without a separate sort step.
         [\.catalogue, \.deletedDate, \.createdDate],
-        [\.catalogue, \.deletedDate, \.isWishlist, \.createdDate]
+        [\.catalogue, \.deletedDate, \.statusValue, \.createdDate]
     )
 
     var createdDate: Date
-    var isWishlist: Bool
     var notes: String? // Optional general notes field
     var deletedDate: Date? // nil = active; non-nil = soft deleted
 
@@ -40,6 +39,17 @@ final class CatalogueItem {
     /// so non-matching items are never loaded into Swift memory during search.
     /// Adding with a default value requires no SchemaMigrationPlan; existing rows get "".
     var searchText: String = ""
+
+    /// Denormalised mirror of this item's value for the catalogue's `.statusTabs` field.
+    /// `""` when the catalogue has no status field or the item has no value for it.
+    /// Maintained by `ItemFacetBuilder` on every write path — see that type for why the
+    /// mirror exists rather than filtering through the `FieldValue` relationship.
+    var statusValue: String = ""
+
+    /// Denormalised mirror of this item's set `.flagFilter` fields, as concatenated
+    /// `|<fieldID>|` tokens. `""` when no flags are set. Filtered with a CONTAINS
+    /// predicate, the same mechanism `searchText` uses.
+    var flagKeys: String = ""
 
     var isDeleted: Bool { deletedDate != nil }
 
@@ -51,9 +61,8 @@ final class CatalogueItem {
     @Relationship(deleteRule: .cascade, inverse: \ItemPhoto.item)
     var photos: [ItemPhoto] = []
 
-    init(isWishlist: Bool = false, notes: String? = nil) {
+    init(notes: String? = nil) {
         self.createdDate = Date.now
-        self.isWishlist = isWishlist
         self.notes = notes
     }
 

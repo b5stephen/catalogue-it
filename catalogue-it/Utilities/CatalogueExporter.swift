@@ -14,14 +14,16 @@ import UniformTypeIdentifiers
 
 enum CatalogueExporter {
     /// Generates a CSV string for all items in the catalogue.
-    /// Columns: Tab, Name, [custom fields sorted by priority], Notes, Photo Count
+    /// Columns: [custom fields sorted by priority], Notes, Photo Count
+    ///
+    /// Status no longer gets a dedicated leading column — it's an ordinary field now, so it
+    /// exports in its own position like any other.
     static func csvString(for catalogue: Catalogue) -> String {
         let fields = catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
         var rows: [String] = []
 
         // Header row
-        var headers = ["Tab"]
-        headers.append(contentsOf: fields.map(\.name))
+        var headers = fields.map(\.name)
         headers.append(contentsOf: ["Notes", "Photo Count"])
         rows.append(headers.map(csvEscape).joined(separator: ","))
 
@@ -29,7 +31,6 @@ enum CatalogueExporter {
         let allItems = catalogue.items.filter { $0.deletedDate == nil }.sorted { $0.createdDate < $1.createdDate }
         for item in allItems {
             var cells: [String] = []
-            cells.append(item.isWishlist ? "Wishlist" : "Owned")
             for field in fields {
                 let fv = item.value(for: field)
                 let cell: String

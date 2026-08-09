@@ -10,7 +10,8 @@ import SwiftData
 
 struct CatalogueItemsView: View {
     let catalogue: Catalogue
-    let tab: ItemTab
+    let statusTab: StatusTab
+    let activeFlagIDs: [UUID]
     let searchText: String
     @Binding var sortFieldKey: String
     @Binding var sortDirection: String
@@ -27,7 +28,8 @@ struct CatalogueItemsView: View {
     private var filterFingerprint: FilterFingerprint {
         FilterFingerprint(
             catalogueID: catalogue.persistentModelID,
-            tab: tab,
+            statusTab: statusTab,
+            activeFlagIDs: activeFlagIDs,
             searchText: searchText,
             sortFieldKey: sortFieldKey,
             sortDirection: sortDirection
@@ -38,7 +40,9 @@ struct CatalogueItemsView: View {
         Group {
             if pagination.items.isEmpty && !pagination.isLoadingMore {
                 CatalogueEmptyStateView(
-                    selectedTab: tab,
+                    catalogue: catalogue,
+                    statusTab: statusTab,
+                    hasActiveFlags: !activeFlagIDs.isEmpty,
                     isFiltered: !searchText.isEmpty && pagination.hasAnyItems
                 )
             } else {
@@ -46,7 +50,7 @@ struct CatalogueItemsView: View {
                 case .grid:
                     ItemGridView(
                         items: pagination.items,
-                        showWishlistBadge: tab == .all,
+                        showStatusChip: statusTab == .all,
                         catalogue: catalogue,
                         selectedItem: $selectedItem,
                         scrollPosition: $scrollPosition,
@@ -58,7 +62,7 @@ struct CatalogueItemsView: View {
                     ItemListView(
                         items: pagination.items,
                         catalogue: catalogue,
-                        showWishlistBadge: tab == .all,
+                        showStatusChip: statusTab == .all,
                         selectedItem: $selectedItem,
                         scrollPosition: $scrollPosition,
                         hasMore: pagination.hasMore,

@@ -40,7 +40,7 @@ struct BackgroundDeletionActorTests {
         fieldDef.catalogue = catalogue
 
         for index in 0..<itemCount {
-            let item = CatalogueItem(isWishlist: false)
+            let item = CatalogueItem()
             ctx.insert(item)
             item.catalogue = catalogue
 
@@ -140,7 +140,7 @@ struct BackgroundDeletionActorTests {
         let catalogue = Catalogue(name: "Big", iconName: "star", colorHex: "#000000")
         ctx.insert(catalogue)
         for _ in 0..<250 {
-            let item = CatalogueItem(isWishlist: false)
+            let item = CatalogueItem()
             ctx.insert(item)
             item.catalogue = catalogue
         }

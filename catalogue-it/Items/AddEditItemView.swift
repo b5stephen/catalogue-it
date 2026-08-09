@@ -17,14 +17,15 @@ struct AddEditItemView: View {
     let catalogue: Catalogue
     let existingItem: CatalogueItem?
     let duplicateSource: CatalogueItem?
-    let defaultIsWishlist: Bool
+    /// Status the new item should start in — the tab the user was viewing when they tapped +.
+    /// `nil` falls back to the status field's own configured default.
+    let defaultStatusTab: StatusTab?
 
     // MARK: - Form State
 
     @State private var sortedDefs: [FieldDefinition] = []
     @State private var fieldDrafts: [FieldValueDraft] = []
     @State private var photoDrafts: [PhotoDraft] = []
-    @State private var isWishlist: Bool = false
     @State private var notes: String = ""
     @State private var previewPhotoID: UUID? = nil
     @State private var hasLoaded: Bool = false
@@ -35,8 +36,11 @@ struct AddEditItemView: View {
 
     // Boolean fields always have a value (true/false), so they don't count toward "has content" —
     // otherwise every item would trivially pass validation regardless of user input.
+    // Status and flag fields are excluded for the same reason: a status field pre-filled with
+    // its default value would otherwise make a completely empty item look like it has content.
     private var hasNoContent: Bool {
         photoDrafts.isEmpty && fieldDrafts.allSatisfy { draft in
+            guard draft.fieldDefinition.displayRole == .none else { return true }
             switch draft.fieldType {
             case .text, .optionList:
                 return draft.textValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -50,11 +54,11 @@ struct AddEditItemView: View {
         }
     }
 
-    init(catalogue: Catalogue, item: CatalogueItem? = nil, duplicateSource: CatalogueItem? = nil, defaultIsWishlist: Bool = false) {
+    init(catalogue: Catalogue, item: CatalogueItem? = nil, duplicateSource: CatalogueItem? = nil, defaultStatusTab: StatusTab? = nil) {
         self.catalogue = catalogue
         self.existingItem = item
         self.duplicateSource = duplicateSource
-        self.defaultIsWishlist = defaultIsWishlist
+        self.defaultStatusTab = defaultStatusTab
     }
 
     // MARK: - Body
@@ -68,10 +72,6 @@ struct AddEditItemView: View {
                     ForEach(fieldDrafts.indices, id: \.self) { index in
                         FieldInputView(label: sortedDefs[index].name, draft: $fieldDrafts[index])
                     }
-                }
-
-                Section("Item Info") {
-                    Toggle("Add to Wishlist", isOn: $isWishlist)
                 }
 
                 Section("Notes") {
@@ -171,7 +171,6 @@ struct AddEditItemView: View {
                     )
                 }
 
-            isWishlist = item.isWishlist
             notes = item.notes ?? ""
         } else if let source = duplicateSource {
             // Clone mode: populate from source item, saves as a new item
@@ -193,21 +192,55 @@ struct AddEditItemView: View {
                 .map { index, photo in
                     PhotoDraft(imageData: photo.imageData, caption: photo.caption ?? "", priority: index)
                 }
-            isWishlist = source.isWishlist
             notes = source.notes ?? ""
         } else {
-            // Create mode: blank drafts, pre-populate option list defaults
+            // Create mode: blank drafts, pre-populate per-type defaults
             fieldDrafts = sortedDefs.map { def in
                 var draft = FieldValueDraft(fieldDefinition: def, fieldType: def.fieldType)
-                if def.fieldType == .optionList,
-                   let opts = def.optionListOptions,
-                   let defaultVal = opts.defaultValue,
-                   opts.options.contains(defaultVal) {
-                    draft.textValue = defaultVal
+                switch def.fieldType {
+                case .optionList:
+                    if let opts = def.optionListOptions,
+                       let defaultVal = opts.defaultValue,
+                       opts.options.contains(defaultVal) {
+                        draft.textValue = defaultVal
+                    }
+                case .boolean:
+                    draft.boolValue = def.booleanOptions?.defaultValue ?? false
+                case .text, .number, .date:
+                    break
                 }
                 return draft
             }
-            isWishlist = defaultIsWishlist
+            applyDefaultStatusTab()
+        }
+    }
+
+    /// Seeds the status field's draft from the tab the user was viewing, so adding an item
+    /// while filtered to "Wishlist" produces a wishlist item. Falls back to the status
+    /// field's own configured default when no tab context was passed (or "All" was active).
+    private func applyDefaultStatusTab() {
+        guard let statusField = catalogue.statusField,
+              let index = fieldDrafts.firstIndex(where: { $0.fieldDefinition.fieldID == statusField.fieldID })
+        else { return }
+
+        // `.all` carries no status, so defer to the field's configured default.
+        let effectiveTab: StatusTab? = {
+            if let tab = defaultStatusTab, tab != .all { return tab }
+            return catalogue.defaultStatusTabForNewItems
+        }()
+
+        switch effectiveTab {
+        case .option(let value):
+            guard statusField.fieldType == .optionList else { return }
+            fieldDrafts[index].textValue = value
+        case .boolTrue:
+            guard statusField.fieldType == .boolean else { return }
+            fieldDrafts[index].boolValue = true
+        case .boolFalse:
+            guard statusField.fieldType == .boolean else { return }
+            fieldDrafts[index].boolValue = false
+        case .all, nil:
+            break
         }
     }
 
@@ -218,7 +251,6 @@ struct AddEditItemView: View {
 
         if let existing = existingItem {
             // Edit path
-            existing.isWishlist = isWishlist
             let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
             existing.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
 
@@ -229,10 +261,7 @@ struct AddEditItemView: View {
         } else {
             // Create path
             let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
-            let newItem = CatalogueItem(
-                isWishlist: isWishlist,
-                notes: trimmedNotes.isEmpty ? nil : trimmedNotes
-            )
+            let newItem = CatalogueItem(notes: trimmedNotes.isEmpty ? nil : trimmedNotes)
             newItem.catalogue = catalogue
             modelContext.insert(newItem)
             targetItem = newItem
@@ -272,6 +301,10 @@ struct AddEditItemView: View {
 
         // Denormalised search blob — kept in sync so SQLite can filter without loading children.
         targetItem.searchText = SearchTextBuilder.build(from: createdFieldValues)
+
+        // Denormalised status/flag columns — the item list filters on these, so they must
+        // be rewritten whenever the underlying field values change.
+        ItemFacetBuilder.apply(to: targetItem, fieldValues: createdFieldValues, definitions: sortedDefs)
 
         // Photos
         for draft in photoDrafts {

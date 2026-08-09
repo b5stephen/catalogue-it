@@ -61,7 +61,7 @@ struct catalogue_itApp: App {
         fieldDef.catalogue = catalogue
         ctx.insert(fieldDef)
 
-        let item = CatalogueItem(isWishlist: false)
+        let item = CatalogueItem()
         item.catalogue = catalogue
         ctx.insert(item)
 

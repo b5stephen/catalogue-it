@@ -203,7 +203,7 @@ struct ItemDetailView: View {
     field3.catalogue = catalogue
     container.mainContext.insert(field3)
 
-    let item = CatalogueItem(isWishlist: false, notes: "Bought at the Hornby show, 2024.")
+    let item = CatalogueItem(notes: "Bought at the Hornby show, 2024.")
     item.catalogue = catalogue
     container.mainContext.insert(item)
 
@@ -244,7 +244,7 @@ struct ItemDetailView: View {
     field2.catalogue = catalogue
     container.mainContext.insert(field2)
 
-    let item = CatalogueItem(isWishlist: false, notes: nil)
+    let item = CatalogueItem(notes: nil)
     item.catalogue = catalogue
     container.mainContext.insert(item)
 

@@ -13,14 +13,33 @@ import SwiftData
 struct ItemRowView: View {
     let item: CatalogueItem
     let catalogue: Catalogue
-    var showWishlistBadge: Bool = false
+    /// Whether to show the status chip. Suppressed when the list is already filtered to a
+    /// single status — every row would carry the same chip, which is noise.
+    var showStatusChip: Bool = false
 
     private var sortedFields: [FieldDefinition] {
         catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
     }
 
+    /// Status fields are surfaced as a chip and flags as badges, so repeating them in the
+    /// summary lines would say the same thing twice.
+    private var summaryFields: [FieldDefinition] {
+        sortedFields.filter { $0.displayRole == .none }
+    }
+
+    private var statusChip: (label: String, tint: Color)? {
+        guard showStatusChip, let statusField = catalogue.statusField,
+              let label = statusField.statusLabel(for: item.statusValue)
+        else { return nil }
+        return (label, statusField.statusChipTint(for: item.statusValue))
+    }
+
+    private var setFlagFields: [FieldDefinition] {
+        catalogue.flagFields.filter { item.flagKeys.contains(ItemFacetBuilder.flagToken(for: $0.fieldID)) }
+    }
+
     private var primaryValue: String {
-        guard let first = sortedFields.first,
+        guard let first = summaryFields.first,
               let fv = item.value(for: first),
               !fv.displayValue(options: first.fieldOptions).isEmpty
         else { return "Untitled Item" }
@@ -28,7 +47,7 @@ struct ItemRowView: View {
     }
 
     private var fieldSummaries: [(name: String, value: String)] {
-        sortedFields
+        summaryFields
             .dropFirst()
             .prefix(2)
             .compactMap { field in
@@ -61,10 +80,19 @@ struct ItemRowView: View {
 
             Spacer(minLength: 0)
 
-            if showWishlistBadge && item.isWishlist {
-                Image(systemName: "heart.fill")
-                    .foregroundStyle(.pink)
+            // Flags sit inboard of the status chip so the chip is always the last element
+            // in the row. Its trailing edge then lines up down the whole list, however many
+            // flags each item happens to carry.
+            ForEach(setFlagFields) { flag in
+                Image(systemName: flag.flagIconName)
+                    .symbolVariant(.fill)
+                    .foregroundStyle(flag.flagColor)
                     .font(.caption)
+                    .accessibilityLabel(flag.name)
+            }
+
+            if let chip = statusChip {
+                FieldChipView(text: chip.label, tint: chip.tint)
             }
         }
         .accessibilityIdentifier("item-\(primaryValue)")
@@ -154,7 +182,7 @@ private struct ItemThumbnailView: View {
     field2.catalogue = catalogue
     container.mainContext.insert(field2)
 
-    let item = CatalogueItem(isWishlist: false)
+    let item = CatalogueItem()
     item.catalogue = catalogue
     container.mainContext.insert(item)
 

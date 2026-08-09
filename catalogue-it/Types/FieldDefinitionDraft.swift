@@ -17,8 +17,12 @@ struct FieldDefinitionDraft: Identifiable {
     var name: String
     var fieldType: FieldType
     var priority: Int
+    /// How this field is surfaced in the item list. Normalised against the field type
+    /// by `FieldDefinitionValidation` before save.
+    var displayRole: DisplayRole = .none
     var numberOptions: NumberOptions = NumberOptions()
     var optionListOptions: OptionListOptions = OptionListOptions()
+    var booleanOptions: BooleanOptions = BooleanOptions()
     /// Maps original option name → current renamed name, for cascading to FieldValue records on save.
     /// Handles chains: renaming A→B then B→C records as A→C.
     var pendingOptionRenames: [String: String] = [:]

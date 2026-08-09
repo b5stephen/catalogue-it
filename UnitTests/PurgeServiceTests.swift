@@ -29,7 +29,7 @@ struct PurgeServiceTests {
 
     @discardableResult
     private func makeItem(in catalogue: Catalogue, ctx: ModelContext, deletedDaysAgo: Int? = nil) -> CatalogueItem {
-        let item = CatalogueItem(isWishlist: false)
+        let item = CatalogueItem()
         item.catalogue = catalogue
         if let deletedDaysAgo {
             item.deletedDate = daysAgo(deletedDaysAgo)

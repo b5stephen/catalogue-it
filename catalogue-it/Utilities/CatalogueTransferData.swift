@@ -14,7 +14,13 @@ import SwiftData
 /// Holds a version field for future format changes and an array of catalogues
 /// (enabling multi-catalogue files even when exporting a single catalogue).
 struct CatalogueExportFile: Codable {
-    var version: Int = 1
+    /// Format history:
+    /// - v1: wishlist was a hardcoded `isWishlist` boolean on each item.
+    /// - v2: wishlist is an ordinary field carrying `displayRole: .statusTabs`;
+    ///       catalogues gained `showAllTab`. v1 files still import — see `LegacyWishlistUpgrade`.
+    static let currentVersion = 2
+
+    var version: Int = CatalogueExportFile.currentVersion
     var exportedAt: Date
     var catalogues: [CatalogueDTO]
 }
@@ -29,6 +35,8 @@ struct CatalogueDTO: Codable {
     var priority: Int
     var sortFieldKey: String
     var sortDirection: String
+    /// Added in v2. Absent in v1 files, which default to showing the "All" tab.
+    var showAllTab: Bool?
     var fieldDefinitions: [FieldDefinitionDTO]
     var items: [CatalogueItemDTO]
 }
@@ -42,13 +50,18 @@ struct FieldDefinitionDTO: Codable {
     var fieldType: FieldType
     var priority: Int
     var fieldOptions: FieldOptions?
+    /// Added in v2. Absent in v1 files, where every field was an ordinary field.
+    var displayRole: DisplayRole?
 }
 
 // MARK: - Catalogue Item DTO
 
 struct CatalogueItemDTO: Codable {
     var createdDate: Date
-    var isWishlist: Bool
+    /// Decode-only, for v1 files. Never written on export (Optionals are omitted by the
+    /// synthesised encoder) — wishlist is a regular field value in v2.
+    /// See `LegacyWishlistUpgrade` for how this is converted on import.
+    var isWishlist: Bool?
     var notes: String?
     var fieldValues: [FieldValueDTO]
     var photos: [ItemPhotoDTO]
@@ -86,6 +99,7 @@ extension CatalogueDTO {
         priority = catalogue.priority
         sortFieldKey = catalogue.sortFieldKey
         sortDirection = catalogue.sortDirection
+        showAllTab = catalogue.showAllTab
         fieldDefinitions = catalogue.fieldDefinitions
             .sorted { $0.priority < $1.priority }
             .map(FieldDefinitionDTO.init)
@@ -97,19 +111,41 @@ extension CatalogueDTO {
 }
 
 extension FieldDefinitionDTO {
+    /// Number of option-list options this DTO declares, or 0 for other field types.
+    var optionCount: Int {
+        if case .optionList(let opts) = fieldOptions { return opts.options.count }
+        return 0
+    }
+
+    /// The display role to apply on import, re-validated against the field type.
+    /// A file can name a role its type can't support — hand-edited, or written by a newer
+    /// build with types this one doesn't have — and must not produce a broken tab bar.
+    var validatedDisplayRole: DisplayRole {
+        let declared = displayRole ?? .none
+        guard FieldDefinitionValidation.supports(
+            role: declared,
+            fieldType: fieldType,
+            optionCount: optionCount
+        ) else { return .none }
+        return declared
+    }
+}
+
+extension FieldDefinitionDTO {
     init(_ fd: FieldDefinition) {
         fieldID = fd.fieldID
         name = fd.name
         fieldType = fd.fieldType
         priority = fd.priority
         fieldOptions = fd.fieldOptions
+        displayRole = fd.displayRole
     }
 }
 
 extension CatalogueItemDTO {
     init(_ item: CatalogueItem, includePhotos: Bool = true) {
         createdDate = item.createdDate
-        isWishlist = item.isWishlist
+        isWishlist = nil   // v2 exports carry status as a field value, not a flag
         notes = item.notes
         fieldValues = item.fieldValues.compactMap(FieldValueDTO.init)
         photos = includePhotos
@@ -163,17 +199,27 @@ extension CatalogueDTO {
         catalogue.createdDate = createdDate
         catalogue.sortFieldKey = sortFieldKey
         catalogue.sortDirection = sortDirection
+        // Absent only in v1 files, where the item list always had an "All" tab. New
+        // catalogues default it off, but an import should reproduce the file's own UI
+        // rather than quietly dropping a tab the user was using.
+        catalogue.showAllTab = showAllTab ?? true
         context.insert(catalogue)
+
+        // v1 files carry wishlist as a per-item boolean with no field backing it. Synthesise
+        // the status field they'd have in v2, then materialise a value for it on each item below.
+        let legacyStatusField = LegacyWishlistUpgrade.synthesisedStatusField(for: self)
+        let allFieldDefinitionDTOs = fieldDefinitions + (legacyStatusField.map { [$0] } ?? [])
 
         // Create FieldDefinitions preserving original fieldIDs so that
         // sortFieldKey references remain valid after import.
         var defMap: [UUID: FieldDefinition] = [:]
-        for fdDTO in fieldDefinitions {
+        for fdDTO in allFieldDefinitionDTOs {
             let fd = FieldDefinition(
                 name: fdDTO.name,
                 fieldType: fdDTO.fieldType,
                 priority: fdDTO.priority,
-                fieldID: fdDTO.fieldID
+                fieldID: fdDTO.fieldID,
+                displayRole: fdDTO.validatedDisplayRole
             )
             fd.fieldOptions = fdDTO.fieldOptions
             fd.catalogue = catalogue
@@ -182,6 +228,17 @@ extension CatalogueDTO {
         }
         let sortedFieldDefs = defMap.values.sorted { $0.priority < $1.priority }
 
+        // At most one status field may exist. A file with several (hand-edited, or merged
+        // by hand) keeps the lowest-priority one and demotes the rest to ordinary fields.
+        var seenStatusField = false
+        for def in sortedFieldDefs where def.displayRole == .statusTabs {
+            if seenStatusField {
+                def.displayRole = .none
+            } else {
+                seenStatusField = true
+            }
+        }
+
         // Create items, linking field values back to definitions via UUID map.
         // Thumbnails are written to the filesystem cache (not the model) to avoid bloating
         // CatalogueItem SQLite rows. We accumulate (item, thumbData) pairs and flush them
@@ -189,13 +246,19 @@ extension CatalogueDTO {
         var pendingThumbnails: [(CatalogueItem, Data)] = []
 
         for (index, itemDTO) in items.enumerated() {
-            let item = CatalogueItem(isWishlist: itemDTO.isWishlist, notes: itemDTO.notes)
+            let item = CatalogueItem(notes: itemDTO.notes)
             item.createdDate = itemDTO.createdDate
             item.catalogue = catalogue
             context.insert(item)
 
+            // Append the migrated wishlist value for v1 files so the synthesised status
+            // field actually has data behind it.
+            let itemFieldValueDTOs = itemDTO.fieldValues + (legacyStatusField.map {
+                [LegacyWishlistUpgrade.statusFieldValue(for: itemDTO, fieldID: $0.fieldID)]
+            } ?? [])
+
             var createdFieldValues: [FieldValue] = []
-            for fvDTO in itemDTO.fieldValues {
+            for fvDTO in itemFieldValueDTOs {
                 // Skip values whose definition wasn't found (handles corrupt/partial files).
                 guard let def = defMap[fvDTO.fieldDefinitionID] else { continue }
                 let fv = FieldValue(fieldDefinition: def, fieldType: fvDTO.fieldType)
@@ -217,6 +280,7 @@ extension CatalogueDTO {
                 )
             }
             item.searchText = SearchTextBuilder.build(from: createdFieldValues)
+            ItemFacetBuilder.apply(to: item, fieldValues: createdFieldValues, definitions: sortedFieldDefs)
 
             for photoDTO in itemDTO.photos {
                 let photo = ItemPhoto(

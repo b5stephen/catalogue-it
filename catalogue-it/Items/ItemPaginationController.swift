@@ -15,10 +15,35 @@ import CoreData
 /// Equality change → full reset of pagination state.
 struct FilterFingerprint: Equatable {
     let catalogueID: PersistentIdentifier
-    let tab: ItemTab
+    /// Selected status tab. `.all` (or a catalogue with no status field) applies no status filter.
+    let statusTab: StatusTab
+    /// `fieldID`s of the flag filters currently switched on, ANDed together.
+    /// Kept sorted by the initialiser so equality doesn't depend on toggle order.
+    let activeFlagIDs: [UUID]
     let searchText: String
     let sortFieldKey: String
     let sortDirection: String
+
+    init(
+        catalogueID: PersistentIdentifier,
+        statusTab: StatusTab,
+        activeFlagIDs: [UUID] = [],
+        searchText: String,
+        sortFieldKey: String,
+        sortDirection: String
+    ) {
+        self.catalogueID = catalogueID
+        self.statusTab = statusTab
+        self.activeFlagIDs = activeFlagIDs.sorted { $0.uuidString < $1.uuidString }
+        self.searchText = searchText
+        self.sortFieldKey = sortFieldKey
+        self.sortDirection = sortDirection
+    }
+
+    /// Flag tokens to match against `CatalogueItem.flagKeys`, in stable order.
+    var flagTokens: [String] {
+        activeFlagIDs.map { ItemFacetBuilder.flagToken(for: $0) }
+    }
 }
 
 // MARK: - Item Pagination Controller
@@ -32,9 +57,10 @@ struct FilterFingerprint: Equatable {
 ///   leveraging the #Index([\.fieldDefinition, \.sortKey, \.tiebreakKey]) compound index.
 ///   Sorting by both `sortKey` (the selected field's own value) and `tiebreakKey` (every
 ///   other field, in priority order, then dateAdded) means ties on the primary field are
-///   still resolved entirely in the DB fetch — no in-memory re-sort. Tab filtering is
-///   pushed to the DB predicate; search is applied in-memory on each fetched batch
-///   (50 rows) to avoid #Predicate macro compiler timeout on complex optional chains.
+///   still resolved entirely in the DB fetch — no in-memory re-sort. Status-tab filtering is
+///   pushed to the DB predicate (an indexed column comparison on `statusValue`); search and
+///   flag filtering are applied in-memory on each fetched batch (50 rows) to avoid #Predicate
+///   macro compiler timeout on complex optional chains.
 ///
 /// Reactivity (replacing @Query): NSManagedObjectContextDidSave fires when the store
 /// is modified. For dateAdded sort, a count-based structural-change guard prevents
@@ -57,6 +83,10 @@ final class ItemPaginationController {
 
     // Custom field sort: explicit DB fetch offset and pre-built FieldValue predicate,
     // constructed once per reset.
+    // Explicit DB fetch offset for the dateAdded path. Tracked separately from items.count
+    // because in-memory flag filtering (see matchesFlags) can drop fetched rows.
+    private var dateAddedOffset = 0
+
     private var customSortOffset = 0
     private var customSortPredicate: Predicate<FieldValue>?
     // PersistentIdentifier of the resolved FieldDefinition — used in the predicate so
@@ -92,6 +122,7 @@ final class ItemPaginationController {
         currentContext = context
 
         items = []
+        dateAddedOffset = 0
         customSortOffset = 0
         customSortPredicate = nil
         customSortFieldDefID = nil
@@ -206,14 +237,8 @@ final class ItemPaginationController {
 
         // Guard against benign saves that don't change the matching item count, so a
         // save unrelated to this list doesn't trigger a needless rebuild.
-        guard (try? matchingItemCount(fingerprint: fp, context: ctx)) != totalCount else { return }
+        guard (try? matchingCount(fingerprint: fp, context: ctx)) != totalCount else { return }
         reset(fingerprint: fp, context: ctx, force: true)
-    }
-
-    /// Counts CatalogueItems matching the full fingerprint predicate (catalogue + tab + search).
-    /// Used by handleStoreChange to detect structural changes without rebuilding the list.
-    private func matchingItemCount(fingerprint: FilterFingerprint, context: ModelContext) throws -> Int {
-        try context.fetchCount(FetchDescriptor<CatalogueItem>(predicate: makePredicate(fingerprint: fingerprint)))
     }
 
     // MARK: - Custom Sort Setup
@@ -241,24 +266,48 @@ final class ItemPaginationController {
 
         let fieldDefID = resolvedField.persistentModelID
         customSortFieldDefID = fieldDefID
-        customSortPredicate = makeFieldValuePredicate(fieldDefID: fieldDefID, tab: fingerprint.tab)
+        customSortPredicate = makeFieldValuePredicate(fieldDefID: fieldDefID, statusTab: fingerprint.statusTab)
 
         // totalCount mirrors the same catalogue/tab/search filter as the dateAdded path,
         // but additionally requires a FieldValue for the sort field — items without one
         // are never surfaced by loadMoreCustomSort's FieldValue-based fetch, so counting
         // them here would show a total the user can never fully scroll to.
-        totalCount = try context.fetchCount(FetchDescriptor<CatalogueItem>(
-            predicate: makeCustomSortTotalCountPredicate(fingerprint: fingerprint, fieldDefID: fieldDefID)
-        ))
+        totalCount = try customSortMatchingCount(fingerprint: fingerprint, fieldDefID: fieldDefID, context: context)
         hasMore = totalCount > 0
 
         if fingerprint.searchText.isEmpty {
             hasAnyItems = totalCount > 0
         } else {
-            let noSearchPredicate = makeCustomSortTotalCountPredicate(fingerprint: fingerprint, fieldDefID: fieldDefID, ignoreSearch: true)
-            let anyCount = try context.fetchCount(FetchDescriptor<CatalogueItem>(predicate: noSearchPredicate))
+            let anyCount = try customSortMatchingCount(
+                fingerprint: fingerprint,
+                fieldDefID: fieldDefID,
+                context: context,
+                ignoreSearch: true
+            )
             hasAnyItems = anyCount > 0
         }
+    }
+
+    /// Custom-sort counterpart to `matchingCount` — same flag handling, but over the
+    /// predicate that also requires a FieldValue for the sort field.
+    private func customSortMatchingCount(
+        fingerprint: FilterFingerprint,
+        fieldDefID: PersistentIdentifier,
+        context: ModelContext,
+        ignoreSearch: Bool = false
+    ) throws -> Int {
+        let predicate = makeCustomSortTotalCountPredicate(
+            fingerprint: fingerprint,
+            fieldDefID: fieldDefID,
+            ignoreSearch: ignoreSearch
+        )
+        let tokens = fingerprint.flagTokens
+        guard !tokens.isEmpty else {
+            return try context.fetchCount(FetchDescriptor<CatalogueItem>(predicate: predicate))
+        }
+        var descriptor = FetchDescriptor<CatalogueItem>(predicate: predicate)
+        descriptor.propertiesToFetch = [\.flagKeys]
+        return try context.fetch(descriptor).count { matchesFlags($0, tokens: tokens) }
     }
 
     private func loadMoreCustomSort(fingerprint: FilterFingerprint, context: ModelContext) throws {
@@ -267,6 +316,8 @@ final class ItemPaginationController {
         let ascending = (ItemSortDirection(rawValue: fingerprint.sortDirection) ?? .ascending) == .ascending
         let hasSearch = !fingerprint.searchText.isEmpty
         let lowercasedQuery = fingerprint.searchText.lowercased()
+        // Flags are applied here rather than in the predicate — see matchesFlags.
+        let flagTokens = fingerprint.flagTokens
 
         // Keep fetching DB pages until at least one item is appended or the FieldValue
         // stream is exhausted. A single page can match zero search results while more
@@ -296,18 +347,12 @@ final class ItemPaginationController {
             // yet; touching the property here forces the load before SwiftUI renders the row,
             // preventing "Untitled Item" placeholders for items whose name field is present
             // in the store but appears empty until the fault fires.
-            if hasSearch {
-                items += fieldValues.compactMap { fv in
-                    guard let item = fv.item, item.searchText.contains(lowercasedQuery) else { return nil }
-                    _ = item.fieldValues
-                    return item
-                }
-            } else {
-                items += fieldValues.compactMap { fv in
-                    guard let item = fv.item else { return nil }
-                    _ = item.fieldValues
-                    return item
-                }
+            items += fieldValues.compactMap { fv in
+                guard let item = fv.item else { return nil }
+                if hasSearch, !item.searchText.contains(lowercasedQuery) { return nil }
+                if !matchesFlags(item, tokens: flagTokens) { return nil }
+                _ = item.fieldValues
+                return item
             }
 
             hasMore = fieldValues.count == Self.pageSize
@@ -317,8 +362,7 @@ final class ItemPaginationController {
     // MARK: - Date Added Sort Setup
 
     private func setupDateAddedSort(fingerprint: FilterFingerprint, context: ModelContext) throws {
-        let fullPredicate = makePredicate(fingerprint: fingerprint)
-        totalCount = try context.fetchCount(FetchDescriptor<CatalogueItem>(predicate: fullPredicate))
+        totalCount = try matchingCount(fingerprint: fingerprint, context: context)
         hasMore = totalCount > 0
 
         if fingerprint.searchText.isEmpty {
@@ -326,40 +370,97 @@ final class ItemPaginationController {
             // Skip the second fetchCount to save a DB round-trip.
             hasAnyItems = totalCount > 0
         } else {
-            let noSearchPredicate = makePredicate(fingerprint: fingerprint, ignoreSearch: true)
-            let anyCount = try context.fetchCount(FetchDescriptor<CatalogueItem>(predicate: noSearchPredicate))
+            let anyCount = try matchingCount(fingerprint: fingerprint, context: context, ignoreSearch: true)
             hasAnyItems = anyCount > 0
         }
     }
 
     private func loadMoreDateAdded(fingerprint: FilterFingerprint, context: ModelContext) throws {
         let ascending = (ItemSortDirection(rawValue: fingerprint.sortDirection) ?? .ascending) == .ascending
-        var descriptor = FetchDescriptor<CatalogueItem>(predicate: makePredicate(fingerprint: fingerprint))
-        descriptor.sortBy = [SortDescriptor(\.createdDate, order: ascending ? .forward : .reverse)]
-        descriptor.fetchLimit = Self.pageSize
-        descriptor.fetchOffset = items.count
-        // Prefetch fieldValues for this page: all fetched items will render soon
-        // (user is at or near the top on first page, near bottom on subsequent pages).
-        descriptor.relationshipKeyPathsForPrefetching = [\.fieldValues]
+        let flagTokens = fingerprint.flagTokens
 
-        let page = try context.fetch(descriptor)
-        items.append(contentsOf: page)
-        hasMore = page.count == Self.pageSize
+        // Same shape as loadMoreCustomSort: keep fetching DB pages until at least one item
+        // is appended or the stream is exhausted. Without the loop, a page that the flag
+        // filter empties entirely would append nothing while leaving hasMore true, and the
+        // scroll sentinel (which only re-fires when the list grows) would stall.
+        let countBeforeLoad = items.count
+        repeat {
+            var descriptor = FetchDescriptor<CatalogueItem>(predicate: makePredicate(fingerprint: fingerprint))
+            descriptor.sortBy = [SortDescriptor(\.createdDate, order: ascending ? .forward : .reverse)]
+            descriptor.fetchLimit = Self.pageSize
+            // dateAddedOffset tracks DB rows fetched rather than items appended, so the
+            // offset stays correct when the in-memory flag filter drops rows.
+            descriptor.fetchOffset = dateAddedOffset
+            // Prefetch fieldValues for this page: all fetched items will render soon
+            // (user is at or near the top on first page, near bottom on subsequent pages).
+            descriptor.relationshipKeyPathsForPrefetching = [\.fieldValues]
+
+            let page = try context.fetch(descriptor)
+            dateAddedOffset += page.count
+
+            if flagTokens.isEmpty {
+                items.append(contentsOf: page)
+            } else {
+                items.append(contentsOf: page.filter { matchesFlags($0, tokens: flagTokens) })
+            }
+
+            hasMore = page.count == Self.pageSize
+        } while hasMore && items.count == countBeforeLoad
     }
 
     // MARK: - Predicate Builders
 
+    /// Flag filtering is deliberately kept out of every `#Predicate`.
+    ///
+    /// `#Predicate` is a macro over a fixed expression tree — it can't loop over a
+    /// variable-length array — so each active flag would need its own written-out term.
+    /// Adding even two pushes the macro-expanded predicate past the Swift type-checker's
+    /// time budget and the file stops compiling. Flags are therefore applied in memory to
+    /// each fetched batch, which is why both load paths track an explicit DB offset rather
+    /// than deriving it from `items.count`.
+    ///
+    /// The cost is bounded: flags only filter rows the DB predicate has already narrowed to
+    /// one catalogue, one status tab, and the active search.
+    private func matchesFlags(_ item: CatalogueItem, tokens: [String]) -> Bool {
+        tokens.allSatisfy { item.flagKeys.contains($0) }
+    }
+
+    /// Counts items matching the whole fingerprint, flags included.
+    ///
+    /// Falls back to `fetchCount` when no flag is active. With flags, the count has to come
+    /// from an actual fetch since the predicate can't express them — `propertiesToFetch`
+    /// keeps that to the one column being tested rather than materialising whole rows.
+    private func matchingCount(
+        fingerprint: FilterFingerprint,
+        context: ModelContext,
+        ignoreSearch: Bool = false
+    ) throws -> Int {
+        let predicate = makePredicate(fingerprint: fingerprint, ignoreSearch: ignoreSearch)
+        let tokens = fingerprint.flagTokens
+        guard !tokens.isEmpty else {
+            return try context.fetchCount(FetchDescriptor<CatalogueItem>(predicate: predicate))
+        }
+        var descriptor = FetchDescriptor<CatalogueItem>(predicate: predicate)
+        descriptor.propertiesToFetch = [\.flagKeys]
+        return try context.fetch(descriptor).count { matchesFlags($0, tokens: tokens) }
+    }
+
     private func makePredicate(fingerprint: FilterFingerprint, ignoreSearch: Bool = false) -> Predicate<CatalogueItem> {
         let targetID = fingerprint.catalogueID
-        let filterAll = fingerprint.tab == .all
-        let filterWishlist = fingerprint.tab == .wishlist
+
+        // `.all` (and a catalogue with no status field) applies no status filter, so the
+        // fetch falls through to the [catalogue, deletedDate, createdDate] index instead.
+        let statusFilter = fingerprint.statusTab.storedValue
+        let hasStatus = statusFilter != nil
+        let status = statusFilter ?? ""
+
         let hasSearch = !fingerprint.searchText.isEmpty && !ignoreSearch
         let lowercasedQuery = fingerprint.searchText.lowercased()
 
         return #Predicate { item in
             item.catalogue?.persistentModelID == targetID
                 && item.deletedDate == nil
-                && (filterAll || item.isWishlist == filterWishlist)
+                && (!hasStatus || item.statusValue == status)
                 && (!hasSearch || item.searchText.contains(lowercasedQuery))
         }
     }
@@ -369,15 +470,18 @@ final class ItemPaginationController {
     /// a FieldValue for `fieldDefID` — matching exactly what loadMoreCustomSort can surface.
     private func makeCustomSortTotalCountPredicate(fingerprint: FilterFingerprint, fieldDefID: PersistentIdentifier, ignoreSearch: Bool = false) -> Predicate<CatalogueItem> {
         let targetID = fingerprint.catalogueID
-        let filterAll = fingerprint.tab == .all
-        let filterWishlist = fingerprint.tab == .wishlist
+
+        let statusFilter = fingerprint.statusTab.storedValue
+        let hasStatus = statusFilter != nil
+        let status = statusFilter ?? ""
+
         let hasSearch = !fingerprint.searchText.isEmpty && !ignoreSearch
         let lowercasedQuery = fingerprint.searchText.lowercased()
 
         return #Predicate<CatalogueItem> { item in
             item.catalogue?.persistentModelID == targetID
                 && item.deletedDate == nil
-                && (filterAll || item.isWishlist == filterWishlist)
+                && (!hasStatus || item.statusValue == status)
                 && (!hasSearch || item.searchText.contains(lowercasedQuery))
                 && item.fieldValues.contains(where: { $0.fieldDefinition.flatMap { $0.persistentModelID == fieldDefID } ?? false })
         }
@@ -390,28 +494,22 @@ final class ItemPaginationController {
     /// directly from the FK index and then apply the compound
     /// #Index([\.fieldDefinition, \.sortKey, \.tiebreakKey]).
     ///
-    /// Tab is encoded with literal `== true` / `== false` to avoid the Optional<Bool>
-    /// type-inference issue that arises when capturing a Bool variable. Search filtering
-    /// is intentionally omitted — it is applied in-memory in loadMoreCustomSort to avoid
-    /// #Predicate compiler timeout on optional-chained .contains expressions.
-    private func makeFieldValuePredicate(fieldDefID: PersistentIdentifier, tab: ItemTab) -> Predicate<FieldValue> {
-        switch tab {
-        case .all:
+    /// The status tab is pushed to the DB — it's a single indexed column comparison and
+    /// the dominant filter. Search and flag filtering are intentionally omitted and applied
+    /// in-memory in loadMoreCustomSort instead: both are `.contains` over an optional-chained
+    /// relationship (`fv.item?.…`), the exact shape that triggers #Predicate compiler
+    /// timeouts here. loadMoreCustomSort already tracks an explicit DB offset, so filtering
+    /// after the fetch keeps pagination correct.
+    private func makeFieldValuePredicate(fieldDefID: PersistentIdentifier, statusTab: StatusTab) -> Predicate<FieldValue> {
+        guard let status = statusTab.storedValue else {
             return #Predicate<FieldValue> { fv in
                 fv.fieldDefinition?.persistentModelID == fieldDefID && fv.item?.deletedDate == nil
             }
-        case .wishlist:
-            return #Predicate<FieldValue> { fv in
-                fv.fieldDefinition?.persistentModelID == fieldDefID
-                    && fv.item?.deletedDate == nil
-                    && fv.item?.isWishlist == true
-            }
-        case .owned:
-            return #Predicate<FieldValue> { fv in
-                fv.fieldDefinition?.persistentModelID == fieldDefID
-                    && fv.item?.deletedDate == nil
-                    && fv.item?.isWishlist == false
-            }
+        }
+        return #Predicate<FieldValue> { fv in
+            fv.fieldDefinition?.persistentModelID == fieldDefID
+                && fv.item?.deletedDate == nil
+                && fv.item?.statusValue == status
         }
     }
 }

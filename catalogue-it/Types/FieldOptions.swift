@@ -21,5 +21,7 @@ enum FieldOptions: Codable, Equatable {
     case number(NumberOptions)
     // ⚠️ Do NOT rename this case — "optionList" is the permanent on-disk Codable key.
     case optionList(OptionListOptions)
+    // ⚠️ Do NOT rename this case — "boolean" is the permanent on-disk Codable key.
+    case boolean(BooleanOptions)
     // future: case date(DateOptions) — add matching "date" stability comment when added
 }

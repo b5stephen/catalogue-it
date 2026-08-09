@@ -12,7 +12,7 @@ import SwiftData
 
 struct ItemGridView: View {
     let items: [CatalogueItem]
-    let showWishlistBadge: Bool
+    let showStatusChip: Bool
     @Bindable var catalogue: Catalogue
     @Binding var selectedItem: CatalogueItem?
     @Binding var scrollPosition: ScrollPosition
@@ -44,7 +44,7 @@ struct ItemGridView: View {
         ScrollView {
             LazyVGrid(columns: gridColumns, spacing: 16) {
                 ForEach(items) { item in
-                    ItemCardView(item: item, showWishlistBadge: showWishlistBadge)
+                    ItemCardView(item: item, showStatusChip: showStatusChip)
                         .onTapGesture { selectedItem = item }
                         .overlay {
                             if showsSelectionBorder && selectedItem == item {
@@ -108,7 +108,7 @@ struct ItemGridView: View {
     field.catalogue = catalogue
     container.mainContext.insert(field)
 
-    let item1 = CatalogueItem(isWishlist: false)
+    let item1 = CatalogueItem()
     item1.catalogue = catalogue
     container.mainContext.insert(item1)
     let val1 = FieldValue(fieldDefinition: field, fieldType: .text)
@@ -116,7 +116,7 @@ struct ItemGridView: View {
     val1.item = item1
     container.mainContext.insert(val1)
 
-    let item2 = CatalogueItem(isWishlist: true)
+    let item2 = CatalogueItem()
     item2.catalogue = catalogue
     container.mainContext.insert(item2)
     let val2 = FieldValue(fieldDefinition: field, fieldType: .text)
@@ -124,13 +124,13 @@ struct ItemGridView: View {
     val2.item = item2
     container.mainContext.insert(val2)
 
-    let item3 = CatalogueItem(isWishlist: false)
+    let item3 = CatalogueItem()
     item3.catalogue = catalogue
     container.mainContext.insert(item3)
 
     return ItemGridView(
         items: [item1, item2, item3],
-        showWishlistBadge: true,
+        showStatusChip: true,
         catalogue: catalogue,
         selectedItem: .constant(nil),
         scrollPosition: .constant(ScrollPosition()),

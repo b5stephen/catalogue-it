@@ -75,7 +75,7 @@ struct CatalogueDeleteTests {
         fieldDef.catalogue = catalogue
         ctx.insert(fieldDef)
 
-        let item = CatalogueItem(isWishlist: false, notes: "A note")
+        let item = CatalogueItem(notes: "A note")
         item.catalogue = catalogue
         ctx.insert(item)
 
@@ -105,11 +105,11 @@ struct CatalogueDeleteTests {
         let catalogue = Catalogue(name: "Test", iconName: "star", colorHex: "#000000")
         ctx.insert(catalogue)
 
-        let active = CatalogueItem(isWishlist: false)
+        let active = CatalogueItem()
         active.catalogue = catalogue
         ctx.insert(active)
 
-        let softDeleted = CatalogueItem(isWishlist: false)
+        let softDeleted = CatalogueItem()
         softDeleted.deletedDate = Date(timeIntervalSince1970: 0)
         softDeleted.catalogue = catalogue
         ctx.insert(softDeleted)
@@ -127,13 +127,13 @@ struct CatalogueDeleteTests {
 
         let keep = Catalogue(name: "Keep", iconName: "star", colorHex: "#000000")
         ctx.insert(keep)
-        let keepItem = CatalogueItem(isWishlist: false)
+        let keepItem = CatalogueItem()
         keepItem.catalogue = keep
         ctx.insert(keepItem)
 
         let remove = Catalogue(name: "Remove", iconName: "trash", colorHex: "#FF0000")
         ctx.insert(remove)
-        let removeItem = CatalogueItem(isWishlist: false)
+        let removeItem = CatalogueItem()
         removeItem.catalogue = remove
         ctx.insert(removeItem)
 

@@ -91,19 +91,53 @@ struct PersistedRawValueTests {
     }
 }
 
-// MARK: - Item Tab Tests
+// MARK: - Display Role Tests
 
 @MainActor
-struct ItemTabTests {
+struct DisplayRoleTests {
 
-    @Test("All three tabs exist in display order")
-    func tabCases() {
-        #expect(ItemTab.allCases == [.all, .owned, .wishlist])
+    @Test("Raw values are stable — they are the on-disk Codable keys")
+    func rawValuesAreStable() {
+        #expect(DisplayRole.none.rawValue == "none")
+        #expect(DisplayRole.statusTabs.rawValue == "statusTabs")
+        #expect(DisplayRole.flagFilter.rawValue == "flagFilter")
     }
 
-    @Test("Each tab has a distinct system image")
-    func tabImagesAreDistinct() {
-        let images = ItemTab.allCases.map(\.systemImage)
-        #expect(Set(images).count == images.count)
+    @Test("Status tabs accepts only exclusive field types")
+    func statusTabsSupportedTypes() {
+        #expect(DisplayRole.statusTabs.supportedFieldTypes == [.optionList, .boolean])
+    }
+
+    @Test("Flag filter accepts booleans only")
+    func flagFilterSupportedTypes() {
+        #expect(DisplayRole.flagFilter.supportedFieldTypes == [.boolean])
+    }
+}
+
+// MARK: - Status Tab Tests
+
+@MainActor
+struct StatusTabTests {
+
+    @Test("The All tab applies no status filter")
+    func allTabHasNoStoredValue() {
+        #expect(StatusTab.all.storedValue == nil)
+    }
+
+    @Test("An option tab filters on the option value verbatim")
+    func optionTabStoresItsValue() {
+        #expect(StatusTab.option("Wishlist").storedValue == "Wishlist")
+    }
+
+    @Test("Boolean tabs use sentinels that cannot collide with a user-typed option")
+    func booleanTabsUseSentinels() throws {
+        let trueValue = try #require(StatusTab.boolTrue.storedValue)
+        let falseValue = try #require(StatusTab.boolFalse.storedValue)
+        #expect(trueValue == ItemFacetBuilder.boolTrueToken)
+        #expect(falseValue == ItemFacetBuilder.boolFalseToken)
+        #expect(trueValue != falseValue)
+        // The \u{1} prefix is what makes collision with a real option impossible.
+        #expect(trueValue.hasPrefix("\u{1}"))
+        #expect(falseValue.hasPrefix("\u{1}"))
     }
 }

@@ -35,7 +35,7 @@ struct CatalogueSortKeyMaintenanceTests {
         aircraft.catalogue = catalogue
         ctx.insert(aircraft)
 
-        let item = CatalogueItem(isWishlist: false)
+        let item = CatalogueItem()
         item.catalogue = catalogue
         ctx.insert(item)
 
@@ -95,7 +95,7 @@ struct CatalogueSortKeyMaintenanceTests {
         let ctx = container.mainContext
         let (catalogue, _, _, _) = makeCatalogue(in: ctx)
 
-        let second = CatalogueItem(isWishlist: false)
+        let second = CatalogueItem()
         second.catalogue = catalogue
         ctx.insert(second)
 

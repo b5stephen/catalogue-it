@@ -81,7 +81,8 @@ enum TestDataGenerator {
         )
         context.insert(catalogue)
 
-        // Field definitions — all 4 field types represented
+        // Field definitions — all field types represented, plus one field of each display
+        // role so seeded data exercises the tab bar and flag filters, not just plain fields.
         let titleDef = FieldDefinition(name: "Title", fieldType: .text, priority: 0)
         let directorDef = FieldDefinition(name: "Director", fieldType: .text, priority: 1)
         let yearDef = FieldDefinition(name: "Year", fieldType: .number, priority: 2)
@@ -91,7 +92,16 @@ enum TestDataGenerator {
         let watchedDef = FieldDefinition(name: "Watched", fieldType: .boolean, priority: 4)
         let dateWatchedDef = FieldDefinition(name: "Date Watched", fieldType: .date, priority: 5)
 
-        let allDefs = [titleDef, directorDef, yearDef, ratingDef, watchedDef, dateWatchedDef]
+        // Status tab bar, backed by an option list — the general form of the old wishlist.
+        let statusDef = FieldDefinition(name: "Status", fieldType: .optionList, priority: 6, displayRole: .statusTabs)
+        statusDef.fieldOptions = .optionList(OptionListOptions(
+            options: ["Owned", "Wishlist"],
+            defaultValue: "Owned"
+        ))
+        // Flag filter, backed by a bool.
+        let favouriteDef = FieldDefinition(name: "Favourite", fieldType: .boolean, priority: 7, displayRole: .flagFilter)
+
+        let allDefs = [titleDef, directorDef, yearDef, ratingDef, watchedDef, dateWatchedDef, statusDef, favouriteDef]
         for def in allDefs {
             def.catalogue = catalogue
             context.insert(def)
@@ -109,6 +119,7 @@ enum TestDataGenerator {
             let rating = max(1.0, Double((index * 13) % 21) * 0.5)         // 1.0–10.0, step 0.5
             let watched = index % 5 != 0                                    // ~80% watched
             let isWishlist = index % 5 == 1                                 // ~20% wishlist
+            let isFavourite = index % 4 == 0                                // ~25% favourited
             let hasRating = index % 10 != 0                                 // ~10% missing rating
             let hasNotes = index % 7 == 0                                   // ~14% have notes
 
@@ -117,7 +128,7 @@ enum TestDataGenerator {
             let title = titles[titleIndex] + titleSuffix
             let notes: String? = hasNotes ? notesSamples[index % notesSamples.count] : nil
 
-            let item = CatalogueItem(isWishlist: isWishlist, notes: notes)
+            let item = CatalogueItem(notes: notes)
             let createdDayOffset = (index * 3) % (365 * 3)
             item.createdDate = calendar.date(byAdding: .day, value: createdDayOffset, to: baseDate) ?? baseDate
             item.catalogue = catalogue
@@ -173,6 +184,20 @@ enum TestDataGenerator {
                 fieldValues.append(dateWatchedFV)
             }
 
+            let statusFV = FieldValue(fieldDefinition: statusDef, fieldType: .optionList)
+            statusFV.textValue = isWishlist ? "Wishlist" : "Owned"
+            statusFV.sortKey = SortKeyEncoder.sortKey(for: statusFV)
+            statusFV.item = item
+            context.insert(statusFV)
+            fieldValues.append(statusFV)
+
+            let favouriteFV = FieldValue(fieldDefinition: favouriteDef, fieldType: .boolean)
+            favouriteFV.boolValue = isFavourite
+            favouriteFV.sortKey = SortKeyEncoder.sortKey(for: favouriteFV)
+            favouriteFV.item = item
+            context.insert(favouriteFV)
+            fieldValues.append(favouriteFV)
+
             for fv in fieldValues {
                 fv.tiebreakKey = SortKeyEncoder.tiebreakKey(
                     for: fv,
@@ -183,6 +208,7 @@ enum TestDataGenerator {
             }
 
             item.searchText = SearchTextBuilder.build(from: fieldValues)
+            ItemFacetBuilder.apply(to: item, fieldValues: fieldValues, definitions: allDefs)
 
             if includesPhotos, let photoData = makePhotoData(index: index) {
                 let thumbnail = makeThumbnailData(from: photoData)

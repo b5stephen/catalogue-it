@@ -35,7 +35,7 @@ struct DeletionServiceTests {
         ctx.insert(fieldDef)
         fieldDef.catalogue = catalogue
 
-        let item = CatalogueItem(isWishlist: false)
+        let item = CatalogueItem()
         ctx.insert(item)
         item.catalogue = catalogue
 
@@ -89,11 +89,11 @@ struct DeletionServiceTests {
         let ctx = container.mainContext
         let (catalogue, first) = makePopulatedCatalogue(in: ctx)
 
-        let second = CatalogueItem(isWishlist: true)
+        let second = CatalogueItem()
         second.catalogue = catalogue
         ctx.insert(second)
 
-        let keeper = CatalogueItem(isWishlist: false)
+        let keeper = CatalogueItem(notes: "keeper")
         keeper.catalogue = catalogue
         ctx.insert(keeper)
         try ctx.save()
@@ -102,7 +102,7 @@ struct DeletionServiceTests {
 
         let remaining = try ctx.fetch(FetchDescriptor<CatalogueItem>())
         #expect(remaining.count == 1)
-        #expect(remaining.first?.isWishlist == false)
+        #expect(remaining.first?.notes == "keeper")
         #expect(ctx.hasChanges == false, "The batch delete should already be saved")
     }
 

@@ -64,24 +64,6 @@ struct AddFieldView: View {
         )
     }
 
-    /// Fills in the settings below for a status tracker. A shortcut, not a mode — everything
-    /// it sets stays editable, and the same result is reachable by hand from any option-list
-    /// or boolean field.
-    private func applyStatusTrackerPreset() {
-        selectedType = .optionList
-        optionListOptions = Self.defaultStatusOptions
-        displayRole = .statusTabs
-        if trimmedFieldName.isEmpty { fieldName = "Status" }
-    }
-
-    /// Shortcut for the favourite/star case: a boolean carrying a filter toggle.
-    private func applyFavouritePreset() {
-        selectedType = .boolean
-        booleanOptions = BooleanOptions()
-        displayRole = .flagFilter
-        if trimmedFieldName.isEmpty { fieldName = "Favourite" }
-    }
-
     private var trimmedFieldName: String { fieldName.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var isDuplicateName: Bool {
         !trimmedFieldName.isEmpty && existingNames.contains { $0.localizedCaseInsensitiveCompare(trimmedFieldName) == .orderedSame }
@@ -90,26 +72,6 @@ struct AddFieldView: View {
     var body: some View {
         NavigationStack {
             Form {
-                // Actions rather than a persistent selection: these fill in the settings
-                // below and then get out of the way. A stored "kind" would go stale the
-                // moment the user adjusted the type or role by hand.
-                Section {
-                    Button {
-                        applyStatusTrackerPreset()
-                    } label: {
-                        Label("Status Tracker", systemImage: "square.grid.3x1.below.line.grid.1x2")
-                    }
-                    Button {
-                        applyFavouritePreset()
-                    } label: {
-                        Label("Favourite / Star", systemImage: "star")
-                    }
-                } header: {
-                    Text("Quick Setup")
-                } footer: {
-                    Text("Fills in the settings below for the two most common cases. Everything stays editable afterwards.")
-                }
-
                 Section("Field Details") {
                     TextField("Field Name", text: $fieldName)
 #if os(iOS)
@@ -214,7 +176,7 @@ struct AddFieldView: View {
                 }
 
                 // Peer of the type-specific option sections above: appears for any type that
-                // can carry a display role, whether or not a quick-setup shortcut was used.
+                // can carry a display role.
                 FieldDisplayOptionsSection(
                     fieldType: selectedType,
                     fieldName: trimmedFieldName,

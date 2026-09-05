@@ -15,6 +15,7 @@ struct FieldDefinitionRow: View {
     @State private var showingNumberOptions = false
     @State private var showingOptionListOptions = false
     @State private var showingBooleanOptions = false
+    @State private var showingPreview = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -53,22 +54,37 @@ struct FieldDefinitionRow: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Yes/No Options")
             }
+            // Text and Date have nothing to configure, so their button goes straight to the
+            // preview the other types reach through their options sheet.
+            if field.fieldType == .text || field.fieldType == .date {
+                Button {
+                    showingPreview = true
+                } label: {
+                    Image(systemName: "eye")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Preview")
+            }
             Text(field.fieldType.rawValue)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        .sheet(isPresented: $showingPreview) {
+            FieldPreviewSheet(fieldName: field.name, fieldType: field.fieldType)
+        }
         .sheet(isPresented: $showingNumberOptions) {
-            NumberOptionsSheet(options: field.numberOptions) { newOptions in
+            NumberOptionsSheet(fieldName: field.name, options: field.numberOptions) { newOptions in
                 field.numberOptions = newOptions
             }
         }
         .sheet(isPresented: $showingBooleanOptions) {
-            BooleanOptionsSheet(options: field.booleanOptions) { newOptions in
+            BooleanOptionsSheet(fieldName: field.name, displayRole: field.displayRole, options: field.booleanOptions) { newOptions in
                 field.booleanOptions = newOptions
             }
         }
         .sheet(isPresented: $showingOptionListOptions) {
-            OptionListOptionsSheet(options: field.optionListOptions, onSave: { newOptions in
+            OptionListOptionsSheet(fieldName: field.name, displayRole: field.displayRole, options: field.optionListOptions, onSave: { newOptions in
                 field.optionListOptions = newOptions
                 // Dropping below the two-option minimum makes a tab bar impossible; give up
                 // the role here so the Options section stops showing this field as the

@@ -143,25 +143,19 @@ struct AddFieldView: View {
                     BooleanOptionsSection(options: $booleanOptions)
                 }
 
-                Section {
-                    // Preview
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Preview")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        HStack {
-                            Text(fieldName.isEmpty ? "Field Name" : fieldName)
-                            Spacer()
-                            Text(selectedType.rawValue)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding()
-                        .background(Color.secondary.opacity(0.1))
-                        .clipShape(.rect(cornerRadius: 8))
-                    }
-                }
+                // A working sample of the field as configured so far — the same controls the
+                // item form will show, re-seeded whenever the type or its options change.
+                FieldPreviewSection(
+                    name: fieldName,
+                    fieldType: selectedType,
+                    numberOptions: numberOptions,
+                    optionListOptions: optionListOptions,
+                    booleanOptions: booleanOptions
+                )
+                // Switching type resets the sample value along with the options it belongs to.
+                // Display roles are assigned in the catalogue's Options section once the field
+                // exists, so a field being added always previews as an ordinary one.
+                .id(selectedType)
             }
             .alert("Rename Option", isPresented: Binding(get: { renamingOption != nil }, set: { if !$0 { renamingOption = nil } })) {
                 TextField("Option name", text: $renameText)

@@ -12,6 +12,10 @@ import SwiftUI
 /// A sheet for managing the available options and optional default for an Option List field.
 struct OptionListOptionsSheet: View {
     @Environment(\.dismiss) private var dismiss
+    /// Only used to label the preview, so it reads as the field being edited.
+    let fieldName: String
+    /// Shapes the preview's display line — a status field's options render as chips.
+    let displayRole: DisplayRole
     let onSave: (OptionListOptions) -> Void
     let onRename: ((String, String) -> Void)?
     let onDelete: ((String) -> Void)?
@@ -22,7 +26,9 @@ struct OptionListOptionsSheet: View {
     @State private var renamingOption: String? = nil
     @State private var renameText: String = ""
 
-    init(options: OptionListOptions?, onSave: @escaping (OptionListOptions) -> Void, onRename: ((String, String) -> Void)? = nil, onDelete: ((String) -> Void)? = nil) {
+    init(fieldName: String, displayRole: DisplayRole = .none, options: OptionListOptions?, onSave: @escaping (OptionListOptions) -> Void, onRename: ((String, String) -> Void)? = nil, onDelete: ((String) -> Void)? = nil) {
+        self.fieldName = fieldName
+        self.displayRole = displayRole
         self.onSave = onSave
         self.onRename = onRename
         self.onDelete = onDelete
@@ -101,6 +107,13 @@ struct OptionListOptionsSheet: View {
                         }
                     }
                 }
+
+                FieldPreviewSection(
+                    name: fieldName,
+                    fieldType: .optionList,
+                    optionListOptions: OptionListOptions(options: options, defaultValue: defaultValue),
+                    displayRole: displayRole
+                )
             }
             .alert("Rename Option", isPresented: Binding(get: { renamingOption != nil }, set: { if !$0 { renamingOption = nil } })) {
                 TextField("Option name", text: $renameText)

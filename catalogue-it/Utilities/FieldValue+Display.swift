@@ -17,17 +17,11 @@ extension FieldValue {
             guard let value = numberValue else { return "" }
             let opts: NumberOptions
             if case .number(let o) = options { opts = o } else { opts = NumberOptions() }
-            switch opts.format {
-            case .number:
-                return value.formatted(.number.precision(.fractionLength(opts.precision)))
-            case .currency:
-                let code = Locale.current.currency?.identifier ?? "USD"
-                return value.formatted(.currency(code: code).precision(.fractionLength(opts.precision)))
-            }
+            return FieldValueFormatter.number(value, options: opts)
         case .date:
-            return dateValue.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? ""
+            return dateValue.map { FieldValueFormatter.date($0) } ?? ""
         case .boolean:
-            return boolValue == true ? "Yes" : "No"
+            return FieldValueFormatter.boolean(boolValue == true)
         case .optionList:
             return textValue ?? ""
         }

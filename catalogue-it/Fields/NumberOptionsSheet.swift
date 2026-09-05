@@ -12,12 +12,15 @@ import SwiftUI
 /// A sheet for configuring the format and decimal precision of a Number field.
 struct NumberOptionsSheet: View {
     @Environment(\.dismiss) private var dismiss
+    /// Only used to label the preview, so it reads as the field being edited.
+    let fieldName: String
     let onSave: (NumberOptions) -> Void
 
     @State private var numberFormat: NumberFormat
     @State private var precision: Int
 
-    init(options: NumberOptions, onSave: @escaping (NumberOptions) -> Void) {
+    init(fieldName: String, options: NumberOptions, onSave: @escaping (NumberOptions) -> Void) {
+        self.fieldName = fieldName
         self.onSave = onSave
         _numberFormat = State(initialValue: options.format)
         _precision = State(initialValue: options.precision)
@@ -46,6 +49,12 @@ struct NumberOptionsSheet: View {
                     .pickerStyle(.inline)
                     .labelsHidden()
                 }
+
+                FieldPreviewSection(
+                    name: fieldName,
+                    fieldType: .number,
+                    numberOptions: NumberOptions(format: numberFormat, precision: precision)
+                )
             }
             .navigationTitle("Number Options")
 #if os(iOS)

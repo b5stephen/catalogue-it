@@ -11,84 +11,24 @@ import SwiftData
 // MARK: - Field Input View
 
 /// Renders the appropriate SwiftUI control for a given field type.
+///
+/// A thin adapter from the item form's `FieldValueDraft` onto `FieldControl`, which holds
+/// the actual controls and is shared with the field-configuration previews.
 struct FieldInputView: View {
     let label: String
     @Binding var draft: FieldValueDraft
 
     var body: some View {
-        switch draft.fieldType {
-        case .text:       textInput
-        case .number:     numberInput
-        case .date:       dateInput
-        case .boolean:    booleanInput
-        case .optionList: optionListInput
-        }
-    }
-
-    // MARK: - Type-Specific Inputs
-
-    private var textInput: some View {
-        TextField(label, text: $draft.textValue)
-#if os(iOS)
-            .textInputAutocapitalization(.sentences)
-#endif
-    }
-
-    private var numberInput: some View {
-        let opts = draft.fieldDefinition.numberOptions ?? NumberOptions()
-        return HStack(spacing: 4) {
-            if opts.format == .currency {
-                Text(Locale.current.currencySymbol ?? "$")
-                    .foregroundStyle(.secondary)
-            }
-            TextField(label, value: $draft.numberValue, format: .number)
-#if os(iOS)
-                .keyboardType(opts.precision == 0 ? .numberPad : .decimalPad)
-#endif
-        }
-    }
-
-    @ViewBuilder
-    private var dateInput: some View {
-        if draft.dateValue == nil {
-            Button("Set \(label)") { draft.dateValue = .now }
-        } else {
-            HStack {
-                DatePicker(
-                    label,
-                    selection: Binding(
-                        get: { draft.dateValue ?? .now },
-                        set: { draft.dateValue = $0 }
-                    ),
-                    displayedComponents: .date
-                )
-                Button { draft.dateValue = nil } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private var booleanInput: some View {
-        Toggle(label, isOn: $draft.boolValue)
-    }
-
-    private var optionListInput: some View {
-        let opts = draft.fieldDefinition.optionListOptions ?? OptionListOptions()
-        let sorted = opts.options.sorted()
-        let isStale = !draft.textValue.isEmpty && !opts.options.contains(draft.textValue)
-        return Picker(label, selection: $draft.textValue) {
-            Text("None").tag("")
-            ForEach(sorted, id: \.self) { option in
-                Text(option).tag(option)
-            }
-            if isStale {
-                Text("\(draft.textValue) (removed)").tag(draft.textValue)
-            }
-        }
-        .pickerStyle(.menu)
+        FieldControl(
+            label: label,
+            fieldType: draft.fieldType,
+            numberOptions: draft.fieldDefinition.numberOptions ?? NumberOptions(),
+            optionListOptions: draft.fieldDefinition.optionListOptions ?? OptionListOptions(),
+            textValue: $draft.textValue,
+            numberValue: $draft.numberValue,
+            dateValue: $draft.dateValue,
+            boolValue: $draft.boolValue
+        )
     }
 }
 

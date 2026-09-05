@@ -21,7 +21,8 @@ struct AddEditCatalogueView: View {
     @State private var selectedIcon: String = "square.grid.2x2"
     @State private var selectedColor: Color = .blue
     @State private var fieldDefinitions: [FieldDefinitionDraft] = []
-    // Off by default; configured in a status field's Display options, where it has meaning.
+    // Off by default; configured in the Options section alongside the status field that
+    // gives it meaning.
     @State private var showAllTab: Bool = false
     @State private var showingIconPicker = false
     @State private var showingAddField = false
@@ -88,15 +89,7 @@ struct AddEditCatalogueView: View {
                 // MARK: - Field Definitions Section
                 Section {
                     ForEach($fieldDefinitions) { $field in
-                        FieldDefinitionRow(
-                            field: $field,
-                            otherStatusFieldName: FieldDefinitionValidation.statusFieldName(
-                                in: fieldDefinitions,
-                                excluding: field.id
-                            ),
-                            onClaimStatusRole: { claimStatusRole(for: field.id) },
-                            showAllTab: $showAllTab
-                        )
+                        FieldDefinitionRow(field: $field)
                     }
                     .onDelete(perform: deleteField)
                     .onMove(perform: moveField)
@@ -116,6 +109,11 @@ struct AddEditCatalogueView: View {
                         Text("Drag fields to reorder. The first field is used as each item's display name.")
                     }
                 }
+
+                // MARK: - Options Section
+                // Which fields drive the tab bar and the filter toggles — a catalogue-level
+                // decision, so it lives here rather than being set field by field.
+                CatalogueOptionsSection(fields: $fieldDefinitions, showAllTab: $showAllTab)
             }
 #if os(iOS)
             .environment(\.editMode, .constant(.active))
@@ -149,17 +147,8 @@ struct AddEditCatalogueView: View {
                 IconPickerView(selectedIcon: $selectedIcon)
             }
             .sheet(isPresented: $showingAddField) {
-                AddFieldView(
-                    existingNames: fieldDefinitions.map(\.name),
-                    currentStatusFieldName: FieldDefinitionValidation.statusFieldName(
-                        in: fieldDefinitions,
-                        excluding: nil
-                    ),
-                    showAllTab: $showAllTab
-                ) { field in
+                AddFieldView(existingNames: fieldDefinitions.map(\.name)) { field in
                     fieldDefinitions.append(field)
-                    // A new field claiming the tab bar takes it from whichever field held it.
-                    if field.displayRole == .statusTabs { claimStatusRole(for: field.id) }
                 }
             }
             .confirmationDialog(
@@ -460,12 +449,6 @@ struct AddEditCatalogueView: View {
                 )
             }
         }
-    }
-
-    /// Enforces the one-tab-bar-per-catalogue rule at the moment a field claims the role,
-    /// so the newest choice wins rather than being resolved away by field order on save.
-    private func claimStatusRole(for id: UUID) {
-        fieldDefinitions = FieldDefinitionValidation.assigningStatusRole(to: id, in: fieldDefinitions)
     }
 
     private func deleteField(at offsets: IndexSet) {

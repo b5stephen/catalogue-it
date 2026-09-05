@@ -95,15 +95,16 @@ extension FieldDefinition {
         displayRole == .flagFilter && fieldType == .boolean
     }
 
-    /// Tab labels for a `.boolean`-backed status field, falling back to the field name
-    /// and "Other" when the user hasn't named them.
+    /// Tab labels for a `.boolean`-backed status field, falling back to "Yes" and "No"
+    /// when the user hasn't named them — the same pair the field editor shows as
+    /// placeholders, so what's promised there is what actually renders.
     var statusTabLabels: (trueLabel: String, falseLabel: String) {
         let opts = booleanOptions
         let trueLabel = opts?.trueLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
         let falseLabel = opts?.falseLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
         return (
-            trueLabel: (trueLabel?.isEmpty == false ? trueLabel! : name),
-            falseLabel: (falseLabel?.isEmpty == false ? falseLabel! : String(localized: "Other"))
+            trueLabel: (trueLabel?.isEmpty == false ? trueLabel! : String(localized: "Yes")),
+            falseLabel: (falseLabel?.isEmpty == false ? falseLabel! : String(localized: "No"))
         )
     }
 }

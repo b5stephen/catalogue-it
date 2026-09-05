@@ -126,7 +126,7 @@ struct CatalogueOptionsTests {
         #expect(catalogue.statusTabDescriptors.map(\.label) == ["Wanted", "Have"])
     }
 
-    @Test("An unlabelled boolean status falls back to the field name and Other")
+    @Test("An unlabelled boolean status falls back to Yes and No")
     func booleanStatusLabelFallbacks() throws {
         let container = try makeContainer()
         let ctx = container.mainContext
@@ -136,8 +136,8 @@ struct CatalogueOptionsTests {
         field.catalogue = catalogue
         ctx.insert(field)
 
-        #expect(field.statusTabLabels.trueLabel == "Wishlist")
-        #expect(field.statusTabLabels.falseLabel == "Other")
+        #expect(field.statusTabLabels.trueLabel == "Yes")
+        #expect(field.statusTabLabels.falseLabel == "No")
     }
 
     @Test("Blank labels are treated as unset")
@@ -151,8 +151,8 @@ struct CatalogueOptionsTests {
         field.catalogue = catalogue
         ctx.insert(field)
 
-        #expect(field.statusTabLabels.trueLabel == "Wishlist")
-        #expect(field.statusTabLabels.falseLabel == "Other")
+        #expect(field.statusTabLabels.trueLabel == "Yes")
+        #expect(field.statusTabLabels.falseLabel == "No")
     }
 
     // MARK: - Flags
@@ -177,7 +177,7 @@ struct CatalogueOptionsTests {
 
     // MARK: - Flag Appearance
 
-    @Test("A flag with no configured appearance falls back to the default star")
+    @Test("A flag with no configured appearance has no icon or colour")
     func flagAppearanceDefaults() throws {
         let container = try makeContainer()
         let ctx = container.mainContext
@@ -187,11 +187,13 @@ struct CatalogueOptionsTests {
         flag.catalogue = catalogue
         ctx.insert(flag)
 
-        #expect(flag.flagIconName == BooleanOptions.defaultFlagIconName)
-        #expect(flag.flagColor == Color(hex: BooleanOptions.defaultFlagColorHex))
+        // Appearance is optional in the real sense: rows and cards draw no badge at all
+        // rather than falling back to a shared symbol that makes every flag look alike.
+        #expect(flag.flagIconName == nil)
+        #expect(flag.flagColor == nil)
     }
 
-    @Test("A configured icon and colour are used instead of the defaults")
+    @Test("A configured icon and colour are used")
     func flagAppearanceOverrides() throws {
         let container = try makeContainer()
         let ctx = container.mainContext
@@ -206,19 +208,36 @@ struct CatalogueOptionsTests {
         #expect(flag.flagColor == Color(hex: "#FF0000"))
     }
 
-    @Test("A blank icon name falls back rather than rendering nothing")
-    func blankFlagIconFallsBack() throws {
+    @Test("A blank icon name reads as no icon rather than rendering a blank symbol")
+    func blankFlagIconIsNoIcon() throws {
         let container = try makeContainer()
         let ctx = container.mainContext
         let catalogue = makeCatalogue(in: ctx)
 
         let flag = FieldDefinition(name: "Favourite", fieldType: .boolean, priority: 0, displayRole: .flagFilter)
         // An empty symbol name renders as a blank space, so it must never reach the badge.
-        flag.fieldOptions = .boolean(BooleanOptions(flagIconName: "   "))
+        flag.fieldOptions = .boolean(BooleanOptions(flagIconName: "   ", flagColorHex: " "))
         flag.catalogue = catalogue
         ctx.insert(flag)
 
-        #expect(flag.flagIconName == BooleanOptions.defaultFlagIconName)
+        #expect(flag.flagIconName == nil)
+        #expect(flag.flagColor == nil)
+    }
+
+    @Test("An icon with no colour keeps the icon")
+    func iconWithoutColour() throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let catalogue = makeCatalogue(in: ctx)
+
+        let flag = FieldDefinition(name: "Favourite", fieldType: .boolean, priority: 0, displayRole: .flagFilter)
+        flag.fieldOptions = .boolean(BooleanOptions(flagIconName: "star.fill"))
+        flag.catalogue = catalogue
+        ctx.insert(flag)
+
+        // The two are independent — clearing the colour must not clear the badge.
+        #expect(flag.flagIconName == "star.fill")
+        #expect(flag.flagColor == nil)
     }
 
     @Test("Several flags keep independent appearances")
@@ -256,9 +275,9 @@ struct CatalogueOptionsTests {
         #expect(decoded == .boolean(options))
     }
 
-    @Test("Options written before appearance existed still decode")
-    func legacyBooleanOptionsDecode() throws {
-        // A blob from before flagIconName/flagColorHex were added: both keys are absent.
+    @Test("Options written without appearance keys still decode")
+    func booleanOptionsWithoutAppearanceDecode() throws {
+        // Absent keys must decode as "no appearance configured", not fail.
         let json = #"{"boolean":{"_0":{"defaultValue":true,"trueLabel":"Wanted"}}}"#
         let data = try #require(json.data(using: .utf8))
         let decoded = try JSONDecoder().decode(FieldOptions.self, from: data)

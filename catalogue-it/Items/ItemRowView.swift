@@ -84,11 +84,13 @@ struct ItemRowView: View {
             // in the row. Its trailing edge then lines up down the whole list, however many
             // flags each item happens to carry.
             ForEach(setFlagFields) { flag in
-                Image(systemName: flag.flagIconName)
-                    .symbolVariant(.fill)
-                    .foregroundStyle(flag.flagColor)
-                    .font(.caption)
-                    .accessibilityLabel(flag.name)
+                if let icon = flag.flagIconName {
+                    Image(systemName: icon)
+                        .symbolVariant(.fill)
+                        .foregroundStyle(flag.flagColor ?? .accentColor)
+                        .font(.caption)
+                        .accessibilityLabel(flag.name)
+                }
             }
 
             if let chip = statusChip {

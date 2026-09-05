@@ -127,64 +127,142 @@ struct FieldDisplayRoleValidationTests {
         #expect(FieldDefinitionValidation.hasStatusField(in: [draft("Wishlist", .boolean, role: .statusTabs)]))
     }
 
-    // MARK: - Claiming the Status Role
+    // MARK: - Role Assignment
 
-    @Test("Promoting a field to status tabs demotes the previous holder")
-    func claimingStatusRoleDemotesPrevious() {
-        var drafts = [
+    @Test("Choosing a status field demotes the previous holder")
+    func choosingStatusFieldDemotesPrevious() {
+        let drafts = [
             draft("Status", .optionList, role: .statusTabs, options: ["Owned", "Wishlist"]),
             draft("Condition", .optionList, role: .none, options: ["New", "Used"]),
         ]
-        // The user promotes the second field via its Display options.
-        drafts[1].displayRole = .statusTabs
-        let result = FieldDefinitionValidation.assigningStatusRole(to: drafts[1].id, in: drafts)
+        // The user picks the second field in the Options section's status picker.
+        let result = FieldDefinitionValidation.settingStatusField(to: drafts[1].id, in: drafts)
 
-        // Newest choice wins — the opposite of what field-order normalisation would do.
         #expect(result[0].displayRole == DisplayRole.none)
         #expect(result[1].displayRole == .statusTabs)
     }
 
-    @Test("Claiming the status role leaves flag fields untouched")
-    func claimingStatusRoleKeepsFlags() {
-        var drafts = [
+    @Test("Choosing a status field leaves flag fields untouched")
+    func choosingStatusFieldKeepsFlags() {
+        let drafts = [
             draft("Favourite", .boolean, role: .flagFilter),
             draft("Wishlist", .boolean, role: .none),
         ]
-        drafts[1].displayRole = .statusTabs
-        let result = FieldDefinitionValidation.assigningStatusRole(to: drafts[1].id, in: drafts)
+        let result = FieldDefinitionValidation.settingStatusField(to: drafts[1].id, in: drafts)
 
         #expect(result[0].displayRole == .flagFilter)
         #expect(result[1].displayRole == .statusTabs)
     }
 
-    @Test("Claiming the role a field already holds changes nothing")
-    func reclaimingIsIdempotent() {
+    @Test("Choosing the field that already holds the role changes nothing")
+    func choosingStatusFieldIsIdempotent() {
         let drafts = [
             draft("Status", .optionList, role: .statusTabs, options: ["Owned", "Wishlist"]),
             draft("Favourite", .boolean, role: .flagFilter),
         ]
-        let result = FieldDefinitionValidation.assigningStatusRole(to: drafts[0].id, in: drafts)
+        let result = FieldDefinitionValidation.settingStatusField(to: drafts[0].id, in: drafts)
         #expect(result[0].displayRole == .statusTabs)
         #expect(result[1].displayRole == .flagFilter)
     }
 
-    @Test("statusFieldName reports the other holder, and nothing when it is the field itself")
-    func statusFieldNameExcludesSelf() {
+    @Test("Selecting None clears the tab bar without touching flags")
+    func clearingStatusField() {
         let drafts = [
             draft("Status", .optionList, role: .statusTabs, options: ["Owned", "Wishlist"]),
             draft("Favourite", .boolean, role: .flagFilter),
         ]
-        // Asked on behalf of the Favourite field: the tab bar would be taken from "Status".
-        #expect(FieldDefinitionValidation.statusFieldName(in: drafts, excluding: drafts[1].id) == "Status")
-        // Asked on behalf of Status itself: it already holds the role, so there's no warning.
-        #expect(FieldDefinitionValidation.statusFieldName(in: drafts, excluding: drafts[0].id) == nil)
-        // Asked for a brand-new field: the existing holder is reported.
-        #expect(FieldDefinitionValidation.statusFieldName(in: drafts, excluding: nil) == "Status")
+        let result = FieldDefinitionValidation.settingStatusField(to: nil, in: drafts)
+        #expect(result[0].displayRole == DisplayRole.none)
+        #expect(result[1].displayRole == .flagFilter)
     }
 
-    @Test("An invalid status claimant is not reported as the current holder")
-    func statusFieldNameIgnoresInvalidClaimants() {
-        let drafts = [draft("Broken", .text, role: .statusTabs)]
-        #expect(FieldDefinitionValidation.statusFieldName(in: drafts, excluding: nil) == nil)
+    @Test("Promoting a flag field to status gives up its toggle")
+    func statusFieldGivesUpItsFlag() {
+        let drafts = [draft("Favourite", .boolean, role: .flagFilter)]
+        let result = FieldDefinitionValidation.settingStatusField(to: drafts[0].id, in: drafts)
+        #expect(result[0].displayRole == .statusTabs)
+    }
+
+    @Test("An ineligible field cannot be made the status field")
+    func ineligibleFieldCannotTakeStatus() {
+        let drafts = [
+            draft("Status", .boolean, role: .statusTabs),
+            draft("Notes", .text),
+            draft("Condition", .optionList, options: ["New"]),
+        ]
+        // Neither a text field nor a one-option list can produce tabs, so the picker never
+        // offers them — and the setter refuses even if one is passed.
+        #expect(FieldDefinitionValidation.settingStatusField(to: drafts[1].id, in: drafts)[1].displayRole == DisplayRole.none)
+        #expect(FieldDefinitionValidation.settingStatusField(to: drafts[2].id, in: drafts)[2].displayRole == DisplayRole.none)
+        // The previous holder is still demoted — the user asked for "not Status".
+        #expect(FieldDefinitionValidation.settingStatusField(to: drafts[1].id, in: drafts)[0].displayRole == DisplayRole.none)
+    }
+
+    @Test("statusFieldID reports the current holder, ignoring invalid claimants")
+    func statusFieldIDReportsHolder() {
+        let valid = [
+            draft("Favourite", .boolean, role: .flagFilter),
+            draft("Status", .optionList, role: .statusTabs, options: ["Owned", "Wishlist"]),
+        ]
+        #expect(FieldDefinitionValidation.statusFieldID(in: valid) == valid[1].id)
+        // A field whose type was changed out from under the role isn't the holder.
+        #expect(FieldDefinitionValidation.statusFieldID(in: [draft("Broken", .text, role: .statusTabs)]) == nil)
+        #expect(FieldDefinitionValidation.statusFieldID(in: []) == nil)
+    }
+
+    // MARK: - Eligibility
+
+    @Test("Only fields that could produce tabs are offered as status fields")
+    func statusEligibility() {
+        let drafts = [
+            draft("Name", .text),
+            draft("Year", .number),
+            draft("Owned", .boolean),
+            draft("Condition", .optionList, options: ["New"]),
+            draft("Status", .optionList, options: ["Owned", "Wishlist"]),
+        ]
+        #expect(FieldDefinitionValidation.statusEligibleDrafts(in: drafts).map(\.name) == ["Owned", "Status"])
+    }
+
+    @Test("Only Yes/No fields are offered as filter toggles")
+    func flagEligibility() {
+        let drafts = [
+            draft("Name", .text),
+            draft("Favourite", .boolean),
+            draft("Status", .optionList, options: ["Owned", "Wishlist"]),
+            draft("For Sale", .boolean),
+        ]
+        #expect(FieldDefinitionValidation.flagEligibleDrafts(in: drafts).map(\.name) == ["Favourite", "For Sale"])
+    }
+
+    // MARK: - Filter Toggles
+
+    @Test("Filter toggles are set and cleared independently of each other")
+    func flagsToggleIndependently() {
+        var drafts = [
+            draft("Favourite", .boolean),
+            draft("For Sale", .boolean),
+        ]
+        drafts = FieldDefinitionValidation.settingFlagFilter(true, for: drafts[0].id, in: drafts)
+        drafts = FieldDefinitionValidation.settingFlagFilter(true, for: drafts[1].id, in: drafts)
+        #expect(drafts.allSatisfy { $0.displayRole == .flagFilter })
+
+        drafts = FieldDefinitionValidation.settingFlagFilter(false, for: drafts[0].id, in: drafts)
+        #expect(drafts[0].displayRole == DisplayRole.none)
+        #expect(drafts[1].displayRole == .flagFilter)
+    }
+
+    @Test("The status field cannot also be a filter toggle")
+    func statusFieldCannotBeFlagged() {
+        let drafts = [draft("Owned", .boolean, role: .statusTabs)]
+        let result = FieldDefinitionValidation.settingFlagFilter(true, for: drafts[0].id, in: drafts)
+        #expect(result[0].displayRole == .statusTabs)
+    }
+
+    @Test("A non-boolean field cannot be a filter toggle")
+    func nonBooleanCannotBeFlagged() {
+        let drafts = [draft("Status", .optionList, options: ["Owned", "Wishlist"])]
+        let result = FieldDefinitionValidation.settingFlagFilter(true, for: drafts[0].id, in: drafts)
+        #expect(result[0].displayRole == DisplayRole.none)
     }
 }

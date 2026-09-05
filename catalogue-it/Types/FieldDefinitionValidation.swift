@@ -106,24 +106,53 @@ nonisolated enum FieldDefinitionValidation {
         drafts.contains { resolvedRole(for: $0) == .statusTabs }
     }
 
-    /// The name of the draft driving the tab bar, ignoring the one identified by `excluding`.
-    ///
-    /// Drives the warning shown when a second field is about to claim the role, so the user
-    /// is told the tab bar is moving rather than discovering it after the fact.
-    static func statusFieldName(in drafts: [FieldDefinitionDraft], excluding id: UUID?) -> String? {
-        drafts.first { $0.id != id && resolvedRole(for: $0) == .statusTabs }?.name
+    // MARK: - Role Assignment
+
+    /// The draft currently driving the tab bar, if any. Drives the Options section's
+    /// status picker selection; `nil` selects "None".
+    static func statusFieldID(in drafts: [FieldDefinitionDraft]) -> UUID? {
+        drafts.first { resolvedRole(for: $0) == .statusTabs }?.id
+    }
+
+    /// Drafts whose type could drive the tab bar, in field order. A field is offered in the
+    /// status picker only if choosing it would actually produce tabs.
+    static func statusEligibleDrafts(in drafts: [FieldDefinitionDraft]) -> [FieldDefinitionDraft] {
+        drafts.filter { supportsStatusTabs($0) }
+    }
+
+    /// Drafts that could drive a filter toggle, in field order.
+    static func flagEligibleDrafts(in drafts: [FieldDefinitionDraft]) -> [FieldDefinitionDraft] {
+        drafts.filter { supportsFlagFilter(fieldType: $0.fieldType) }
     }
 
     /// Makes the draft identified by `id` the sole status field, demoting any other claimant.
+    /// Passing `nil` clears the tab bar entirely.
     ///
-    /// Called when a field is promoted to `.statusTabs` so the one-per-catalogue rule is
-    /// enforced at the moment of the change. `normalised` would otherwise resolve the
-    /// conflict by field order, which would silently discard the user's newest choice.
-    static func assigningStatusRole(to id: UUID, in drafts: [FieldDefinitionDraft]) -> [FieldDefinitionDraft] {
+    /// The one-per-catalogue rule is enforced here, at the moment of the change, so the
+    /// user's newest choice wins — `normalised` would instead resolve a conflict by field
+    /// order and silently discard it.
+    static func settingStatusField(to id: UUID?, in drafts: [FieldDefinitionDraft]) -> [FieldDefinitionDraft] {
         var result = drafts
-        for index in result.indices where result[index].id != id && result[index].displayRole == .statusTabs {
-            result[index].displayRole = .none
+        for index in result.indices {
+            if result[index].displayRole == .statusTabs { result[index].displayRole = .none }
+            // A field can hold only one role, so taking the tab bar gives up any flag toggle.
+            if result[index].id == id, supportsStatusTabs(result[index]) {
+                result[index].displayRole = .statusTabs
+            }
         }
+        return result
+    }
+
+    /// Turns the filter toggle on or off for one draft, leaving every other field alone.
+    /// Ignored for a field whose type can't carry the role, or that currently drives the
+    /// tab bar — the status picker is the only way to give that role up.
+    static func settingFlagFilter(_ isOn: Bool, for id: UUID, in drafts: [FieldDefinitionDraft]) -> [FieldDefinitionDraft] {
+        var result = drafts
+        guard let index = result.firstIndex(where: { $0.id == id }),
+              supportsFlagFilter(fieldType: result[index].fieldType),
+              result[index].displayRole != .statusTabs
+        else { return result }
+        result[index].displayRole = isOn ? .flagFilter : .none
         return result
     }
 }

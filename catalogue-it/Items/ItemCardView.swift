@@ -38,10 +38,11 @@ struct ItemCardView: View {
     }
 
     /// Flags set on this item, capped because a card thumbnail has no room for a long row.
+    /// Flags with no icon are dropped before the cap so they don't consume a visible slot.
     private var setFlagFields: [FieldDefinition] {
         guard let catalogue = item.catalogue else { return [] }
         return catalogue.flagFields
-            .filter { item.flagKeys.contains(ItemFacetBuilder.flagToken(for: $0.fieldID)) }
+            .filter { $0.flagIconName != nil && item.flagKeys.contains(ItemFacetBuilder.flagToken(for: $0.fieldID)) }
             .prefix(3)
             .map { $0 }
     }
@@ -59,13 +60,15 @@ struct ItemCardView: View {
             .overlay(alignment: .topTrailing) {
                 HStack(spacing: 4) {
                     ForEach(setFlagFields) { flag in
-                        Image(systemName: flag.flagIconName)
-                            .symbolVariant(.fill)
-                            .font(.caption)
-                            .foregroundStyle(.white)
-                            .padding(5)
-                            .background(flag.flagColor, in: Circle())
-                            .accessibilityLabel(flag.name)
+                        if let icon = flag.flagIconName {
+                            Image(systemName: icon)
+                                .symbolVariant(.fill)
+                                .font(.caption)
+                                .foregroundStyle(.white)
+                                .padding(5)
+                                .background(flag.flagColor ?? .accentColor, in: Circle())
+                                .accessibilityLabel(flag.name)
+                        }
                     }
                 }
                 .padding(6)

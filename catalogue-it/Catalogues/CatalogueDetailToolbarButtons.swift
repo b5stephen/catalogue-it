@@ -69,7 +69,7 @@ struct FlagFilterButton: View {
             Button {
                 toggle(flag.fieldID)
             } label: {
-                Label(flag.name, systemImage: flag.flagIconName)
+                Label(flag.name, systemImage: flag.flagIconName ?? BooleanOptions.fallbackFilterIconName)
             }
             // The active state fills the chosen symbol and applies its tint. `.symbolVariant`
             // rather than a hardcoded ".fill" name, so a symbol with no filled counterpart
@@ -83,7 +83,7 @@ struct FlagFilterButton: View {
                         get: { activeFlagIDs.contains(flag.fieldID) },
                         set: { _ in toggle(flag.fieldID) }
                     )) {
-                        Label(flag.name, systemImage: flag.flagIconName)
+                        Label(flag.name, systemImage: flag.flagIconName ?? BooleanOptions.fallbackFilterIconName)
                     }
                 }
                 if isAnyActive {

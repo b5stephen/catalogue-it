@@ -23,14 +23,6 @@ nonisolated enum DisplayRole: String, Codable, CaseIterable {
 }
 
 extension DisplayRole {
-    var label: String {
-        switch self {
-        case .none:       "Standard Field"
-        case .statusTabs: "Status Tabs"
-        case .flagFilter: "Filter Toggle"
-        }
-    }
-
     /// Field types this role can be applied to. `.optionList` additionally requires
     /// 2+ options — see `FieldDefinitionValidation`.
     var supportedFieldTypes: Set<FieldType> {

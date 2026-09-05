@@ -12,30 +12,15 @@ import SwiftUI
 struct AddFieldView: View {
     @Environment(\.dismiss) private var dismiss
     let existingNames: [String]
-    /// Name of the field that currently drives the tab bar, if any. Only one is allowed per
-    /// catalogue, so choosing `.statusTabs` here will take the role from that field — the
-    /// display section says so rather than the caller silently resolving it later.
-    let currentStatusFieldName: String?
-    /// Catalogue-level "All" tab setting, editable here because adding a status field is the
-    /// moment the setting first becomes meaningful.
-    @Binding var showAllTab: Bool
     let onAdd: (FieldDefinitionDraft) -> Void
 
-    init(
-        existingNames: [String] = [],
-        currentStatusFieldName: String? = nil,
-        showAllTab: Binding<Bool> = .constant(false),
-        onAdd: @escaping (FieldDefinitionDraft) -> Void
-    ) {
+    init(existingNames: [String] = [], onAdd: @escaping (FieldDefinitionDraft) -> Void) {
         self.existingNames = existingNames
-        self.currentStatusFieldName = currentStatusFieldName
-        self._showAllTab = showAllTab
         self.onAdd = onAdd
     }
 
     @State private var fieldName: String = ""
     @State private var selectedType: FieldType = .text
-    @State private var displayRole: DisplayRole = .none
     @State private var booleanOptions: BooleanOptions = BooleanOptions()
     @State private var numberOptions: NumberOptions = NumberOptions()
     @State private var optionListOptions: OptionListOptions = OptionListOptions()
@@ -46,23 +31,6 @@ struct AddFieldView: View {
     // Trimmed candidate for the new option being typed
     private var trimmedNew: String { newOptionText.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var canAddOption: Bool { !trimmedNew.isEmpty && !optionListOptions.options.contains(trimmedNew) }
-
-    /// Owned/Wishlist reproduces the app's previous built-in behaviour as a starting point,
-    /// so the most common case needs no configuration at all.
-    private static let defaultStatusOptions = OptionListOptions(
-        options: ["Owned", "Wishlist"],
-        defaultValue: "Owned"
-    )
-
-    /// A tab bar backed by an option list needs 2+ options, so "Add" stays disabled until
-    /// the user has defined enough — the same rule `FieldDefinitionValidation` enforces on save.
-    private var meetsRoleRequirements: Bool {
-        FieldDefinitionValidation.supports(
-            role: displayRole,
-            fieldType: selectedType,
-            optionCount: optionListOptions.options.count
-        )
-    }
 
     private var trimmedFieldName: String { fieldName.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var isDuplicateName: Bool {
@@ -85,8 +53,6 @@ struct AddFieldView: View {
                             .foregroundStyle(.red)
                     }
 
-                    // Switching to Yes/No or Option List keeps whatever role is set, which is
-                    // what makes "any boolean or option-list field can carry a role" true.
                     Picker("Type", selection: $selectedType) {
                         ForEach(FieldType.allCases, id: \.self) { type in
                             Label(type.rawValue, systemImage: type.icon)
@@ -116,11 +82,6 @@ struct AddFieldView: View {
 
                 if selectedType == .optionList {
                     Section {
-                        if displayRole == .statusTabs {
-                            Text("Each option becomes a tab in the item list.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
                         ForEach(optionListOptions.options.sorted(), id: \.self) { option in
                             HStack {
                                 Text(option)
@@ -175,17 +136,12 @@ struct AddFieldView: View {
                     }
                 }
 
-                // Peer of the type-specific option sections above: appears for any type that
-                // can carry a display role.
-                FieldDisplayOptionsSection(
-                    fieldType: selectedType,
-                    fieldName: trimmedFieldName,
-                    optionCount: optionListOptions.options.count,
-                    otherStatusFieldName: currentStatusFieldName,
-                    displayRole: $displayRole,
-                    booleanOptions: $booleanOptions,
-                    showAllTab: $showAllTab
-                )
+                // Peer of the type-specific option sections above. Which fields drive the
+                // tab bar or a filter toggle is decided in the catalogue's Options section,
+                // once the field exists — this form only configures the field itself.
+                if selectedType == .boolean {
+                    BooleanOptionsSection(options: $booleanOptions)
+                }
 
                 Section {
                     // Preview
@@ -234,19 +190,6 @@ struct AddFieldView: View {
                 booleanOptions = BooleanOptions()
                 newOptionText = ""
                 renamingOption = nil
-                // Switching back to an option list while a tab bar is configured must restore
-                // starting options — otherwise the user lands on an empty list with Add disabled.
-                if displayRole == .statusTabs && selectedType == .optionList {
-                    optionListOptions = Self.defaultStatusOptions
-                }
-                // A role the new type can't carry is dropped rather than silently reset on save.
-                if !FieldDefinitionValidation.supports(
-                    role: displayRole,
-                    fieldType: selectedType,
-                    optionCount: optionListOptions.options.count
-                ) {
-                    displayRole = .none
-                }
             }
             .navigationTitle("Add Field")
 #if os(iOS)
@@ -260,14 +203,13 @@ struct AddFieldView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
                         var field = FieldDefinitionDraft(name: trimmedFieldName, fieldType: selectedType, priority: 0)
-                        field.displayRole = displayRole
                         field.numberOptions = numberOptions
                         field.optionListOptions = optionListOptions
                         field.booleanOptions = booleanOptions
                         onAdd(field)
                         dismiss()
                     }
-                    .disabled(trimmedFieldName.isEmpty || isDuplicateName || !meetsRoleRequirements)
+                    .disabled(trimmedFieldName.isEmpty || isDuplicateName)
                 }
             }
         }

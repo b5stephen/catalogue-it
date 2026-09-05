@@ -89,7 +89,7 @@ struct AddEditCatalogueView: View {
                 // MARK: - Field Definitions Section
                 Section {
                     ForEach($fieldDefinitions) { $field in
-                        FieldDefinitionRow(field: $field)
+                        FieldDefinitionRow(field: $field, otherFieldNames: otherFieldNames(excluding: field.id))
                     }
                     .onDelete(perform: deleteField)
                     .onMove(perform: moveField)
@@ -147,7 +147,7 @@ struct AddEditCatalogueView: View {
                 IconPickerView(selectedIcon: $selectedIcon)
             }
             .sheet(isPresented: $showingAddField) {
-                AddFieldView(existingNames: fieldDefinitions.map(\.name)) { field in
+                FieldEditorView(existingNames: fieldDefinitions.map(\.name)) { field in
                     fieldDefinitions.append(field)
                 }
             }
@@ -449,6 +449,12 @@ struct AddEditCatalogueView: View {
                 )
             }
         }
+    }
+
+    /// Every other field's name, so the editor flags a clash without flagging the field
+    /// against itself when its name is left alone.
+    private func otherFieldNames(excluding id: UUID) -> [String] {
+        fieldDefinitions.filter { $0.id != id }.map(\.name)
     }
 
     private func deleteField(at offsets: IndexSet) {

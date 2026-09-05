@@ -9,104 +9,46 @@ import SwiftUI
 
 // MARK: - Field Definition Row
 
+/// One field in the catalogue form's Custom Fields list. Everything about the field —
+/// its name, and whatever its type has to configure — is edited in `FieldEditorView`,
+/// so every row carries the same single pencil button rather than a different control
+/// per field type.
 struct FieldDefinitionRow: View {
     @Binding var field: FieldDefinitionDraft
+    /// Names of the other fields in the catalogue, for the editor's duplicate check.
+    var otherFieldNames: [String] = []
 
-    @State private var showingNumberOptions = false
-    @State private var showingOptionListOptions = false
-    @State private var showingBooleanOptions = false
-    @State private var showingPreview = false
+    @State private var showingEditor = false
+
+    private var displayName: String {
+        let trimmed = field.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? String(localized: "Untitled Field") : trimmed
+    }
 
     var body: some View {
         HStack(spacing: 12) {
-            TextField("Field Name", text: $field.name)
-#if os(iOS)
-                .textInputAutocapitalization(.words)
-#endif
-            Spacer()
-            if field.fieldType == .number {
-                Button {
-                    showingNumberOptions = true
-                } label: {
-                    Image(systemName: "slider.horizontal.3")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(displayName)
+                    .foregroundStyle(field.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .secondary : .primary)
+                    .lineLimit(1)
+                Text(field.fieldType.rawValue)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            if field.fieldType == .optionList {
-                Button {
-                    showingOptionListOptions = true
-                } label: {
-                    Image(systemName: "list.bullet")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
+            Spacer(minLength: 0)
+            Button {
+                showingEditor = true
+            } label: {
+                Image(systemName: "pencil")
+                    .foregroundStyle(.blue)
             }
-            // Labels and appearance, available on every Yes/No field. The role that uses
-            // them is chosen in the catalogue's Options section, not here.
-            if field.fieldType == .boolean {
-                Button {
-                    showingBooleanOptions = true
-                } label: {
-                    Image(systemName: "slider.horizontal.3")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Yes/No Options")
-            }
-            // Text and Date have nothing to configure, so their button goes straight to the
-            // preview the other types reach through their options sheet.
-            if field.fieldType == .text || field.fieldType == .date {
-                Button {
-                    showingPreview = true
-                } label: {
-                    Image(systemName: "eye")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Preview")
-            }
-            Text(field.fieldType.rawValue)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            .buttonStyle(.plain)
+            .accessibilityLabel("Edit \(displayName)")
         }
-        .sheet(isPresented: $showingPreview) {
-            FieldPreviewSheet(fieldName: field.name, fieldType: field.fieldType)
-        }
-        .sheet(isPresented: $showingNumberOptions) {
-            NumberOptionsSheet(fieldName: field.name, options: field.numberOptions) { newOptions in
-                field.numberOptions = newOptions
+        .sheet(isPresented: $showingEditor) {
+            FieldEditorView(editing: field, existingNames: otherFieldNames) { edited in
+                field = edited
             }
-        }
-        .sheet(isPresented: $showingBooleanOptions) {
-            BooleanOptionsSheet(fieldName: field.name, displayRole: field.displayRole, options: field.booleanOptions) { newOptions in
-                field.booleanOptions = newOptions
-            }
-        }
-        .sheet(isPresented: $showingOptionListOptions) {
-            OptionListOptionsSheet(fieldName: field.name, displayRole: field.displayRole, options: field.optionListOptions, onSave: { newOptions in
-                field.optionListOptions = newOptions
-                // Dropping below the two-option minimum makes a tab bar impossible; give up
-                // the role here so the Options section stops showing this field as the
-                // status field, rather than letting the save silently discard it.
-                if field.displayRole == .statusTabs,
-                   newOptions.options.count < FieldDefinitionValidation.minimumStatusOptions {
-                    field.displayRole = .none
-                }
-            }, onRename: { old, new in
-                // Handle chains: if old was already a rename target, update the source's mapping
-                if let originalName = field.pendingOptionRenames.first(where: { $0.value == old })?.key {
-                    field.pendingOptionRenames[originalName] = new
-                } else {
-                    field.pendingOptionRenames[old] = new
-                }
-            }, onDelete: { deleted in
-                // If a pending rename pointed to this option, remove it (no cascade needed)
-                if let originalName = field.pendingOptionRenames.first(where: { $0.value == deleted })?.key {
-                    field.pendingOptionRenames.removeValue(forKey: originalName)
-                }
-                field.pendingOptionDeletions.insert(deleted)
-            })
         }
     }
 }

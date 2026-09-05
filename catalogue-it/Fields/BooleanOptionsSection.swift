@@ -15,7 +15,7 @@ import SwiftUI
 /// this is only about the field itself, so a field configured here can be promoted to the
 /// tab bar or a filter toggle later with its labels and appearance already in place.
 ///
-/// Shared between the add-field form and the per-field editing sheet so both offer exactly
+/// Lives in `FieldEditorView`, so adding and editing a Yes/No field offer exactly
 /// the same capability.
 struct BooleanOptionsSection: View {
     @Binding var options: BooleanOptions
@@ -28,7 +28,7 @@ struct BooleanOptionsSection: View {
     private var falsePlaceholder: String { String(localized: "No") }
 
     /// Mirrors `FieldDefinition.flagIconName` for a field that may not exist yet — the
-    /// add-field form configures appearance before anything is persisted.
+    /// field editor configures appearance before anything is persisted.
     private var icon: String? {
         let name = options.flagIconName?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let name, !name.isEmpty else { return nil }

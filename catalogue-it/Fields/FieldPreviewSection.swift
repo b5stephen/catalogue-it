@@ -15,7 +15,7 @@ import SwiftUI
 /// preview cannot drift from what the field actually becomes. The sample value is live
 /// state: typing, toggling, or picking in the preview updates the display line below it.
 ///
-/// Shared by the add-field form and every per-type editing sheet, so a field looks the
+/// Rendered by `FieldEditorView` for every field type, so a field looks the
 /// same wherever it is being configured.
 struct FieldPreviewSection: View {
     let name: String

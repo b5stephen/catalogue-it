@@ -26,6 +26,9 @@ struct AddEditCatalogueView: View {
     @State private var showAllTab: Bool = false
     @State private var showingIconPicker = false
     @State private var showingAddField = false
+    /// Drives the Custom Fields list into edit mode, where rows gain drag handles and give
+    /// up their swipe actions.
+    @State private var isReorderingFields = false
 
     // Field deletion confirmation
     @State private var pendingDeleteOffsets: IndexSet?
@@ -89,24 +92,47 @@ struct AddEditCatalogueView: View {
                 // MARK: - Field Definitions Section
                 Section {
                     ForEach($fieldDefinitions) { $field in
-                        FieldDefinitionRow(field: $field, otherFieldNames: otherFieldNames(excluding: field.id))
+                        FieldDefinitionRow(
+                            field: $field,
+                            otherFieldNames: otherFieldNames(excluding: field.id),
+                            onDelete: { deleteField(withID: field.id) }
+                        )
                     }
                     .onDelete(perform: deleteField)
                     .onMove(perform: moveField)
 
-                    Button {
-                        showingAddField = true
-                    } label: {
-                        Label("Add Field", systemImage: "plus.circle.fill")
+                    if !isReorderingFields {
+                        Button {
+                            showingAddField = true
+                        } label: {
+                            Label("Add Field", systemImage: "plus.circle.fill")
+                        }
                     }
                 } header: {
-                    Text("Custom Fields")
+                    HStack {
+                        Text("Custom Fields")
+                        Spacer()
+                        // Reordering is a mode rather than the list's resting state: edit
+                        // mode suppresses the swipe actions the rows rely on, so drag
+                        // handles are shown only while the user is actually reordering.
+                        // Stays visible while reordering even if the list drops to a
+                        // single field, so there is always a way back out of the mode.
+                        if fieldDefinitions.count > 1 || isReorderingFields {
+                            Button(isReorderingFields ? "Done" : "Reorder") {
+                                withAnimation { isReorderingFields.toggle() }
+                            }
+                            .font(.caption)
+                            .textCase(nil)
+                        }
+                    }
                 } footer: {
                     if hasDuplicateFieldNames {
                         Text("Field names must be unique.")
                             .foregroundStyle(.red)
-                    } else {
+                    } else if isReorderingFields {
                         Text("Drag fields to reorder. The first field is used as each item's display name.")
+                    } else {
+                        Text("Tap a field to edit it, or swipe it for more. The first field is used as each item's display name.")
                     }
                 }
 
@@ -116,7 +142,7 @@ struct AddEditCatalogueView: View {
                 CatalogueOptionsSection(fields: $fieldDefinitions, showAllTab: $showAllTab)
             }
 #if os(iOS)
-            .environment(\.editMode, .constant(.active))
+            .environment(\.editMode, .constant(isReorderingFields ? .active : .inactive))
 #endif
             .navigationTitle(isEditing ? "Edit Catalogue" : "New Catalogue")
 #if os(iOS)
@@ -455,6 +481,13 @@ struct AddEditCatalogueView: View {
     /// against itself when its name is left alone.
     private func otherFieldNames(excluding id: UUID) -> [String] {
         fieldDefinitions.filter { $0.id != id }.map(\.name)
+    }
+
+    /// Swipe-to-delete entry point. Routed through the same offset-based path as the
+    /// list's own delete, so a field holding data still gets its confirmation.
+    private func deleteField(withID id: UUID) {
+        guard let index = fieldDefinitions.firstIndex(where: { $0.id == id }) else { return }
+        deleteField(at: IndexSet(integer: index))
     }
 
     private func deleteField(at offsets: IndexSet) {

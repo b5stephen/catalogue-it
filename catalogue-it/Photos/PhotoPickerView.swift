@@ -49,7 +49,9 @@ struct PhotoPickerView: View {
                         offsets.forEach { deletePhoto(id: photos[$0].id) }
                     }
                 }
+#if os(iOS)
                 .environment(\.editMode, .constant(.active))
+#endif
                 .frame(height: CGFloat(photos.count) * PhotoListRow.rowHeight + 4)
                 .scrollDisabled(true)
                 .listStyle(.plain)

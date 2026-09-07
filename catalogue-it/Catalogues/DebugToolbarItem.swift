@@ -11,7 +11,7 @@ struct DebugToolbarItem: ToolbarContent {
     var onRecalculateSortKeys: () -> Void
 
     var body: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
+        ToolbarItem(placement: .primaryAction) {
             Menu {
                 Button("Load Test Data", systemImage: "hammer") {
                     onLoadTestData()

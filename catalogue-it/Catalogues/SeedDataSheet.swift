@@ -53,7 +53,9 @@ struct SeedDataSheet: View {
                 }
             }
             .navigationTitle("Load Test Data")
+#if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+#endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

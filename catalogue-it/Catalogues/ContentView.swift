@@ -156,11 +156,6 @@ struct ContentView: View {
         .navigationSplitViewColumnWidth(min: 180, ideal: 220)
 #endif
         .toolbar {
-            if case .syncing = CloudKitSyncMonitor.shared.status {
-                ToolbarItem(placement: .topBarLeading) {
-                    ProgressView().controlSize(.small)
-                }
-            }
 #if DEBUG
             DebugToolbarItem(
                 onLoadTestData: { showingSeedSheet = true },

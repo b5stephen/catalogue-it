@@ -37,6 +37,7 @@ struct catalogue_itApp: App {
     init() {
         ThumbnailLoader.container = sharedModelContainer
         BackgroundDeletionActor.container = sharedModelContainer
+        SyncDiagnostics.load()
         RemoteChangeObserver.start(container: sharedModelContainer)
         CloudKitSyncMonitor.shared.start(container: sharedModelContainer)
     }

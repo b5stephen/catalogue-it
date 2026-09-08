@@ -113,3 +113,39 @@ land. Two behaviours worth preserving:
 
 Schema versions are pinned in `Models/SchemaVersions.swift`; add a version and a migration stage
 there for any post-release model change.
+
+### Deploying the CloudKit schema — required before every TestFlight/App Store build
+
+TestFlight and App Store builds talk to the **Production** CloudKit environment, which never
+creates record types or fields on its own. Development does — but only for fields it has
+actually seen exported, and a `CKRecord` carries no entry for a nil value. A field nobody
+happened to populate while testing is therefore missing from *both* environments, so comparing
+Development against Production shows no diff while Production is still behind the model. The
+comparison that matters is model vs Production.
+
+So, whenever a model property is added, removed or retyped:
+
+1. Debug build (Simulator signed into iCloud) → hammer menu → **Validate CloudKit Schema**.
+   Dry run; prints the complete record-type and field listing to the Xcode console.
+2. Same menu → **Push CloudKit Schema (Dev)**. This runs `initializeCloudKitSchema`, which
+   covers every entity and attribute from the model rather than from what got typed in.
+3. CloudKit Console → Schema → **Deploy Schema Changes** to push Development to Production.
+   Additive-only, so it cannot break existing production data.
+
+Skipping this produces `BAD_REQUEST` in the CloudKit Console logs and, on the client, a
+`partialFailure` — the bare `CKErrorDomain error 2` that started this. `CloudKitSchemaInitializer`
+(DEBUG only) holds the details.
+
+### Reporting sync failures from the field
+
+`CKError.partialFailure` (code 2) is a container, not a cause — the per-record errors are in
+`userInfo[CKPartialErrorsByItemIDKey]`. `SyncDiagnostics` unwraps them, buckets them by
+(code, record type), scrapes the `CD_…` field names out of the server messages, and keeps a
+rolling record that survives a relaunch. `SyncDiagnosticsView` renders it for screenshotting,
+because a screenshot is the only payload TestFlight feedback carries — there is no API to
+attach anything else. Two rules for anything added there:
+
+- Log at `.notice` or above with `privacy: .public`. `.debug` entries are memory-only and can
+  never be recovered from a tester's device, and interpolations are redacted by default.
+- Record every failure, including ones deliberately kept out of the UI. Staying quiet about a
+  self-resolving error is a separate decision from discarding the evidence.

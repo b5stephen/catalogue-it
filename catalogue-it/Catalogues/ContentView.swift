@@ -17,6 +17,7 @@ struct ContentView: View {
     private var catalogues: [Catalogue]
     @State private var showingAddCatalogue = false
     @State private var showingImporter = false
+    @State private var showingSyncDiagnostics = false
     @State private var importErrorMessage: String?
     @State private var importProgress: (current: Int, total: Int)?
     @State private var selectedCatalogue: Catalogue?
@@ -25,6 +26,8 @@ struct ContentView: View {
     @State private var catalogueToDelete: Catalogue?
 #if DEBUG
     @State private var showingSeedSheet = false
+    @State private var showingSchemaResult = false
+    @State private var schemaResult = ""
     @State private var sortKeyRecalcProgress: (current: Int, total: Int)?
 #endif
 
@@ -159,8 +162,23 @@ struct ContentView: View {
 #if DEBUG
             DebugToolbarItem(
                 onLoadTestData: { showingSeedSheet = true },
-                onRecalculateSortKeys: { recalculateAllSortKeys() }
+                onRecalculateSortKeys: { recalculateAllSortKeys() },
+                onValidateCloudKitSchema: { runSchemaInitializer(dryRun: true) },
+                onInitializeCloudKitSchema: { runSchemaInitializer(dryRun: false) },
+                onShowSyncDiagnostics: { showingSyncDiagnostics = true }
             )
+#else
+            // TestFlight gets its own toolbar button, since the hammer menu that holds this in
+            // DEBUG builds doesn't exist here — and a silent failure shows no status bar, so
+            // the sheet needs a way in that doesn't depend on one being on screen. Release
+            // builds from the App Store show nothing.
+            if BuildEnvironment.isBeta {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Sync Diagnostics", systemImage: "stethoscope") {
+                        showingSyncDiagnostics = true
+                    }
+                }
+            }
 #endif
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Import Catalogue", systemImage: "square.and.arrow.down") {
@@ -176,6 +194,9 @@ struct ContentView: View {
         .sheet(isPresented: $showingAddCatalogue) {
             AddEditCatalogueView(nextPriority: catalogues.count)
         }
+        .sheet(isPresented: $showingSyncDiagnostics) {
+            SyncDiagnosticsView()
+        }
         .sheet(item: $catalogueToEdit) { catalogue in
             AddEditCatalogueView(catalogue: catalogue, nextPriority: catalogues.count)
         }
@@ -187,6 +208,11 @@ struct ContentView: View {
             handleImport(result: result)
         }
 #if DEBUG
+        .alert("CloudKit Schema", isPresented: $showingSchemaResult) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(schemaResult)
+        }
         .sheet(isPresented: $showingSeedSheet) {
             SeedDataSheet { itemCount, includesPhotos, catalogueName in
                 seedTestData(itemCount: itemCount, includesPhotos: includesPhotos, catalogueName: catalogueName)
@@ -277,6 +303,23 @@ struct ContentView: View {
                 completedBefore += catalogue.items.count { $0.deletedDate == nil }
             }
             sortKeyRecalcProgress = nil
+        }
+    }
+
+    /// Pushes the full CloudKit schema to the Development environment, or with `dryRun` just
+    /// validates it and prints it to the console. See `CloudKitSchemaInitializer` for why the
+    /// schema does not create itself correctly from ordinary use of the app.
+    ///
+    /// Detached: `initializeCloudKitSchema` is synchronous and talks to the network, so running
+    /// it on the main actor would freeze the UI for its duration.
+    private func runSchemaInitializer(dryRun: Bool) {
+        Task {
+            let result = await Task.detached {
+                do { return try await CloudKitSchemaInitializer.run(dryRun: dryRun) }
+                catch { return "Failed: \(error.localizedDescription)" }
+            }.value
+            schemaResult = result
+            showingSchemaResult = true
         }
     }
 #endif

@@ -25,12 +25,13 @@ private struct SyncStatusBarModifier: ViewModifier {
                 SyncStatusBar(status: status) { showingError = true }
                     .animation(.default, value: status)
             }
-            .alert("iCloud Sync Problem", isPresented: $showingError) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                if case .failed(let message) = status {
-                    Text(message)
-                }
+            .sheet(isPresented: $showingError) {
+                // A sheet rather than an alert: an alert can only carry the one-line message,
+                // and the per-record detail behind it is the whole reason this exists.
+                SyncDiagnosticsView(headline: {
+                    if case .failed(let message) = status { return message }
+                    return nil
+                }())
             }
     }
 }

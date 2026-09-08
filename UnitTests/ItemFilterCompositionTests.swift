@@ -32,7 +32,7 @@ struct ItemFilterCompositionTests {
     private func makeFixture() throws -> Fixture {
         let container = try ModelContainer(
             for: Catalogue.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         )
         let ctx = container.mainContext
 
@@ -230,7 +230,7 @@ struct ItemFilterCompositionTests {
     func booleanBackedStatusFilters() throws {
         let container = try ModelContainer(
             for: Catalogue.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         )
         let ctx = container.mainContext
         let catalogue = Catalogue(name: "Films")

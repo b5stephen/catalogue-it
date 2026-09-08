@@ -19,7 +19,6 @@ All code files must be placed in the catalogue-it subfolder. Never place files i
 ```
 catalogue-it/
 ├── catalogue_itApp.swift          # App entry point, SwiftData ModelContainer setup
-├── DEVELOPMENT_PLAN.md            # Phased feature roadmap
 ├── Localizable.xcstrings          # Localization strings
 ├── Assets.xcassets/               # App resources (icons, colors)
 ├── Catalogues/                    # Catalogue list and detail views
@@ -29,7 +28,7 @@ catalogue-it/
 ├── Photos/                        # Photo management views
 ├── Types/                         # Supporting enums and value types
 └── Utilities/                     # Shared helpers and extensions
-UITest/                            # All UI Tests live here
+UITests/                           # All UI Tests live here
 UnitTests/                         # All Unit Tests live here
 catalogue-it.xcodeproj/            # Xcode project configuration
 ```
@@ -55,4 +54,62 @@ swiftc -typecheck catalogue-it/*.swift
 
 ## iCloud Sync
 
-Configured in `catalogue_itApp.swift` via `ModelConfiguration(isStoredInMemoryOnly: false)`. SwiftData handles conflict resolution automatically.
+Backed by CloudKit through SwiftData's built-in mirroring.
+
+- The capability lives in `catalogue-it/catalogue-it.entitlements` (container
+  `iCloud.dev.etched.catalogue-it`), wired up via `CODE_SIGN_ENTITLEMENTS`. `catalogue_itApp.swift`
+  passes `cloudKitDatabase: .automatic`, which adopts the container named there — the container id
+  is deliberately not repeated in Swift. UI-test runs pass `.none`, since CloudKit and an
+  in-memory store are not a valid combination.
+- `UIBackgroundModes = remote-notification` lets the store receive pushed changes. It lives in
+  `Config/Info.plist` (merged with the keys Xcode generates from `INFOPLIST_KEY_*`), because the
+  generator silently ignores `INFOPLIST_KEY_UIBackgroundModes` — the setting is read but never
+  reaches the built plist. The file sits outside `catalogue-it/` so the file-system-synchronized
+  group doesn't also copy it in as a resource.
+- SwiftData handles conflict resolution automatically (last writer wins, per property).
+
+### Model constraints — breaking these breaks sync *and* local data
+
+- Every non-optional property must have a default value.
+- Every relationship must be optional, **including to-many**. `[Foo] = []` is rejected at
+  container load. The persisted properties are therefore `storedItems`, `storedFieldDefinitions`,
+  `storedFieldValues` and `storedPhotos`; extensions expose the non-optional `items`,
+  `fieldDefinitions`, `fieldValues` and `photos` the rest of the app uses. Those accessors must
+  stay in extensions — the `@Model` macro rewrites every `var` in a class body into a persisted
+  accessor, computed properties included, which crashes at runtime on first access.
+- Never use `@Attribute(.unique)` or `#Unique`.
+- `#Index`, `@Attribute(.externalStorage)` (maps to CKAsset) and `Codable` enums with associated
+  values are all fine.
+- Key paths handed to SwiftData — `#Predicate`, `relationshipKeyPathsForPrefetching`,
+  `propertiesToFetch` — must name the persisted `stored…` property, not the accessor. And
+  `contains(where:)` over an optional to-many cannot be expressed in `#Predicate` at all; query
+  from the child side instead (see `ItemPaginationController.customSortMatchingCount`).
+
+### Reacting to synced-in changes
+
+Local writes keep derived state in step; a change merged from another device does not.
+`RemoteChangeObserver` observes `NSPersistentStoreRemoteChange` (debounced) and rebuilds what
+sync bypasses: facet mirrors for catalogues whose field configuration changed, the thumbnail
+caches, and the pending-deletion sweep. Add to it whenever new derived state is introduced.
+
+### Sync status UI
+
+`CloudKitSyncMonitor` reads `NSPersistentCloudKitContainer.eventChangedNotification` (again with
+`object: nil`, since SwiftData doesn't expose the container). Events carry only a type, start/end
+dates, a success flag and an error — **no record counts and no percentage**, so progress is
+necessarily indeterminate; the item count in `SyncStatusBar` is counted from our own store as rows
+land. Two behaviours worth preserving:
+
+- Signed out of iCloud, CloudKit posts an import event that *starts and never finishes*. The
+  monitor gates on `CKContainer.default().accountStatus()` so the indicator doesn't sit on
+  "Syncing…" forever for anyone not using iCloud.
+- Both directions are shown: `.import`/`.setup` as "Syncing from iCloud · N items", `.export`
+  as "Syncing to iCloud" with no count (the local total says nothing about what is still queued).
+- The bar lives on the catalogue list only. An inset on the `NavigationSplitView` doesn't reach
+  columns pushed onto their own stack in compact width, and on the item screen iOS 26 renders
+  `.searchable` as a bottom bar occupying the same edge.
+- Not-signed-in, network and throttling errors are deliberately **not** surfaced — they are either
+  the user's choice or self-resolving. Only actionable failures (quota, schema) reach the UI.
+
+Schema versions are pinned in `Models/SchemaVersions.swift`; add a version and a migration stage
+there for any post-release model change.

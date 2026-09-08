@@ -43,6 +43,17 @@ enum ThumbnailLoader {
         return caches.appendingPathComponent("thumbnails/\(filename).jpg")
     }
 
+    /// Removes the whole on-disk thumbnail cache.
+    ///
+    /// Cache entries are keyed by `PersistentIdentifier`, which is stable across a remote
+    /// edit — so a photo replaced on another device cannot be spotted by key alone. Thumbnails
+    /// are always regenerable from the source photos, and regeneration is lazy and per-row, so
+    /// dropping the lot is cheaper than it looks.
+    nonisolated static func clearDiskCache() {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.removeItem(at: caches.appendingPathComponent("thumbnails"))
+    }
+
     /// Writes thumbnail data to the filesystem cache, creating the directory if needed.
     nonisolated static func writeThumbnailToCache(_ data: Data, for itemID: PersistentIdentifier) {
         guard let fileURL = thumbnailCacheURL(for: itemID) else { return }

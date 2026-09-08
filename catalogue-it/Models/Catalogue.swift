@@ -14,11 +14,13 @@ import SwiftData
 /// Represents a collection (e.g., "Model Planes", "Stamp Collection")
 @Model
 final class Catalogue {
-    var name: String
-    var createdDate: Date
-    var iconName: String // SF Symbol name
-    var colorHex: String // Stored as hex string
-    var priority: Int
+    // Every stored property below carries a default value: CloudKit rejects
+    // non-optional attributes that have none, and the container fails to build.
+    var name: String = ""
+    var createdDate: Date = Date.now
+    var iconName: String = "square.grid.2x2" // SF Symbol name
+    var colorHex: String = "#007AFF" // Stored as hex string
+    var priority: Int = 0
 
     var sortFieldKey: String = ItemSortField.dateAdded.rawValue
     var sortDirection: String = ItemSortDirection.ascending.rawValue
@@ -39,11 +41,15 @@ final class Catalogue {
     var gridCardSize_mac: Double = Double(AppConstants.GridCardSize.defaultSize)
     var gridCardSize_ios: Double = Double(AppConstants.GridCardSize.defaultSize)
 
+    // CloudKit requires every relationship to be optional, so the persisted properties are
+    // optional arrays and the app reads them through the non-optional accessors below.
+    // Nothing outside this file should touch the `stored…` properties, except a
+    // `relationshipKeyPathsForPrefetching` key path, which must name the persisted property.
     @Relationship(deleteRule: .cascade, inverse: \FieldDefinition.catalogue)
-    var fieldDefinitions: [FieldDefinition] = []
+    var storedFieldDefinitions: [FieldDefinition]? = []
 
     @Relationship(deleteRule: .cascade, inverse: \CatalogueItem.catalogue)
-    var items: [CatalogueItem] = []
+    var storedItems: [CatalogueItem]? = []
 
     init(name: String, iconName: String = "square.grid.2x2", colorHex: String = "#007AFF", priority: Int = 0) {
         self.name = name
@@ -93,5 +99,26 @@ extension Catalogue {
             gridCardSize_ios = newValue
 #endif
         }
+    }
+}
+
+// MARK: - Relationship Accessors
+
+/// The `stored…` relationships are optional because CloudKit requires it. These accessors give
+/// the rest of the app the non-optional collections it has always used.
+///
+/// They live in an extension deliberately: the `@Model` macro rewrites *every* `var` in the
+/// class body into a persisted accessor, computed properties included, and the result is a
+/// runtime crash on first access ("Couldn't find \\CatalogueItem.fieldValues"). The macro does
+/// not touch extensions.
+extension Catalogue {
+    var fieldDefinitions: [FieldDefinition] {
+        get { storedFieldDefinitions ?? [] }
+        set { storedFieldDefinitions = newValue }
+    }
+
+    var items: [CatalogueItem] {
+        get { storedItems ?? [] }
+        set { storedItems = newValue }
     }
 }

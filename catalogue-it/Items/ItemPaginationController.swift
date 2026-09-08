@@ -288,26 +288,43 @@ final class ItemPaginationController {
         }
     }
 
-    /// Custom-sort counterpart to `matchingCount` — same flag handling, but over the
-    /// predicate that also requires a FieldValue for the sort field.
+    /// Custom-sort counterpart to `matchingCount`.
+    ///
+    /// Counted from the FieldValue side rather than through a `CatalogueItem` predicate that
+    /// tests the relationship. Now that the relationship is optional (CloudKit requires it),
+    /// `contains(where:)` over it cannot be expressed in `#Predicate` at all — the composed
+    /// expression does not conform to `StandardPredicateExpression`. Counting the FieldValues
+    /// for the sort field is equivalent: `loadMoreCustomSort` surfaces exactly one item per
+    /// such FieldValue, which is the population this count exists to describe.
+    ///
+    /// `makeFieldValuePredicate` already applies the sort field, soft-delete and status-tab
+    /// filters in the DB (the field belongs to one catalogue, so the catalogue filter is
+    /// implied). Search and flags stay in memory, matching `loadMoreCustomSort` — and when
+    /// neither is active this remains a plain `fetchCount`, as before.
     private func customSortMatchingCount(
         fingerprint: FilterFingerprint,
         fieldDefID: PersistentIdentifier,
         context: ModelContext,
         ignoreSearch: Bool = false
     ) throws -> Int {
-        let predicate = makeCustomSortTotalCountPredicate(
-            fingerprint: fingerprint,
-            fieldDefID: fieldDefID,
-            ignoreSearch: ignoreSearch
-        )
+        let predicate = makeFieldValuePredicate(fieldDefID: fieldDefID, statusTab: fingerprint.statusTab)
         let tokens = fingerprint.flagTokens
-        guard !tokens.isEmpty else {
-            return try context.fetchCount(FetchDescriptor<CatalogueItem>(predicate: predicate))
+        let query = (ignoreSearch || fingerprint.searchText.isEmpty)
+            ? nil
+            : fingerprint.searchText.lowercased()
+
+        guard query != nil || !tokens.isEmpty else {
+            return try context.fetchCount(FetchDescriptor<FieldValue>(predicate: predicate))
         }
-        var descriptor = FetchDescriptor<CatalogueItem>(predicate: predicate)
-        descriptor.propertiesToFetch = [\.flagKeys]
-        return try context.fetch(descriptor).count { matchesFlags($0, tokens: tokens) }
+
+        var descriptor = FetchDescriptor<FieldValue>(predicate: predicate)
+        descriptor.relationshipKeyPathsForPrefetching = [\.item]
+        return try context.fetch(descriptor).count { fv in
+            guard let item = fv.item else { return false }
+            if let query, !item.searchText.contains(query) { return false }
+            if !tokens.isEmpty, !matchesFlags(item, tokens: tokens) { return false }
+            return true
+        }
     }
 
     private func loadMoreCustomSort(fingerprint: FilterFingerprint, context: ModelContext) throws {
@@ -393,7 +410,7 @@ final class ItemPaginationController {
             descriptor.fetchOffset = dateAddedOffset
             // Prefetch fieldValues for this page: all fetched items will render soon
             // (user is at or near the top on first page, near bottom on subsequent pages).
-            descriptor.relationshipKeyPathsForPrefetching = [\.fieldValues]
+            descriptor.relationshipKeyPathsForPrefetching = [\.storedFieldValues]
 
             let page = try context.fetch(descriptor)
             dateAddedOffset += page.count
@@ -462,28 +479,6 @@ final class ItemPaginationController {
                 && item.deletedDate == nil
                 && (!hasStatus || item.statusValue == status)
                 && (!hasSearch || item.searchText.contains(lowercasedQuery))
-        }
-    }
-
-    /// Builds the CatalogueItem predicate used for the custom-sort `totalCount`/`hasAnyItems`.
-    /// Same catalogue/tab/search filter as `makePredicate`, plus a check that the item has
-    /// a FieldValue for `fieldDefID` — matching exactly what loadMoreCustomSort can surface.
-    private func makeCustomSortTotalCountPredicate(fingerprint: FilterFingerprint, fieldDefID: PersistentIdentifier, ignoreSearch: Bool = false) -> Predicate<CatalogueItem> {
-        let targetID = fingerprint.catalogueID
-
-        let statusFilter = fingerprint.statusTab.storedValue
-        let hasStatus = statusFilter != nil
-        let status = statusFilter ?? ""
-
-        let hasSearch = !fingerprint.searchText.isEmpty && !ignoreSearch
-        let lowercasedQuery = fingerprint.searchText.lowercased()
-
-        return #Predicate<CatalogueItem> { item in
-            item.catalogue?.persistentModelID == targetID
-                && item.deletedDate == nil
-                && (!hasStatus || item.statusValue == status)
-                && (!hasSearch || item.searchText.contains(lowercasedQuery))
-                && item.fieldValues.contains(where: { $0.fieldDefinition.flatMap { $0.persistentModelID == fieldDefID } ?? false })
         }
     }
 

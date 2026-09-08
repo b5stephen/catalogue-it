@@ -130,19 +130,37 @@ struct ContentView: View {
             .onMove(perform: moveCatalogues)
         }
         .navigationTitle("My Catalogues")
+        .cloudSyncStatusBar()
         .overlay {
             if catalogues.isEmpty {
-                ContentUnavailableView(
-                    "No Catalogues",
-                    systemImage: "square.grid.2x2",
-                    description: Text("Create your first catalogue to start organizing your collections")
-                )
+                // While the first import is still running, "No Catalogues" is actively
+                // misleading — it's the moment a user is most likely to conclude sync is
+                // broken, or start recreating catalogues they already have.
+                if case .syncing = CloudKitSyncMonitor.shared.status {
+                    ContentUnavailableView {
+                        Label("Syncing from iCloud", systemImage: "icloud.and.arrow.down")
+                    } description: {
+                        Text("Your catalogues will appear here in a moment.")
+                    }
+                } else {
+                    ContentUnavailableView(
+                        "No Catalogues",
+                        systemImage: "square.grid.2x2",
+                        description: Text("Create your first catalogue to start organizing your collections")
+                    )
+                }
             }
         }
+
 #if os(macOS)
         .navigationSplitViewColumnWidth(min: 180, ideal: 220)
 #endif
         .toolbar {
+            if case .syncing = CloudKitSyncMonitor.shared.status {
+                ToolbarItem(placement: .topBarLeading) {
+                    ProgressView().controlSize(.small)
+                }
+            }
 #if DEBUG
             DebugToolbarItem(
                 onLoadTestData: { showingSeedSheet = true },

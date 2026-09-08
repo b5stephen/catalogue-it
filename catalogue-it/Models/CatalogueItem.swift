@@ -30,7 +30,9 @@ final class CatalogueItem {
         [\.catalogue, \.deletedDate, \.statusValue, \.createdDate]
     )
 
-    var createdDate: Date
+    // Every stored property below carries a default value: CloudKit rejects
+    // non-optional attributes that have none, and the container fails to build.
+    var createdDate: Date = Date.now
     var notes: String? // Optional general notes field
     var deletedDate: Date? // nil = active; non-nil = soft deleted
 
@@ -55,11 +57,12 @@ final class CatalogueItem {
 
     var catalogue: Catalogue?
 
+    // Optional for CloudKit; read through the non-optional accessors below. See Catalogue.swift.
     @Relationship(deleteRule: .cascade, inverse: \FieldValue.item)
-    var fieldValues: [FieldValue] = []
+    var storedFieldValues: [FieldValue]? = []
 
     @Relationship(deleteRule: .cascade, inverse: \ItemPhoto.item)
-    var photos: [ItemPhoto] = []
+    var storedPhotos: [ItemPhoto]? = []
 
     init(notes: String? = nil) {
         self.createdDate = Date.now
@@ -71,5 +74,21 @@ final class CatalogueItem {
     /// Not predicate-backed — safe because item field counts are small.
     func value(for definition: FieldDefinition) -> FieldValue? {
         fieldValues.first { $0.fieldDefinition == definition }
+    }
+}
+
+// MARK: - Relationship Accessors
+
+/// Non-optional views onto the CloudKit-mandated optional relationships.
+/// Must stay in an extension — see the note in Catalogue.swift.
+extension CatalogueItem {
+    var fieldValues: [FieldValue] {
+        get { storedFieldValues ?? [] }
+        set { storedFieldValues = newValue }
+    }
+
+    var photos: [ItemPhoto] {
+        get { storedPhotos ?? [] }
+        set { storedPhotos = newValue }
     }
 }

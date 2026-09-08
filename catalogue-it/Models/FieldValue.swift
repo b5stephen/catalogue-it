@@ -19,8 +19,10 @@ final class FieldValue {
     // fetch FieldValues WHERE fieldDefinition = X ORDER BY sortKey, tiebreakKey.
     #Index<FieldValue>([\.fieldDefinition, \.sortKey, \.tiebreakKey])
 
+    // Every stored property below carries a default value: CloudKit rejects
+    // non-optional attributes that have none, and the container fails to build.
     var fieldDefinition: FieldDefinition?
-    var fieldType: FieldType
+    var fieldType: FieldType = FieldType.text
     var item: CatalogueItem?
 
     // Value storage — only one will be used based on fieldType

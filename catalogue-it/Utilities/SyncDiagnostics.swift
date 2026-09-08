@@ -60,6 +60,11 @@ nonisolated enum BuildEnvironment {
 
     /// TestFlight builds carry a `sandboxReceipt` rather than the App Store `receipt`.
     /// Debug builds count as beta so the screen is reachable while developing.
+    ///
+    /// `appStoreReceiptURL` is deprecated in favour of StoreKit's `AppTransaction.shared`,
+    /// which is `async throws` — and this is read synchronously while building a toolbar, for
+    /// a beta-only affordance where being wrong shows or hides one debug button. The
+    /// deprecation warning is accepted rather than restructuring the call site around it.
     static var isBeta: Bool {
         #if DEBUG
         return true

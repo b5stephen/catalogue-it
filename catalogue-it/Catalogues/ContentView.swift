@@ -164,13 +164,14 @@ struct ContentView: View {
                 onLoadTestData: { showingSeedSheet = true },
                 onRecalculateSortKeys: { recalculateAllSortKeys() },
                 onValidateCloudKitSchema: { runSchemaInitializer(dryRun: true) },
-                onInitializeCloudKitSchema: { runSchemaInitializer(dryRun: false) }
+                onInitializeCloudKitSchema: { runSchemaInitializer(dryRun: false) },
+                onShowSyncDiagnostics: { showingSyncDiagnostics = true }
             )
-#endif
-            // Beta-only, and deliberately not behind #if DEBUG: the failures worth reporting
-            // happen on TestFlight, where a DEBUG-gated affordance doesn't exist. Silent
-            // failures show no status bar at all, so the sheet needs a way in that doesn't
-            // depend on one being on screen.
+#else
+            // TestFlight gets its own toolbar button, since the hammer menu that holds this in
+            // DEBUG builds doesn't exist here — and a silent failure shows no status bar, so
+            // the sheet needs a way in that doesn't depend on one being on screen. Release
+            // builds from the App Store show nothing.
             if BuildEnvironment.isBeta {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Sync Diagnostics", systemImage: "stethoscope") {
@@ -178,6 +179,7 @@ struct ContentView: View {
                     }
                 }
             }
+#endif
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Import Catalogue", systemImage: "square.and.arrow.down") {
                     showingImporter = true

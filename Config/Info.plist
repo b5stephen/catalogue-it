@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Base plist merged with the keys Xcode generates from INFOPLIST_KEY_* build settings.
+	     UIBackgroundModes has to live here: the generator ignores
+	     INFOPLIST_KEY_UIBackgroundModes, and without the key CloudKit logs
+	     "BUG IN CLIENT OF CLOUDKIT: CloudKit push notifications require the
+	     'remote-notification' background mode" and never receives pushed changes. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+</dict>
+</plist>

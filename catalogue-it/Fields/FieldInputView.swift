@@ -36,7 +36,7 @@ struct FieldInputView: View {
 
 #Preview {
     // Previews require a model container since FieldValueDraft now holds a FieldDefinition
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let config = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
     let container = try! ModelContainer(for: FieldDefinition.self, configurations: config)
     let def = FieldDefinition(name: "Example", fieldType: .text)
     container.mainContext.insert(def)

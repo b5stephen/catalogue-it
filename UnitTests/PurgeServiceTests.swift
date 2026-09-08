@@ -19,7 +19,7 @@ struct PurgeServiceTests {
     private func makeContainer() throws -> ModelContainer {
         try ModelContainer(
             for: Catalogue.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         )
     }
 

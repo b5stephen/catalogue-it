@@ -13,18 +13,21 @@ import SwiftData
 /// Defines a custom field that exists in a catalogue (e.g., "Year" as a Number field)
 @Model
 final class FieldDefinition {
-    var fieldID: UUID // Stable identifier used for AppStorage-persisted sort preferences
-    var name: String
-    var fieldType: FieldType
-    var priority: Int // For ordering fields in the UI
+    // Every stored property below carries a default value: CloudKit rejects
+    // non-optional attributes that have none, and the container fails to build.
+    var fieldID: UUID = UUID() // Stable identifier used for AppStorage-persisted sort preferences
+    var name: String = ""
+    var fieldType: FieldType = FieldType.text
+    var priority: Int = 0 // For ordering fields in the UI
     var fieldOptions: FieldOptions? // Type-specific configuration; only set when the field type has options
     /// How this field is additionally surfaced in the item list (tab bar / filter toggle).
     /// `.none` for ordinary fields, which is every field unless the user opts in.
     // Fully-qualified default is required by the @Model macro — `.none` alone fails to compile.
     var displayRole: DisplayRole = DisplayRole.none
     var catalogue: Catalogue?
+    // Optional for CloudKit; read through the non-optional accessor below. See Catalogue.swift.
     @Relationship(deleteRule: .nullify, inverse: \FieldValue.fieldDefinition)
-    var fieldValues: [FieldValue] = []
+    var storedFieldValues: [FieldValue]? = []
 
     init(
         name: String,
@@ -106,5 +109,16 @@ extension FieldDefinition {
             trueLabel: (trueLabel?.isEmpty == false ? trueLabel! : String(localized: "Yes")),
             falseLabel: (falseLabel?.isEmpty == false ? falseLabel! : String(localized: "No"))
         )
+    }
+}
+
+// MARK: - Relationship Accessors
+
+/// Non-optional view onto the CloudKit-mandated optional relationship.
+/// Must stay in an extension — see the note in Catalogue.swift.
+extension FieldDefinition {
+    var fieldValues: [FieldValue] {
+        get { storedFieldValues ?? [] }
+        set { storedFieldValues = newValue }
     }
 }

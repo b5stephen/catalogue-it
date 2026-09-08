@@ -11,18 +11,24 @@ import SwiftData
 @main
 struct catalogue_itApp: App {
     let sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Catalogue.self,
-            FieldDefinition.self,
-            CatalogueItem.self,
-            FieldValue.self,
-            ItemPhoto.self,
-        ])
+        // Model list lives on the versioned schema so it stays in one place; see SchemaVersions.swift.
+        let schema = Schema(versionedSchema: CatalogueSchemaV1.self)
         let isUITesting = ProcessInfo.processInfo.arguments.contains("--ui-testing")
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: isUITesting)
+        // CloudKit is not a valid combination with an in-memory store, so UI-test runs opt out.
+        // Otherwise `.automatic` adopts the container named in catalogue-it.entitlements — the
+        // container id is deliberately not repeated here.
+        let modelConfiguration = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: isUITesting,
+            cloudKitDatabase: isUITesting ? .none : .automatic
+        )
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            return try ModelContainer(
+                for: schema,
+                migrationPlan: CatalogueMigrationPlan.self,
+                configurations: [modelConfiguration]
+            )
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
@@ -31,6 +37,8 @@ struct catalogue_itApp: App {
     init() {
         ThumbnailLoader.container = sharedModelContainer
         BackgroundDeletionActor.container = sharedModelContainer
+        RemoteChangeObserver.start(container: sharedModelContainer)
+        CloudKitSyncMonitor.shared.start(container: sharedModelContainer)
     }
 
     var body: some Scene {

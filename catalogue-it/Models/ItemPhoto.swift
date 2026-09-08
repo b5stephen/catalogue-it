@@ -13,9 +13,11 @@ import SwiftData
 /// A photo attached to an item
 @Model
 final class ItemPhoto {
-    @Attribute(.externalStorage) var imageData: Data
+    // Every stored property below carries a default value: CloudKit rejects
+    // non-optional attributes that have none, and the container fails to build.
+    @Attribute(.externalStorage) var imageData: Data = Data()
     @Attribute(.externalStorage) var thumbnailData: Data?
-    var priority: Int
+    var priority: Int = 0
     var caption: String?
 
     var item: CatalogueItem?

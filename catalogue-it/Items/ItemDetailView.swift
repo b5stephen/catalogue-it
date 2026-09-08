@@ -185,7 +185,7 @@ struct ItemDetailView: View {
 // MARK: - Preview
 
 #Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let config = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
     let container = try! ModelContainer(for: Catalogue.self, configurations: config)
 
     let catalogue = Catalogue(name: "Model Planes", iconName: "airplane", colorHex: "#007AFF")
@@ -230,7 +230,7 @@ struct ItemDetailView: View {
 
 #if os(iOS)
 #Preview("With Photo Caption") {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let config = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
     let container = try! ModelContainer(for: Catalogue.self, configurations: config)
 
     let catalogue = Catalogue(name: "Films", iconName: "film", colorHex: "#FF3B30")

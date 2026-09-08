@@ -31,4 +31,10 @@ actor ImageCache {
     func removeImage(for key: String) {
         cache.removeObject(forKey: key as NSString)
     }
+
+    /// Drops every cached image. Used when CloudKit merges changes from another device —
+    /// the entries are keyed by item, and a photo replaced remotely reuses the same key.
+    func removeAll() {
+        cache.removeAllObjects()
+    }
 }

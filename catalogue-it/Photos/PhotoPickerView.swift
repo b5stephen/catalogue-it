@@ -281,14 +281,16 @@ struct PhotoEditDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
+                // Delete leads and Done trails: the destructive action sits away
+                // from the thumb's resting position on the confirming side.
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-                ToolbarItem(placement: .destructiveAction) {
                     Button("Delete", role: .destructive) {
                         dismiss()
                         onDelete()
                     }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
                 }
             }
         }

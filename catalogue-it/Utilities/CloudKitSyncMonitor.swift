@@ -47,7 +47,19 @@ final class CloudKitSyncMonitor {
 
     private(set) var status: Status = .idle
 
-    private static let logger = Logger(subsystem: "catalogue-it", category: "CloudKitSyncMonitor")
+    // `nonisolated` throughout this group: the build defaults declarations to @MainActor
+    // (SWIFT_DEFAULT_ACTOR_ISOLATION), but the notification handler below runs on whatever
+    // thread CloudKit posted from, before it hops to the main actor to update `status`.
+    nonisolated private static let logger = Logger(subsystem: "catalogue-it", category: "CloudKitSyncMonitor")
+
+    nonisolated private static func eventTypeName(_ type: NSPersistentCloudKitContainer.EventType) -> String {
+        switch type {
+        case .setup: "setup"
+        case .import: "import"
+        case .export: "export"
+        @unknown default: "unknown(\(type.rawValue))"
+        }
+    }
 
     /// A large import arrives as a run of separate events rather than one long one, so the
     /// indicator is held briefly past the last one. Without this it strobes between batches.
@@ -103,8 +115,27 @@ final class CloudKitSyncMonitor {
             let failure = event.succeeded ? nil : event.error
             let message = Self.userFacingMessage(for: failure)
 
-            Self.logger.debug(
-                "CloudKit event: type=\(event.type.rawValue) finished=\(finished) succeeded=\(event.succeeded)")
+            // `.notice`, not `.debug`: debug-level entries live in a memory buffer and are
+            // never written to the persistent log store, so they cannot be recovered from a
+            // tester's device. Anything wanted back from TestFlight has to be notice or above,
+            // and interpolations have to be marked public or they are redacted as <private>.
+            Self.logger.notice("""
+                CloudKit event: type=\(Self.eventTypeName(event.type), privacy: .public) \
+                finished=\(finished, privacy: .public) succeeded=\(event.succeeded, privacy: .public)
+                """)
+
+            // Every failure is recorded, including the ones deliberately kept out of the UI
+            // below. Staying quiet in the status bar about a self-resolving network error is a
+            // separate decision from discarding the evidence.
+            if let failure {
+                SyncDiagnostics.record(
+                    SyncFailureReport(
+                        error: failure,
+                        eventType: Self.eventTypeName(event.type),
+                        userFacingMessage: message
+                    )
+                )
+            }
 
             Task { @MainActor in
                 Self.shared.handle(id: id, direction: direction, finished: finished, failure: message)
@@ -193,28 +224,66 @@ final class CloudKitSyncMonitor {
     ///
     /// Not being signed into iCloud is the important one: it is a deliberate choice, not a
     /// fault, and the app works fully without it. Nagging about it would be wrong.
-    private static func userFacingMessage(for error: Error?) -> String? {
+    ///
+    /// Classification runs over the *unwrapped* errors. `CKError.partialFailure` (code 2) is a
+    /// container whose own code matches nothing here, so before this it fell through to
+    /// `localizedDescription` and surfaced as "CKErrorDomain error 2" — including for the very
+    /// conditions the list below exists to keep quiet, since an export's quota, network and
+    /// throttling errors nearly always arrive wrapped.
+    nonisolated private static func userFacingMessage(for error: Error?) -> String? {
         guard let error else { return nil }
         let nsError = error as NSError
 
         // "Unable to initialize without an iCloud account (CKAccountStatusNoAccount)."
         if nsError.domain == NSCocoaErrorDomain && nsError.code == 134400 { return nil }
 
-        if let ckError = error as? CKError {
-            switch ckError.code {
-            case .notAuthenticated, .managedAccountRestricted:
-                return nil
-            case .quotaExceeded:
-                return String(localized: "Your iCloud storage is full, so new changes can't be uploaded.")
-            case .networkUnavailable, .networkFailure:
-                return nil  // Transient and self-evident; CloudKit retries.
-            case .requestRateLimited, .zoneBusy, .serviceUnavailable:
-                return nil  // CloudKit backs off and retries on its own.
-            default:
-                break
-            }
+        let codes = ckErrorCodes(in: error)
+        guard !codes.isEmpty else { return error.localizedDescription }
+
+        if codes.contains(.quotaExceeded) {
+            return String(localized: "Your iCloud storage is full, so new changes can't be uploaded.")
         }
 
+        // Permanent rejections: a record CloudKit will refuse no matter how often it retries,
+        // which is a stuck sync rather than a passing one. The user can't fix the cause, but
+        // they can report it — the diagnostics screen behind this message is the point.
+        // Ordered, not a Set: the code named in the message must be the same one on every
+        // launch, or two testers hitting one bug file two different reports.
+        let permanent: [CKError.Code] = [
+            .invalidArguments, .serverRejectedRequest, .limitExceeded,
+            .constraintViolation, .referenceViolation, .incompatibleVersion,
+        ]
+        if let stuck = permanent.first(where: codes.contains) {
+            return String(
+                localized: "Some changes were rejected by iCloud and won't upload (\(stuck.diagnosticName)). Tap for details you can send with beta feedback."
+            )
+        }
+
+        // Everything left is the user's own choice or self-resolving, so it stays silent.
+        let benign: Set<CKError.Code> = [
+            .notAuthenticated, .managedAccountRestricted,
+            .networkUnavailable, .networkFailure,
+            .requestRateLimited, .zoneBusy, .serviceUnavailable,
+            .serverResponseLost, .accountTemporarilyUnavailable,
+            .operationCancelled, .changeTokenExpired, .serverRecordChanged,
+        ]
+        if codes.allSatisfy(benign.contains) { return nil }
+
         return error.localizedDescription
+    }
+
+    /// Every CloudKit error code involved, the outer error's own plus each per-record error
+    /// hiding in `CKPartialErrorsByItemIDKey`.
+    nonisolated private static func ckErrorCodes(in error: Error) -> Set<CKError.Code> {
+        var codes: Set<CKError.Code> = []
+        if let ckError = error as? CKError { codes.insert(ckError.code) }
+
+        if let map = (error as NSError).userInfo[CKPartialErrorsByItemIDKey] as? [AnyHashable: Error] {
+            codes.remove(.partialFailure)
+            for inner in map.values {
+                codes.formUnion(ckErrorCodes(in: inner))
+            }
+        }
+        return codes
     }
 }

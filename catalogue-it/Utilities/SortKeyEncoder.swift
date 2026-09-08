@@ -105,6 +105,11 @@ extension SortKeyEncoder {
             parts.append(segment)
         }
         parts.append(iso8601.string(from: itemCreatedDate))
-        return parts.joined(separator: tiebreakSeparator)
+        let key = parts.joined(separator: tiebreakSeparator)
+        // Every *other* field's sortKey, stored on every FieldValue — quadratic in field count
+        // and unbounded in text length, against a 1 MB per-record CloudKit limit. Recorded for
+        // the same reason as searchText; threshold-gated, so the common path costs a compare.
+        SyncDiagnostics.noteFieldSize("FieldValue.tiebreakKey", key.utf8.count)
+        return key
     }
 }

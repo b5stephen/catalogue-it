@@ -5,6 +5,12 @@
 ## User settings
 xcuserdata/
 
+## Build output
+# Diverges from the Guitar Buddy template, which only covers SPM's .build/.
+# This project had 198 MB of Xcode build products committed.
+build/
+DerivedData/
+
 ## Obj-C/Swift specific
 *.hmap
 

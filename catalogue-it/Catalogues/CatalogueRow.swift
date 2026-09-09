@@ -10,18 +10,14 @@ import SwiftData
 
 // MARK: - Catalogue Row
 
+/// The compact catalogue row, used on macOS where the sidebar is only ~200pt wide and cards
+/// would be cramped. iOS and iPadOS use `CatalogueCardView` instead.
 struct CatalogueRow: View {
     @Environment(\.modelContext) private var modelContext
     let catalogue: Catalogue
 
-    /// Item count excluding soft-deleted items. Uses a DB fetchCount — no object
-    /// materialisation — backed by #Index([\.catalogue, \.deletedDate, \.createdDate]).
     private var itemCount: Int {
-        let id = catalogue.persistentModelID
-        let descriptor = FetchDescriptor<CatalogueItem>(
-            predicate: #Predicate { $0.catalogue?.persistentModelID == id && $0.deletedDate == nil }
-        )
-        return (try? modelContext.fetchCount(descriptor)) ?? 0
+        CatalogueSummary.itemCount(for: catalogue, in: modelContext)
     }
 
     var body: some View {

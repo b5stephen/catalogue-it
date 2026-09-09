@@ -132,6 +132,15 @@ struct ContentView: View {
             }
             .onMove(perform: moveCatalogues)
         }
+#if !os(macOS)
+        // Cards, not a tied-together list: a plain list plus clear row backgrounds hands the
+        // whole row rect to `CatalogueCardView`, while the list keeps swipe actions, drag
+        // reordering and selection. `listRowSpacing` (rather than vertical row insets) puts the
+        // gap *between* rows, so the swipe buttons stay flush with the card edges.
+        .listStyle(.plain)
+        .listRowSpacing(AppConstants.CatalogueCard.rowSpacing)
+        .contentMargins(.vertical, AppConstants.CatalogueCard.rowSpacing, for: .scrollContent)
+#endif
         .navigationTitle("My Catalogues")
         .cloudSyncStatusBar()
         .overlay {
@@ -224,8 +233,24 @@ struct ContentView: View {
     @ViewBuilder
     private func catalogueRow(_ catalogue: Catalogue) -> some View {
         NavigationLink(value: catalogue) {
+#if os(macOS)
             CatalogueRow(catalogue: catalogue)
+#else
+            CatalogueCardView(catalogue: catalogue, isSelected: selectedCatalogue == catalogue)
+#endif
         }
+#if !os(macOS)
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+        .listRowInsets(
+            EdgeInsets(
+                top: 0,
+                leading: AppConstants.CatalogueCard.horizontalInset,
+                bottom: 0,
+                trailing: AppConstants.CatalogueCard.horizontalInset
+            )
+        )
+#endif
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button {
                 catalogueToEdit = catalogue

@@ -23,9 +23,7 @@ struct CatalogueRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // Icon with color
-            Image(systemName: catalogue.iconName)
-                .font(.title2)
-                .foregroundStyle(catalogue.color)
+            CatalogueIconView(iconName: catalogue.iconName, color: catalogue.color, size: 22)
                 .frame(width: 40, height: 40)
                 .background(catalogue.color.opacity(0.15))
                 .clipShape(.rect(cornerRadius: 8))

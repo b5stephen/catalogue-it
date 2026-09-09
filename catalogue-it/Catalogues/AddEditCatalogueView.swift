@@ -75,9 +75,7 @@ struct AddEditCatalogueView: View {
                         HStack {
                             Text("Icon")
                             Spacer()
-                            Image(systemName: selectedIcon)
-                                .font(.title2)
-                                .foregroundStyle(selectedColor)
+                            CatalogueIconView(iconName: selectedIcon, color: selectedColor, size: 22)
                                 .frame(width: 32, height: 32)
                                 .background(selectedColor.opacity(0.15))
                                 .clipShape(.rect(cornerRadius: 6))

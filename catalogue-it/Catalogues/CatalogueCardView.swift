@@ -22,8 +22,9 @@ import SwiftData
 struct CatalogueCardView: View {
     @Environment(\.modelContext) private var modelContext
     let catalogue: Catalogue
-    /// Drives the selected appearance in regular width, where the split view keeps a
-    /// persistent selection. Always false in compact width, where nothing stays selected.
+    /// Drives the selected appearance. It only really shows in regular width, where the split
+    /// view keeps a catalogue selected alongside its items; in compact width the detail screen
+    /// covers the list anyway.
     var isSelected: Bool = false
 
     private var shape: RoundedRectangle {
@@ -87,9 +88,7 @@ struct CatalogueCardView: View {
     }
 
     private var iconTile: some View {
-        Image(systemName: catalogue.iconName)
-            .font(.title)
-            .foregroundStyle(catalogue.color)
+        CatalogueIconView(iconName: catalogue.iconName, color: catalogue.color, size: 28)
             .frame(
                 width: AppConstants.CatalogueCard.iconTile,
                 height: AppConstants.CatalogueCard.iconTile

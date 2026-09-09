@@ -33,8 +33,6 @@ nonisolated enum AppConstants {
         static let contentPadding: CGFloat = 14
         static let horizontalInset: CGFloat = 16
         static let rowSpacing: CGFloat = 12
-        /// A card has room for a short chip row before it wraps; populated statuses win the slots.
-        static let maxStatusChips: Int = 3
     }
     enum GridCardSize {
         static let min: CGFloat = 100

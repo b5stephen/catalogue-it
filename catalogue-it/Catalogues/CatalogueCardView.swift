@@ -35,13 +35,8 @@ struct CatalogueCardView: View {
         CatalogueSummary.itemCount(for: catalogue, in: modelContext)
     }
 
-    private var statusCounts: [CatalogueStatusCount] {
-        CatalogueSummary.statusCounts(for: catalogue, in: modelContext)
-    }
-
     var body: some View {
         let count = itemCount
-        let statuses = statusCounts
 
         HStack(spacing: 14) {
             iconTile
@@ -54,14 +49,6 @@ struct CatalogueCardView: View {
                 Text(count == 1 ? "1 item" : "\(count) items")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-
-                if !statuses.isEmpty {
-                    HStack(spacing: 6) {
-                        ForEach(statuses) { status in
-                            FieldChipView(text: "\(status.count) \(status.label)", tint: status.tint)
-                        }
-                    }
-                }
             }
 
             Spacer(minLength: 0)

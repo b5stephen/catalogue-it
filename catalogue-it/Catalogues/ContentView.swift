@@ -230,15 +230,20 @@ struct ContentView: View {
 #endif
     }
 
+    /// Navigation is driven by the list's selection rather than a `NavigationLink`: a link
+    /// draws a disclosure chevron that has nowhere sensible to sit on a card. The split view
+    /// pushes the catalogue's items from the selection alone, in compact width as well as
+    /// regular, so the `tag` below is what makes a row selectable.
     @ViewBuilder
     private func catalogueRow(_ catalogue: Catalogue) -> some View {
-        NavigationLink(value: catalogue) {
+        Group {
 #if os(macOS)
             CatalogueRow(catalogue: catalogue)
 #else
             CatalogueCardView(catalogue: catalogue, isSelected: selectedCatalogue == catalogue)
 #endif
         }
+        .tag(catalogue)
 #if !os(macOS)
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)

@@ -87,7 +87,12 @@ struct IconPickerView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 20) {
+                // A plain VStack, not a lazy one. The two tabs' categories share their names,
+                // so a LazyVStack reuses the rows it already built for those ids when the
+                // sections swap and never rebuilds their contents — the switch appears to do
+                // nothing. Both grids are a short curated list, so laziness bought nothing to
+                // begin with. `id(mode)` makes the swap a fresh identity rather than a reuse.
+                VStack(alignment: .leading, spacing: 20) {
                     if allowsEmoji {
                         Picker("Icon Style", selection: $mode) {
                             Text("Symbols").tag(IconMode.symbol)
@@ -97,11 +102,14 @@ struct IconPickerView: View {
                         .padding(.horizontal)
                     }
 
-                    if mode == .emoji {
-                        emojiSection
-                    } else {
-                        symbolSection
+                    Group {
+                        if mode == .emoji {
+                            emojiSection
+                        } else {
+                            symbolSection
+                        }
                     }
+                    .id(mode)
                 }
                 .padding(.vertical)
             }

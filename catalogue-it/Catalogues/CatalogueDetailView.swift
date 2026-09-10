@@ -20,6 +20,13 @@ struct CatalogueDetailView: View {
 #endif
 
     @State private var selectedTab: StatusTab = .all
+    /// The catalogue `selectedTab` was seeded for. `.task` is cancelled and re-run whenever
+    /// this view disappears and comes back — which includes pushing an item detail and
+    /// popping it again in compact width — so seeding unconditionally there would throw the
+    /// user's tab away every time they returned from an item. Seeding is therefore keyed on
+    /// the catalogue itself: a different catalogue gets its default tab, the same one keeps
+    /// whatever the user last chose.
+    @State private var seededCatalogueID: PersistentIdentifier?
     /// `fieldID`s of the flag filters the user has switched on. ANDed with each other
     /// and with the status tab.
     @State private var activeFlagIDs: Set<UUID> = []
@@ -79,15 +86,9 @@ struct CatalogueDetailView: View {
             // Tabs exist only when the catalogue defines a status field — a catalogue
             // without one gets its full width back rather than a one-tab picker.
             if !statusTabs.isEmpty {
-                Picker("Status", selection: $selectedTab) {
-                    ForEach(statusTabs) { descriptor in
-                        Label(descriptor.label, systemImage: descriptor.systemImage)
-                            .tag(descriptor.tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.vertical, 8)
+                StatusTabBar(tabs: statusTabs, selection: $selectedTab)
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
             }
 
 #if !os(macOS)
@@ -135,7 +136,10 @@ struct CatalogueDetailView: View {
             RecentlyDeletedView(catalogue: catalogue)
         }
         .task(id: catalogue.persistentModelID) {
-            selectedTab = catalogue.defaultStatusTab
+            if seededCatalogueID != catalogue.persistentModelID {
+                seededCatalogueID = catalogue.persistentModelID
+                selectedTab = catalogue.defaultStatusTab
+            }
             reconcileFilterSelections()
             PurgeService.purgeExpiredItems(for: catalogue, in: modelContext)
             // Refresh after purge — purging expired items may clear the deleted set.

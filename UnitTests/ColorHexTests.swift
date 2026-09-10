@@ -38,6 +38,33 @@ struct ColorHexTests {
         #expect(Color(hex: "FFFF0000").toHex() == "#FF0000")
     }
 
+    // MARK: - Colours that don't arrive as four RGBA components
+
+    /// The colour panel's Greyscale sliders (and `.white`/`.black`) hand back a two-component
+    /// monochrome colour. Reading channels positionally off `cgColor.components` trapped on
+    /// these; resolving to RGB first does not.
+    @Test("Greyscale colours convert instead of trapping", arguments: [
+        (0.0, "#000000"), (1.0, "#FFFFFF"), (0.5, "#808080")
+    ])
+    func greyscaleColours(white: Double, expected: String) {
+        #expect(Color(white: white).toHex() == expected)
+    }
+
+    /// A wide-gamut pick resolves to extended-sRGB components outside 0…1. Those are clamped to
+    /// the nearest displayable colour rather than formatted into a nonsense hex.
+    @Test("Wide-gamut colours clamp into the sRGB range")
+    func wideGamutClamping() {
+        let hex = Color(.displayP3, red: 1, green: 0, blue: 0).toHex()
+        #expect(hex == "#FF0000")
+    }
+
+    @Test("Semantic system colours produce a usable hex")
+    func semanticColour() {
+        let hex = Color.accentColor.toHex()
+        #expect(hex.count == 7)
+        #expect(hex.hasPrefix("#"))
+    }
+
     @Test("Invalid hex strings fall back to black")
     func invalidHexFallsBackToBlack() {
         #expect(Color(hex: "not a colour").toHex() == "#000000")

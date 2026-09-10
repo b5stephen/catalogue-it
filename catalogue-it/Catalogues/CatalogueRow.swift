@@ -14,6 +14,7 @@ import SwiftData
 /// would be cramped. iOS and iPadOS use `CatalogueCardView` instead.
 struct CatalogueRow: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     let catalogue: Catalogue
 
     private var itemCount: Int {
@@ -21,12 +22,15 @@ struct CatalogueRow: View {
     }
 
     var body: some View {
+        let palette = catalogue.palette(for: colorScheme)
+
         HStack(spacing: 12) {
-            // Icon with color
-            CatalogueIconView(iconName: catalogue.iconName, color: catalogue.color, size: 22)
+            // The same solid, appearance-normalised tile the cards use, so a catalogue looks
+            // like itself on either platform.
+            CatalogueIconView(iconName: catalogue.iconName, color: palette.iconGlyph, size: 22)
                 .frame(width: 40, height: 40)
-                .background(catalogue.color.opacity(0.15))
-                .clipShape(.rect(cornerRadius: 8))
+                .background(palette.iconFill)
+                .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.small))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {

@@ -36,17 +36,36 @@ extension Color {
     }
 
     /// Returns a hex string representation of this color (e.g. "#FF0000").
+    ///
+    /// Deliberately not read straight off `cgColor.components`: the component count depends on
+    /// the colour space, and a greyscale colour — which is what the macOS colour panel's Greyscale
+    /// sliders and a plain white or black pick produce — carries just two (white, alpha), so
+    /// indexing a blue channel out of it traps. Asking the platform colour to *resolve* itself
+    /// into RGB works regardless of the space it arrived in.
+    ///
+    /// Wide-gamut picks are clamped rather than rejected. A Display P3 colour resolves to
+    /// extended-sRGB components that can sit outside 0…1, which would otherwise format into
+    /// nonsense; clamping keeps the nearest displayable sRGB colour, which is what the card
+    /// palette can draw anyway.
     func toHex() -> String {
+        let fallback = "#007AFF"
+        let r: Double, g: Double, b: Double
 #if canImport(UIKit)
-        guard let components = UIColor(self).cgColor.components else { return "#007AFF" }
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        // Fails only for a pattern colour, which a ColorPicker can't produce.
+        guard UIColor(self).getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+            return fallback
+        }
+        (r, g, b) = (Double(red), Double(green), Double(blue))
 #elseif canImport(AppKit)
-        guard let components = NSColor(self).cgColor.components else { return "#007AFF" }
+        guard let rgb = NSColor(self).usingColorSpace(.sRGB) else { return fallback }
+        (r, g, b) = (Double(rgb.redComponent), Double(rgb.greenComponent), Double(rgb.blueComponent))
 #else
-        return "#007AFF"
+        return fallback
 #endif
-        let r = Int(components[0] * 255.0)
-        let g = Int(components[1] * 255.0)
-        let b = Int(components[2] * 255.0)
-        return String(format: "#%02X%02X%02X", r, g, b)
+        func channel(_ value: Double) -> Int {
+            Int((min(max(value, 0), 1) * 255).rounded())
+        }
+        return String(format: "#%02X%02X%02X", channel(r), channel(g), channel(b))
     }
 }

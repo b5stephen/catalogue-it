@@ -17,11 +17,13 @@ import SwiftData
 /// `listRowSpacing` for the gaps rather than vertical `listRowInsets` matters: insets would
 /// inflate the row rect and leave the swipe buttons standing taller than the card.
 ///
-/// Because the row background is clear, the system selection highlight no longer draws, so
-/// selection is carried by the card's own tint and border.
+/// Because the row background is clear, the system selection highlight no longer draws. The
+/// card can't signal selection by becoming coloured either — it already is — so selection is an
+/// inset ring in the card's own foreground colour, which reads on any fill.
 struct CatalogueCardView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     let catalogue: Catalogue
     /// Drives the selected appearance. It only really shows in regular width, where the split
     /// view keeps a catalogue selected alongside its items; in compact width the detail screen
@@ -38,7 +40,11 @@ struct CatalogueCardView: View {
 
     var body: some View {
         let count = itemCount
-        let palette = catalogue.palette(for: colorScheme, isSelected: isSelected)
+        let palette = catalogue.palette(
+            for: colorScheme,
+            isSelected: isSelected,
+            increasedContrast: colorSchemeContrast == .increased
+        )
 
         HStack(spacing: 14) {
             iconTile(palette)
@@ -46,37 +52,43 @@ struct CatalogueCardView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(catalogue.name)
                     .font(.headline)
+                    .foregroundStyle(palette.primaryText)
                     .lineLimit(2)
 
                 Text(count == 1 ? "1 item" : "\(count) items")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(palette.secondaryText)
             }
 
             Spacer(minLength: 0)
         }
         .padding(AppConstants.CatalogueCard.contentPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // A wash of the catalogue's colour over a neutral base, rather than a flat colour fill:
-        // the colour is the user's to pick, and a wash keeps the name legible against any of
-        // them. The strength of that wash comes from `CataloguePalette`, which normalises the
-        // pick per appearance — a single set of opacities left dark mode looking washed out.
+        // The accent is the card, as a duotone gradient — see `CataloguePalette`. The neutral
+        // base underneath still matters: the fill is opaque, but a near-grey catalogue leans on
+        // it, and it keeps the corners from showing through during the row's insert animation.
         .background {
             shape
                 .fill(.background.secondary)
-                .overlay { shape.fill(palette.wash) }
-                .overlay { shape.strokeBorder(palette.border, lineWidth: palette.borderWidth) }
+                .overlay { shape.fill(palette.fill) }
+                .overlay {
+                    // Inset so the ring sits *inside* the card rather than fattening its edge,
+                    // which would make a selected row look a different size from its neighbours.
+                    shape
+                        .inset(by: palette.isSelected ? 2 : 0)
+                        .strokeBorder(palette.border, lineWidth: palette.borderWidth)
+                }
                 .compositingGroup()
                 .shadow(color: palette.shadow, radius: palette.shadowRadius, y: 3)
         }
         .contentShape(shape)
         .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .accessibilityIdentifier("catalogue-\(catalogue.name)")
     }
 
-    /// The card's anchor of colour: a solid tile at full strength with a contrasting glyph,
-    /// rather than a faint tint behind a coloured symbol. It's small enough to be loud, and it
-    /// carries the catalogue's identity even where the wash has to stay restrained.
+    /// A translucent pane over the gradient rather than a colour of its own, so it reads
+    /// consistently wherever on the ramp it sits and doesn't compete with the fill.
     private func iconTile(_ palette: CataloguePalette) -> some View {
         CatalogueIconView(iconName: catalogue.iconName, color: palette.iconGlyph, size: 28)
             .frame(
@@ -84,7 +96,7 @@ struct CatalogueCardView: View {
                 height: AppConstants.CatalogueCard.iconTile
             )
             .background(
-                palette.iconFill,
+                palette.iconTint,
                 in: RoundedRectangle(cornerRadius: AppConstants.CornerRadius.medium, style: .continuous)
             )
             .accessibilityHidden(true)
@@ -142,16 +154,10 @@ private func previewCatalogues() -> (ModelContainer, [Catalogue]) {
     return (container, catalogues)
 }
 
-#Preview("Light") {
+// Xcode's preview variants cover light and dark from this one definition, so there is no
+// second scheme-pinned copy to keep in step.
+#Preview("Catalogue cards") {
     let (container, catalogues) = previewCatalogues()
     CatalogueCardGallery(catalogues: catalogues)
         .modelContainer(container)
-        .preferredColorScheme(.light)
-}
-
-#Preview("Dark") {
-    let (container, catalogues) = previewCatalogues()
-    CatalogueCardGallery(catalogues: catalogues)
-        .modelContainer(container)
-        .preferredColorScheme(.dark)
 }

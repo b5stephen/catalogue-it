@@ -16,102 +16,126 @@ extension Catalogue {
     var color: Color { Color(hex: colorHex) }
 
     /// The colours the catalogue cards draw with, normalised for the current appearance.
-    func palette(for scheme: ColorScheme, isSelected: Bool = false) -> CataloguePalette {
-        CataloguePalette(hex: colorHex, scheme: scheme, isSelected: isSelected)
+    func palette(
+        for scheme: ColorScheme,
+        isSelected: Bool = false,
+        increasedContrast: Bool = false
+    ) -> CataloguePalette {
+        CataloguePalette(
+            hex: colorHex,
+            scheme: scheme,
+            isSelected: isSelected,
+            increasedContrast: increasedContrast
+        )
     }
 }
 
 // MARK: - Catalogue Palette
 
-/// A catalogue's colour, resolved into the handful of shades a card actually draws.
+/// A catalogue's colour, resolved into the shades a card actually draws.
 ///
 /// The stored `colorHex` is appearance-independent — the user picks it once and it is the same
-/// sRGB value in light and dark. Washing that raw value over the card background at a low
-/// opacity is what made dark mode look so subdued: a navy or a maroon over a near-black base is
-/// barely distinguishable from an untinted card, and the difference between two such catalogues
-/// is smaller still.
+/// sRGB value in light and dark. Washing that raw value over a neutral card at a low opacity is
+/// what made dark mode look subdued: a navy or a maroon over a near-black base was barely
+/// distinguishable from an untinted card, and from the next catalogue along.
 ///
-/// So the pick is treated as a *hue* the user chose rather than a literal fill colour: hue is
-/// preserved exactly, while saturation and brightness are pulled into the band that reads well
-/// against the appearance in play. Greys stay grey (a colour with almost no saturation is left
-/// unsaturated) so a deliberately neutral catalogue isn't forced into a colour.
+/// So the accent *is* the card now, as a duotone gradient. The pick is treated as the hue the
+/// user chose rather than a literal fill: hue anchors the gradient, saturation and brightness
+/// are pulled into the band where a full-bleed fill still looks lit, and the two stops rotate
+/// slightly in opposite directions around that hue — a blue runs cyan to indigo, a maroon runs
+/// pink to rust. Greys keep their neutrality: a colour with almost no saturation gets no
+/// rotation at all, so a deliberately neutral catalogue isn't forced into a colour.
+///
+/// The constraint changes with the design. A wash had to stay light enough for label text; a
+/// solid fill instead has to stay *far enough from* it, so the foreground flips to near-black on
+/// bright picks rather than the fill being held back to suit white text.
 nonisolated struct CataloguePalette {
-    /// The normalised accent — the pick's hue at a saturation and brightness that reads.
+    /// The normalised accent, un-rotated — for anything that needs one representative colour.
     let tint: Color
-    /// Solid fill for the icon tile, and the glyph colour that contrasts with it.
-    let iconFill: LinearGradient
+    /// The card's fill.
+    let fill: LinearGradient
+    /// Label colours that clear the fill, whichever direction it went.
+    let primaryText: Color
+    let secondaryText: Color
+    /// The icon tile is translucent rather than a colour of its own, so it reads as a pane over
+    /// the gradient and keeps working wherever on the ramp it happens to sit.
+    let iconTint: Color
     let iconGlyph: Color
-    /// The wash laid over the card's neutral base.
-    let wash: LinearGradient
-    /// Card border.
+    /// Hairline at rest; the selection ring is inset and drawn in the foreground colour, since
+    /// a fully coloured card can no longer signal selection by *becoming* coloured.
     let border: Color
     let borderWidth: CGFloat
-    /// Only drawn in light appearance; a coloured shadow on a dark ground does nothing.
+    let isSelected: Bool
+    /// A coloured drop shadow — the cards now have enough colour to cast one in either
+    /// appearance, unlike the old wash.
     let shadow: Color
     let shadowRadius: CGFloat
 
-    init(hex: String, scheme: ColorScheme, isSelected: Bool) {
+    init(hex: String, scheme: ColorScheme, isSelected: Bool, increasedContrast: Bool = false) {
         let isDark = scheme == .dark
-        let base = HSB(hex: hex)
+        let base = HSBComponents(hex: hex)
+        self.isSelected = isSelected
 
-        // Near-neutral picks keep their neutrality; everything else is lifted into a band that
-        // stays clearly coloured without turning fluorescent.
-        let saturation: Double = base.saturation < 0.08
-            ? base.saturation
-            : min(max(base.saturation, isDark ? 0.58 : 0.48), isDark ? 0.92 : 1.0)
-        // Dark mode needs a bright tint to carry over a near-black card; light mode needs the
-        // opposite guard, so a pale yellow doesn't wash out against white.
-        let brightness = isDark
-            ? min(max(base.brightness, 0.76), 1.0)
-            : min(max(base.brightness, 0.58), 0.92)
+        // A bold card needs a strong colour more than it needs the exact pick, so saturation
+        // floors high; brightness lands in the band where a full-bleed fill still looks lit
+        // rather than muddy, a little deeper in dark appearance.
+        let isNeutral = base.saturation < 0.08
+        let saturation = isNeutral ? base.saturation : min(max(base.saturation, 0.72), 1.0)
+        let brightness = min(max(base.brightness, isDark ? 0.62 : 0.66), isDark ? 0.92 : 0.96)
 
         let accent = Color(hue: base.hue, saturation: saturation, brightness: brightness)
         tint = accent
 
-        // The icon tile is the card's anchor of colour: solid, at full strength, rather than a
-        // faint tint behind a coloured glyph. It's a small area, so it can afford to be loud.
-        iconFill = LinearGradient(
-            colors: [
-                Color(hue: base.hue, saturation: saturation * 0.88, brightness: min(brightness * 1.08, 1.0)),
-                Color(hue: base.hue, saturation: min(saturation * 1.05, 1.0), brightness: brightness * 0.82)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        // Perceptual luminance of the fill decides whether the glyph goes light or dark, so a
-        // yellow tile gets a dark symbol rather than an invisible white one.
-        let rgb = RGB(hue: base.hue, saturation: saturation, brightness: brightness)
+        let rgb = RGBComponents(hue: base.hue, saturation: saturation, brightness: brightness)
         let luminance = 0.2126 * rgb.red + 0.7152 * rgb.green + 0.0722 * rgb.blue
-        iconGlyph = luminance > 0.6
-            ? Color(hue: base.hue, saturation: min(saturation + 0.15, 1.0), brightness: 0.18)
-            : .white
+        // Which way the foreground goes. A saturated yellow and a navy cannot share one.
+        let wantsDarkText = luminance > 0.55
 
-        // Dark cards can take far more colour than light ones before the name stops being
-        // legible, which is the whole reason a single set of opacities looked flat in dark mode.
-        let top: Double
-        let bottom: Double
-        switch (isDark, isSelected) {
-        case (true, true):   (top, bottom) = (0.42, 0.20)
-        case (true, false):  (top, bottom) = (0.26, 0.11)
-        case (false, true):  (top, bottom) = (0.30, 0.14)
-        case (false, false): (top, bottom) = (0.21, 0.09)
-        }
-        // Hues are not equally visible at equal opacity: a blue or a purple over a dark card
-        // reads far weaker than a yellow does, and the reverse on a light one. Scaling by the
-        // accent's luminance is what stops the navy catalogue looking flat next to the red one.
-        let contrast = isDark ? 1 - luminance : luminance
-        let weight = 0.78 + contrast * 0.52
+        // How far the two stops rotate. Constant everywhere except the yellow-to-green band,
+        // where the eye reads a rotation as a *different colour* rather than as shading — an
+        // unscaled shift turned the pale yellow catalogue orange-to-olive.
+        let bandOffset = abs(base.hue - 0.22)
+        let bandDistance = min(bandOffset, 1 - bandOffset)
+        let shiftScale = min(max((bandDistance - 0.08) / 0.12, 0.3), 1)
+        // Neutral picks rotate not at all: a grey catalogue stays grey.
+        let shift = isNeutral ? 0 : 0.055 * shiftScale
 
-        wash = LinearGradient(
-            colors: [accent.opacity(top * weight), accent.opacity(bottom * weight)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
+        // The bright stop rotates warm, the deep stop cool — the direction that reads as light
+        // falling across the card rather than as two colours fighting.
+        let startHue = (base.hue - shift + 1).truncatingRemainder(dividingBy: 1)
+        let endHue = (base.hue + shift).truncatingRemainder(dividingBy: 1)
+        let start = Color(
+            hue: startHue,
+            saturation: max(saturation - 0.1, 0),
+            brightness: min(brightness + 0.12, 1)
         )
+        let end = Color(
+            hue: endHue,
+            saturation: min(saturation + 0.08, 1),
+            brightness: brightness * (increasedContrast ? 0.55 : 0.62)
+        )
+        fill = LinearGradient(colors: [start, end], startPoint: .topLeading, endPoint: .bottomTrailing)
 
-        border = accent.opacity(isSelected ? 0.9 : min((isDark ? 0.45 : 0.3) * weight, 1))
-        borderWidth = isSelected ? 2 : 1
-        shadow = isDark ? .clear : accent.opacity(isSelected ? 0.28 : 0.18)
-        shadowRadius = isDark ? 0 : 7
+        // At increased contrast the labels go pure, rather than the tinted near-black that
+        // otherwise keeps the card feeling like one colour.
+        if wantsDarkText {
+            primaryText = increasedContrast ? .black : Color(hue: base.hue, saturation: 0.9, brightness: 0.16)
+            secondaryText = (increasedContrast ? .black : Color(hue: base.hue, saturation: 0.8, brightness: 0.3))
+                .opacity(increasedContrast ? 0.9 : 0.75)
+        } else {
+            primaryText = .white
+            secondaryText = .white.opacity(increasedContrast ? 0.95 : 0.78)
+        }
+
+        iconTint = wantsDarkText ? .black.opacity(0.16) : .white.opacity(0.22)
+        iconGlyph = wantsDarkText ? Color(hue: base.hue, saturation: 0.95, brightness: 0.18) : .white
+
+        let contrastColor = wantsDarkText ? Color.black : Color.white
+        border = isSelected ? contrastColor.opacity(0.95) : contrastColor.opacity(isDark ? 0.16 : 0.22)
+        borderWidth = isSelected ? 2.5 : 1
+
+        shadow = accent.opacity(isSelected ? 0.5 : (isDark ? 0.35 : 0.3))
+        shadowRadius = isSelected ? 12 : 8
     }
 }
 
@@ -121,7 +145,7 @@ nonisolated struct CataloguePalette {
 ///
 /// Derived from the hex directly rather than by round-tripping through `UIColor`/`NSColor`, so
 /// this stays platform-free and usable outside the main actor.
-private nonisolated struct HSB {
+nonisolated struct HSBComponents {
     var hue: Double
     var saturation: Double
     var brightness: Double
@@ -171,8 +195,8 @@ private nonisolated struct HSB {
     }
 }
 
-/// The inverse of `HSB`, used to measure the luminance of a colour we built from components.
-private nonisolated struct RGB {
+/// The inverse of `HSBComponents`, used to measure the luminance of a colour we built from components.
+nonisolated struct RGBComponents {
     var red: Double
     var green: Double
     var blue: Double

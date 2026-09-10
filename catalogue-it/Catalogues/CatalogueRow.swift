@@ -25,11 +25,11 @@ struct CatalogueRow: View {
         let palette = catalogue.palette(for: colorScheme)
 
         HStack(spacing: 12) {
-            // The same solid, appearance-normalised tile the cards use, so a catalogue looks
-            // like itself on either platform.
+            // The card's duotone gradient, shrunk to a tile: the sidebar is too narrow for a
+            // full-colour row, but a catalogue should still look like itself on either platform.
             CatalogueIconView(iconName: catalogue.iconName, color: palette.iconGlyph, size: 22)
                 .frame(width: 40, height: 40)
-                .background(palette.iconFill)
+                .background(palette.fill)
                 .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.small))
                 .accessibilityHidden(true)
 

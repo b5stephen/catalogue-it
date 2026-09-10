@@ -141,7 +141,7 @@ struct ContentView: View {
         .listRowSpacing(AppConstants.CatalogueCard.rowSpacing)
         .contentMargins(.vertical, AppConstants.CatalogueCard.rowSpacing, for: .scrollContent)
 #endif
-        .navigationTitle("My Catalogues")
+        .navigationTitle("Catalogues")
         .cloudSyncStatusBar()
         .overlay {
             if catalogues.isEmpty {

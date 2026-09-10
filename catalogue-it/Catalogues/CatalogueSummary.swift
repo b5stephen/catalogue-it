@@ -8,7 +8,7 @@ import SwiftData
 
 // MARK: - Catalogue Summary
 
-/// The headline numbers shown on the My Catalogues screen.
+/// The headline numbers shown on the Catalogues screen.
 ///
 /// Counts here are `fetchCount` calls against indexed predicates — no `CatalogueItem` is ever
 /// materialised, which is what keeps the entry screen cheap for a 2000-item catalogue.

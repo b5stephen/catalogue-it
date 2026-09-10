@@ -10,7 +10,7 @@ import SwiftData
 
 // MARK: - Catalogue Summary Tests
 
-/// Covers the item count behind the catalogue cards on the My Catalogues screen.
+/// Covers the item count behind the catalogue cards on the Catalogues screen.
 @MainActor
 struct CatalogueSummaryTests {
 

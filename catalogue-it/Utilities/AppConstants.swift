@@ -25,7 +25,7 @@ nonisolated enum AppConstants {
     enum PhotoHeight {
         static let detail: CGFloat = 280
     }
-    /// Metrics for the catalogue cards on the My Catalogues screen. Catalogues are the app's
+    /// Metrics for the catalogue cards on the Catalogues screen. Catalogues are the app's
     /// entry point and there are few of them, so the cards are deliberately roomier than a
     /// standard list row.
     enum CatalogueCard {

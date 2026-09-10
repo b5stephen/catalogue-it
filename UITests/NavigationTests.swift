@@ -57,7 +57,7 @@ final class NavigationTests: XCTestCase {
         // top-level catalogue list.
         XCTAssertTrue(app.navigationBars["Test Catalogue"].waitForExistence(timeout: 3),
                       "Back button should return to catalogue detail")
-        XCTAssertFalse(app.navigationBars["My Catalogues"].exists,
+        XCTAssertFalse(app.navigationBars["Catalogues"].exists,
                        "Should NOT have jumped all the way back to the catalogue list")
     }
 }

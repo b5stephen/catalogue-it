@@ -8,7 +8,7 @@ import SwiftData
 
 // MARK: - Catalogue Card View
 
-/// A catalogue as a standalone card on the My Catalogues screen.
+/// A catalogue as a standalone card on the Catalogues screen.
 ///
 /// Still rendered as a `List` row rather than in a `LazyVStack`: `swipeActions` is a
 /// `List`-only modifier, and staying in a list also keeps `onMove` reordering, split-view

@@ -95,7 +95,7 @@ struct CatalogueDetailView: View {
         // The list is the navigation content itself rather than one row of a VStack. A large
         // title only shrinks into the bar while it is tracking a scroll view that reaches the
         // top of the safe area, and anything stacked above the list breaks that tracking —
-        // which is why this screen's title sat large and motionless while "My Catalogues"
+        // which is why this screen's title sat large and motionless while "Catalogues"
         // collapsed on scroll.
         //
         // The tab bar is therefore pinned as a top safe-area inset: it rides down with the

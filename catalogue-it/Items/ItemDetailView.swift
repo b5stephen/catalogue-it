@@ -81,10 +81,15 @@ struct ItemDetailView: View {
                 .padding([.horizontal, .bottom])
             }
         }
+        // Deliberately no `.navigationBarTitleDisplayMode(.inline)`. This is a pushed screen
+        // in the main navigation chain, like the catalogue list and the item list, so it uses
+        // the same large title that collapses into the bar as the content scrolls. Inline is
+        // reserved for the sheets, where there is nothing to collapse into.
+        //
+        // No subtitle either: the catalogue is the screen the user just came from, so naming
+        // it again here is repetition. The subtitle slot earns its place on the item list,
+        // where the count says something the title doesn't.
         .navigationTitle(primaryValue)
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
         .toolbar {
 #if os(iOS)
             ToolbarItem(placement: .topBarTrailing) {

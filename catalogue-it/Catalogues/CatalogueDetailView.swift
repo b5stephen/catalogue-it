@@ -82,34 +82,44 @@ struct CatalogueDetailView: View {
     // MARK: - Body
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Tabs exist only when the catalogue defines a status field — a catalogue
-            // without one gets its full width back rather than a one-tab picker.
+        CatalogueItemsView(
+            catalogue: catalogue,
+            statusTab: selectedTab,
+            activeFlagIDs: Array(activeFlagIDs),
+            searchText: appliedSearchText,
+            sortFieldKey: $catalogue.sortFieldKey,
+            sortDirection: $catalogue.sortDirection,
+            selectedItem: $selectedItem,
+            displayedCount: $displayedCount
+        )
+        // The list is the navigation content itself rather than one row of a VStack. A large
+        // title only shrinks into the bar while it is tracking a scroll view that reaches the
+        // top of the safe area, and anything stacked above the list breaks that tracking —
+        // which is why this screen's title sat large and motionless while "My Catalogues"
+        // collapsed on scroll.
+        //
+        // The tab bar is therefore pinned as a top safe-area inset: it rides down with the
+        // expanded title, settles under the bar once the title collapses, and the items
+        // scroll beneath it. Tabs exist only when the catalogue defines a status field, and
+        // an empty inset reserves no space, so a catalogue without one is unaffected.
+        .safeAreaInset(edge: .top, spacing: 0) {
             if !statusTabs.isEmpty {
+                // No explicit background. A `.bar` material here reads to iOS 26 as a
+                // top-edge bar, so the system extended it up under the navigation bar and
+                // the large title was left sitting behind a blur. The scroll edge effect
+                // already handles content passing beneath this.
                 StatusTabBar(tabs: statusTabs, selection: $selectedTab)
                     .padding(.horizontal)
                     .padding(.vertical, 8)
             }
-
-#if !os(macOS)
-            Text(countLabel)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-#endif
-            CatalogueItemsView(
-                catalogue: catalogue,
-                statusTab: selectedTab,
-                activeFlagIDs: Array(activeFlagIDs),
-                searchText: appliedSearchText,
-                sortFieldKey: $catalogue.sortFieldKey,
-                sortDirection: $catalogue.sortDirection,
-                selectedItem: $selectedItem,
-                displayedCount: $displayedCount
-            )
         }
         .navigationTitle(catalogue.name)
-#if os(macOS)
+        // The count belongs to the title, not to the list. Wedged above the list as a caption
+        // it never moved — on a catalogue with no tab bar it read as a stray line stranded
+        // under the title — whereas a subtitle collapses along with the title, and both
+        // platforms get one code path instead of two.
         .navigationSubtitle(countLabel)
+#if os(macOS)
         .navigationSplitViewColumnWidth(min: 280, ideal: 360)
 #endif
         .searchable(text: $searchText)

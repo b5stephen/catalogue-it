@@ -80,11 +80,11 @@ struct StatusTabBar: View {
         .regular.tint(palette.tint.opacity(0.75))
     }
 
-    /// Plain glass over the dark wash is close to invisible — there is nothing light behind it
-    /// to catch. A faint white tint frosts it enough to read as a pill without becoming a
+    /// Plain glass over the black ground is close to invisible — there is nothing light behind
+    /// it to catch. A faint white tint frosts it enough to read as a pill without becoming a
     /// button. In light appearance the wash itself provides that, so the glass is left clear.
     private var unselectedGlass: Glass {
-        colorScheme == .dark ? .regular.tint(.white.opacity(0.10)) : .regular
+        colorScheme == .dark ? .regular.tint(.white.opacity(0.14)) : .regular
     }
 }
 

@@ -72,13 +72,13 @@ struct ItemDetailView: View {
 
                 VStack(alignment: .leading, spacing: 18) {
                     if !displayFields.isEmpty {
-                        CatalogueSectionCard(title: "Details") {
+                        CatalogueSectionCard(title: "Details", catalogue: catalogue) {
                             ItemFieldsSection(fields: displayFields)
                         }
                     }
 
                     if let notes = item.notes, !notes.isEmpty {
-                        CatalogueSectionCard(title: "Notes") {
+                        CatalogueSectionCard(title: "Notes", catalogue: catalogue) {
                             ItemNotesSection(notes: notes)
                         }
                     }
@@ -86,7 +86,7 @@ struct ItemDetailView: View {
                 .padding()
             }
         }
-        // The same wash as the item list, so pushing an item changes the content and nothing
+        // The same ground as the item list, so pushing an item changes the content and nothing
         // about the room it sits in. No band here: the band is the list's title, and this
         // screen has its own.
         .background(CatalogueWash(catalogue: catalogue))

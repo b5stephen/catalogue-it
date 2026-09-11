@@ -11,7 +11,7 @@ import SwiftUI
 
 /// Still a `List` rather than a `LazyVStack`, for the same reasons as the catalogue cards:
 /// split-view selection, `scrollPosition` restoration and the accessibility rotor come for
-/// free. The card look is a clear row background plus `listRowSpacing`; the wash it sits on
+/// free. The card look is a clear row background plus `listRowSpacing`; the ground it sits on
 /// is drawn by `CatalogueDetailView`, which is why the list's own background is hidden here.
 struct ItemListView: View {
     let items: [CatalogueItem]
@@ -33,7 +33,7 @@ struct ItemListView: View {
             List {
                 ForEach(items) { item in
                     ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip)
-                        .itemCard()
+                        .itemCard(in: catalogue)
                         .onTapGesture { selectedItem = item }
                         .tag(item)
                         .cardRow()
@@ -57,7 +57,7 @@ struct ItemListView: View {
         List(selection: $selectedItem) {
             ForEach(items) { item in
                 ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip)
-                    .itemCard(isSelected: selectedItem == item)
+                    .itemCard(in: catalogue, isSelected: selectedItem == item)
                     .tag(item)
                     .cardRow()
             }

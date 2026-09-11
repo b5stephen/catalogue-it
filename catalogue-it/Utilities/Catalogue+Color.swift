@@ -53,11 +53,11 @@ nonisolated struct CataloguePalette {
     /// The normalised accent, un-rotated — for anything that needs one representative colour:
     /// the screen tint inside a catalogue, tinted labels, the status capsules.
     ///
-    /// Lighter than the fill's base in dark appearance — brighter, and eased back from full
-    /// saturation. The fill can afford to sit deep and vivid, but the tint is mostly read as
-    /// *text* on the dark wash — section headers, tab labels — and a fully saturated red
-    /// header on a deep red ground was legible but only just. Pulling it towards a pastel is
-    /// what gives it room against a ground of the same hue.
+    /// Brighter than the fill's base in dark appearance, and eased back from full saturation.
+    /// The fill can afford to sit deep and vivid, but the tint is mostly read as *text* —
+    /// section headers, tab labels — and small fully saturated text on black is dimmer than it
+    /// looks: a saturated blue or red carries little luminance however bright its value. Pulling
+    /// it towards a pastel is what gives it enough light to read at caption sizes.
     let tint: Color
     /// The card's fill.
     let fill: LinearGradient
@@ -92,8 +92,8 @@ nonisolated struct CataloguePalette {
 
         tint = Color(
             hue: base.hue,
-            saturation: isDark ? min(saturation, 0.7) : saturation,
-            brightness: isDark ? max(brightness, 0.85) : brightness
+            saturation: isDark ? min(saturation, 0.6) : saturation,
+            brightness: isDark ? max(brightness, 0.95) : brightness
         )
 
         let rgb = RGBComponents(hue: base.hue, saturation: saturation, brightness: brightness)

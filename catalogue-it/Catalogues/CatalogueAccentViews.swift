@@ -11,16 +11,19 @@ import SwiftUI
 ///
 /// The catalogue's colour is carried past the Catalogues screen in two layers. The card's
 /// duotone fill becomes a header band on the item list — the moment of stepping into the
-/// catalogue — and beneath it the whole screen sits on this faint wash of the tint. The wash
-/// is what says you are still inside the catalogue once the band is out of the way, and it is
-/// the one thing the item detail screen keeps, so list and detail read as one place.
+/// catalogue — and beneath it the screen keeps the colour in one of two places depending on
+/// the appearance.
 ///
-/// In light appearance the wash is the tint at a few percent over the system background —
-/// light enough that photos and label text sit on it comfortably. In dark appearance that
-/// recipe fails: a few percent of colour over near-black is just black with a cast, and reads
-/// as a slightly wrong grey. So the dark wash is built as a colour of its own — the hue kept,
-/// saturation high, brightness deep — with a gentle gradient that carries more colour at the
-/// top, under the band, and settles darker below. Neutral picks stay neutral either way.
+/// In light appearance the ground is this faint wash of the tint over the system background —
+/// light enough that photos and label text sit on it comfortably, and no further from the
+/// Catalogues screen's grouped grey than a grouped background usually is. It is the one thing
+/// the item detail keeps, so list and detail read as one place.
+///
+/// In dark appearance there is no wash. The Catalogues screen is pure black with the colour
+/// on the cards, and a coloured ground here inverted that — the push landed on a screen using
+/// the opposite system, and every label had to be re-tuned to clear a ground of its own hue.
+/// So the dark ground is the plain system background and the colour moves into the cards
+/// instead (see `CardFill`), which is the language the Catalogues screen already speaks.
 struct CatalogueWash: View {
     @Environment(\.colorScheme) private var colorScheme
     let catalogue: Catalogue
@@ -28,33 +31,14 @@ struct CatalogueWash: View {
     var body: some View {
         Group {
             if colorScheme == .dark {
-                Self.darkFill(for: catalogue)
+                Rectangle().fill(.background)
             } else {
-                Self.lightFill(for: catalogue)
+                catalogue.palette(for: .light).tint
+                    .opacity(0.07)
+                    .background(.background)
             }
         }
         .ignoresSafeArea()
-    }
-
-    private static func lightFill(for catalogue: Catalogue) -> some View {
-        catalogue.palette(for: .light).tint
-            .opacity(0.07)
-            .background(.background)
-    }
-
-    private static func darkFill(for catalogue: Catalogue) -> some View {
-        let base = HSBComponents(hex: catalogue.colorHex)
-        let isNeutral = base.saturation < 0.08
-        // Saturation runs high: at these brightnesses anything less collapses into slate.
-        let saturation = isNeutral ? base.saturation : 0.85
-        return LinearGradient(
-            colors: [
-                Color(hue: base.hue, saturation: saturation, brightness: 0.30),
-                Color(hue: base.hue, saturation: saturation, brightness: 0.13)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
     }
 }
 
@@ -120,32 +104,48 @@ struct CatalogueBand: View {
 
 // MARK: - Card Fill
 
-/// What a neutral card on the wash is filled with. White in light appearance. In dark, a
-/// translucent white rather than an opaque grey: it lifts the card off the wash the way a
-/// grouped list lifts its cells, but lets the wash's hue come through so the card belongs to
-/// the coloured ground instead of sitting on it as a grey rectangle.
+/// What a card on the ground is filled with.
+///
+/// White in light appearance, lifted off the wash the way a grouped list lifts its cells. In
+/// dark the roles swap: the ground is black and the card carries the catalogue's colour — the
+/// hue kept, saturation moderate, brightness deep — so it is unmistakably a coloured card on
+/// black, as on the Catalogues screen, but quiet enough that the photo and text on it stay the
+/// point. A neutral pick stays neutral, and lands on the same lift a grouped cell would get.
 private struct CardFill: ShapeStyle {
+    /// The hex rather than the catalogue: a `ShapeStyle` is `Sendable`, and a model isn't.
+    let colorHex: String
+
+    init(catalogue: Catalogue) { colorHex = catalogue.colorHex }
+
     func resolve(in environment: EnvironmentValues) -> some ShapeStyle {
         if environment.colorScheme == .dark {
-            AnyShapeStyle(.white.opacity(0.09))
+            let base = HSBComponents(hex: colorHex)
+            let isNeutral = base.saturation < 0.08
+            return AnyShapeStyle(Color(
+                hue: base.hue,
+                saturation: isNeutral ? base.saturation : 0.55,
+                brightness: isNeutral ? 0.20 : 0.26
+            ))
         } else {
-            AnyShapeStyle(.background)
+            return AnyShapeStyle(.background)
         }
     }
 }
 
 // MARK: - Item Card
 
-/// A neutral card lifted off the wash, for the item list rows.
+/// A card lifted off the ground, for the item list rows.
 ///
 /// Each item is its own card, spaced the way the catalogue cards are, so the card language
-/// runs catalogue → item → detail section without a break. The shadow is a plain grey one —
-/// the cards are neutral, and a tinted shadow under every row would double up on the wash.
+/// runs catalogue → item → detail section without a break. The shadow is a plain grey one in
+/// light — the cards are neutral there, and a tinted shadow under every row would double up
+/// on the wash — and absent in dark, where the coloured fill does the lifting.
 ///
 /// Because the list row background is clear, the system selection highlight no longer draws,
 /// so selection is a tint ring, matching the grid's cards.
 struct ItemCardModifier: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
+    let catalogue: Catalogue
     let isSelected: Bool
 
     private var shape: RoundedRectangle {
@@ -156,7 +156,7 @@ struct ItemCardModifier: ViewModifier {
         content
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(CardFill(), in: shape)
+            .background(CardFill(catalogue: catalogue), in: shape)
             .overlay {
                 if isSelected {
                     shape.strokeBorder(.tint, lineWidth: 2.5)
@@ -168,18 +168,20 @@ struct ItemCardModifier: ViewModifier {
 }
 
 extension View {
-    func itemCard(isSelected: Bool = false) -> some View {
-        modifier(ItemCardModifier(isSelected: isSelected))
+    func itemCard(in catalogue: Catalogue, isSelected: Bool = false) -> some View {
+        modifier(ItemCardModifier(catalogue: catalogue, isSelected: isSelected))
     }
 }
 
 // MARK: - Catalogue Section Card
 
 /// A titled group on the item detail screen: a small-caps header in the catalogue's tint
-/// over a neutral card. Solid colour is reserved for the header, so the item's own data —
-/// the point of the screen — stays black-on-white inside.
+/// over a card. In light the card is neutral and solid colour is reserved for the header, so
+/// the item's own data — the point of the screen — stays black-on-white inside. In dark the
+/// card takes the same deep tinted fill as the item rows, so list and detail keep matching.
 struct CatalogueSectionCard<Content: View>: View {
     let title: LocalizedStringKey
+    let catalogue: Catalogue
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -194,7 +196,7 @@ struct CatalogueSectionCard<Content: View>: View {
                 .padding(.vertical, 4)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    CardFill(),
+                    CardFill(catalogue: catalogue),
                     in: RoundedRectangle(cornerRadius: AppConstants.CornerRadius.card, style: .continuous)
                 )
         }

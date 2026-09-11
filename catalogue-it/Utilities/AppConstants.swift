@@ -34,6 +34,12 @@ nonisolated enum AppConstants {
         static let horizontalInset: CGFloat = 16
         static let rowSpacing: CGFloat = 12
     }
+    /// Metrics for the item cards in the list layout. Same inset as the catalogue cards so
+    /// the two screens line up; a tighter gap, because there are many more of these.
+    enum ItemCard {
+        static let horizontalInset: CGFloat = 16
+        static let rowSpacing: CGFloat = 8
+    }
     enum GridCardSize {
         static let min: CGFloat = 100
         static let max: CGFloat = 320

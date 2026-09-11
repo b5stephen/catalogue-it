@@ -12,6 +12,7 @@ import SwiftData
 
 struct ItemDetailView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     let catalogue: Catalogue
     let item: CatalogueItem
@@ -69,18 +70,27 @@ struct ItemDetailView: View {
                     PhotoCarouselView(photos: sortedPhotos)
                 }
 
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 18) {
                     if !displayFields.isEmpty {
-                        ItemFieldsSection(fields: displayFields)
+                        CatalogueSectionCard(title: "Details") {
+                            ItemFieldsSection(fields: displayFields)
+                        }
                     }
 
                     if let notes = item.notes, !notes.isEmpty {
-                        ItemNotesSection(notes: notes)
+                        CatalogueSectionCard(title: "Notes") {
+                            ItemNotesSection(notes: notes)
+                        }
                     }
                 }
-                .padding([.horizontal, .bottom])
+                .padding()
             }
         }
+        // The same wash as the item list, so pushing an item changes the content and nothing
+        // about the room it sits in. No band here: the band is the list's title, and this
+        // screen has its own.
+        .background(CatalogueWash(catalogue: catalogue))
+        .tint(catalogue.palette(for: colorScheme).tint)
         // Deliberately no `.navigationBarTitleDisplayMode(.inline)`. This is a pushed screen
         // in the main navigation chain, like the catalogue list and the item list, so it uses
         // the same large title that collapses into the bar as the content scrolls. Inline is

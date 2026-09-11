@@ -15,6 +15,7 @@ struct CatalogueDetailView: View {
     @Bindable var catalogue: Catalogue
     @Binding var selectedItem: CatalogueItem?
 
+    @Environment(\.colorScheme) private var colorScheme
 #if !os(macOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
@@ -59,10 +60,6 @@ struct CatalogueDetailView: View {
         catalogue.flagFields
     }
 
-    private var countLabel: String {
-        displayedCount == 1 ? "1 item" : "\(displayedCount) items"
-    }
-
     /// Drops selections that no longer exist — the status field can be reconfigured here
     /// or, via iCloud, on another device while this view is open. Without this the list
     /// would filter on a tab the picker no longer shows, appearing permanently empty.
@@ -92,33 +89,36 @@ struct CatalogueDetailView: View {
             selectedItem: $selectedItem,
             displayedCount: $displayedCount
         )
-        // The list is the navigation content itself rather than one row of a VStack. A large
-        // title only shrinks into the bar while it is tracking a scroll view that reaches the
-        // top of the safe area, and anything stacked above the list breaks that tracking —
-        // which is why this screen's title sat large and motionless while "Catalogues"
-        // collapsed on scroll.
-        //
-        // The tab bar is therefore pinned as a top safe-area inset: it rides down with the
-        // expanded title, settles under the bar once the title collapses, and the items
-        // scroll beneath it. Tabs exist only when the catalogue defines a status field, and
-        // an empty inset reserves no space, so a catalogue without one is unaffected.
+        // The list is the navigation content itself rather than one row of a VStack, so the
+        // header and tab bar are pinned as a top safe-area inset and the items scroll beneath
+        // them. The band stands in for the navigation title: it carries the name and the
+        // count, and the title is left empty on iOS so the bar's controls float over the
+        // colour instead of repeating the name above it. Tabs exist only when the catalogue
+        // defines a status field, and an empty inset reserves no space.
         .safeAreaInset(edge: .top, spacing: 0) {
-            if !statusTabs.isEmpty {
-                // No explicit background. A `.bar` material here reads to iOS 26 as a
-                // top-edge bar, so the system extended it up under the navigation bar and
-                // the large title was left sitting behind a blur. The scroll edge effect
-                // already handles content passing beneath this.
-                StatusTabBar(tabs: statusTabs, selection: $selectedTab)
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
+            VStack(spacing: 0) {
+                CatalogueBand(catalogue: catalogue, itemCount: displayedCount)
+                if !statusTabs.isEmpty {
+                    // The tab bar sits on an opaque stretch of the wash, so cards scrolling
+                    // under it disappear cleanly rather than showing through the capsules.
+                    // Deliberately not a `.bar` material: iOS 26 reads that as a top-edge bar
+                    // and extends it up under the navigation bar, over the band.
+                    StatusTabBar(tabs: statusTabs, catalogue: catalogue, selection: $selectedTab)
+                        .padding(.horizontal)
+                        .padding(.vertical, 8)
+                        .background { CatalogueWash.fill(for: catalogue, in: colorScheme) }
+                }
             }
         }
+        .background(CatalogueWash(catalogue: catalogue))
+        .tint(catalogue.palette(for: colorScheme).tint)
+#if os(macOS)
+        // The window title has nowhere else to come from.
         .navigationTitle(catalogue.name)
-        // The count belongs to the title, not to the list. Wedged above the list as a caption
-        // it never moved — on a catalogue with no tab bar it read as a stray line stranded
-        // under the title — whereas a subtitle collapses along with the title, and both
-        // platforms get one code path instead of two.
-        .navigationSubtitle(countLabel)
+#else
+        .navigationTitle("")
+        .toolbarTitleDisplayMode(.inline)
+#endif
 #if os(macOS)
         .navigationSplitViewColumnWidth(min: 280, ideal: 360)
 #endif

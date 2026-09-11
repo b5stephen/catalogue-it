@@ -57,6 +57,10 @@ struct PhotoCarouselView: View {
 #endif
             }
             .frame(height: AppConstants.PhotoHeight.detail)
+            // Same radius and inset as the section cards below, so the photo's edges line up
+            // with theirs on the wash rather than running out to the screen edge.
+            .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.card, style: .continuous))
+            .padding(.horizontal)
 
             let caption = selectedIndex < photos.count ? photos[selectedIndex].caption : nil
             Text(caption ?? "")

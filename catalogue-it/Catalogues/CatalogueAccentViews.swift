@@ -46,15 +46,14 @@ struct CatalogueWash: View {
 
 /// The item list's header: the same duotone fill as the catalogue's card, so opening a
 /// catalogue feels like stepping into the card you tapped rather than leaving it behind. It
-/// stands in for the navigation title, which is why it carries the name and the count.
+/// stands in for the navigation title on arrival, which is why it carries the name and the
+/// count; it scrolls away with the items, and the bar's title takes over once it has gone.
 ///
 /// The fill runs up under the navigation bar so the colour reaches the top of the screen and
 /// the bar's controls float on it, rather than the band starting as a stripe below them.
 ///
-/// The band is translucent, and deliberately not backed by a material: the list beneath has
-/// a soft scroll edge effect, which blurs and fades cards progressively as they pass under
-/// the inset. A material here would blur the whole region uniformly and hide that gradation,
-/// so the band is just the gradient at partial opacity, and the edge effect does the rest.
+/// The band is translucent, and deliberately not backed by a material: it scrolls under the
+/// bar's soft scroll edge effect like the cards do, and a material would flatten that.
 struct CatalogueBand: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
@@ -96,7 +95,11 @@ struct CatalogueBand: View {
         .padding(.horizontal)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background { palette.fill.opacity(0.85).ignoresSafeArea(edges: .top) }
+        .background {
+            // As scroll content the band has no safe area to ignore, so the fill is simply
+            // extended upwards — far enough to cover the bar and a rubber-band pull.
+            palette.fill.opacity(0.85).padding(.top, -600)
+        }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }

@@ -8,7 +8,13 @@
 import SwiftUI
 import SwiftData
 
-struct CatalogueItemsView: View {
+/// The catalogue's items, with `header` scrolling away above them and `pinnedHeader`
+/// following it up until it sticks under the navigation bar.
+///
+/// The header is the first thing in the scroll content rather than a pinned inset, so it
+/// costs the user nothing once they start scrolling. `isHeaderScrolledAway` reports when
+/// it has passed under the navigation bar, so the caller can put its title there instead.
+struct CatalogueItemsView<Header: View, PinnedHeader: View>: View {
     let catalogue: Catalogue
     let statusTab: StatusTab
     let activeFlagIDs: [UUID]
@@ -17,6 +23,9 @@ struct CatalogueItemsView: View {
     @Binding var sortDirection: String
     @Binding var selectedItem: CatalogueItem?
     @Binding var displayedCount: Int
+    @Binding var isHeaderScrolledAway: Bool
+    @ViewBuilder let header: Header
+    @ViewBuilder let pinnedHeader: PinnedHeader
 
     @Environment(\.modelContext) private var modelContext
     @State private var pagination = ItemPaginationController()
@@ -24,6 +33,12 @@ struct CatalogueItemsView: View {
     // ID of the item the user tapped most recently. Used to restore scroll position
     // after a force reset (e.g. when the user edits an item and navigates back).
     @State private var scrollAnchorID: PersistentIdentifier?
+    @State private var headerHeight: CGFloat = 0
+
+    /// The header, measured so the scroll listener knows when it has gone.
+    private var measuredHeader: some View {
+        header.onGeometryChange(for: CGFloat.self, of: \.size.height) { headerHeight = $0 }
+    }
 
     private var filterFingerprint: FilterFingerprint {
         FilterFingerprint(
@@ -39,12 +54,16 @@ struct CatalogueItemsView: View {
     var body: some View {
         Group {
             if pagination.items.isEmpty && !pagination.isLoadingMore {
-                CatalogueEmptyStateView(
-                    catalogue: catalogue,
-                    statusTab: statusTab,
-                    hasActiveFlags: !activeFlagIDs.isEmpty,
-                    isFiltered: !searchText.isEmpty && pagination.hasAnyItems
-                )
+                VStack(spacing: 0) {
+                    measuredHeader
+                    pinnedHeader
+                    CatalogueEmptyStateView(
+                        catalogue: catalogue,
+                        statusTab: statusTab,
+                        hasActiveFlags: !activeFlagIDs.isEmpty,
+                        isFiltered: !searchText.isEmpty && pagination.hasAnyItems
+                    )
+                }
             } else {
                 switch catalogue.itemLayout {
                 case .grid:
@@ -56,7 +75,9 @@ struct CatalogueItemsView: View {
                         scrollPosition: $scrollPosition,
                         hasMore: pagination.hasMore,
                         isLoadingMore: pagination.isLoadingMore,
-                        onLoadMore: { pagination.loadMore(context: modelContext) }
+                        onLoadMore: { pagination.loadMore(context: modelContext) },
+                        header: { measuredHeader },
+                        pinnedHeader: { pinnedHeader }
                     )
                 case .list:
                     ItemListView(
@@ -67,10 +88,22 @@ struct CatalogueItemsView: View {
                         scrollPosition: $scrollPosition,
                         hasMore: pagination.hasMore,
                         isLoadingMore: pagination.isLoadingMore,
-                        onLoadMore: { pagination.loadMore(context: modelContext) }
+                        onLoadMore: { pagination.loadMore(context: modelContext) },
+                        header: { measuredHeader },
+                        pinnedHeader: { pinnedHeader }
                     )
                 }
             }
+        }
+        // The header's title sits at its vertical centre, so it is "gone" once half the header
+        // has passed under the bar — that is when the bar's own title takes over. This listens
+        // to every scroll view beneath it, so the cards must not grow a scroll view of their
+        // own: a horizontal one would report an offset of zero and flip the state back.
+        .onScrollGeometryChange(for: Bool.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top > headerHeight / 2
+        } action: { _, scrolledAway in
+            guard scrolledAway != isHeaderScrolledAway else { return }
+            withAnimation(.easeInOut(duration: 0.2)) { isHeaderScrolledAway = scrolledAway }
         }
         .task {
             pagination.reset(fingerprint: filterFingerprint, context: modelContext)
@@ -99,6 +132,9 @@ struct CatalogueItemsView: View {
         .onChange(of: filterFingerprint) {
             scrollAnchorID = nil
             scrollPosition = ScrollPosition(edge: .top)
+            // The list may be replaced by the empty state, which never scrolls and so would
+            // never report the header back.
+            isHeaderScrolledAway = false
             pagination.reset(fingerprint: filterFingerprint, context: modelContext)
         }
         .onChange(of: pagination.totalCount) {

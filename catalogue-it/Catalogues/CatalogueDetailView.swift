@@ -38,6 +38,9 @@ struct CatalogueDetailView: View {
     @State private var searchText: String = ""
     @State private var appliedSearchText: String = ""
     @State private var displayedCount: Int = 0
+    /// Whether the band has scrolled under the navigation bar, at which point the bar shows
+    /// the name and count itself.
+    @State private var isBandScrolledAway = false
     /// Cached result of a cheap fetchCount — avoids faulting catalogue.items on every render.
     @State private var hasRecentlyDeletedItems = false
 
@@ -50,6 +53,10 @@ struct CatalogueDetailView: View {
         )
         descriptor.fetchLimit = 1
         hasRecentlyDeletedItems = ((try? modelContext.fetchCount(descriptor)) ?? 0) > 0
+    }
+
+    private var itemCountLabel: String {
+        displayedCount == 1 ? "1 item" : "\(displayedCount) items"
     }
 
     private var statusTabs: [StatusTabDescriptor] {
@@ -87,35 +94,36 @@ struct CatalogueDetailView: View {
             sortFieldKey: $catalogue.sortFieldKey,
             sortDirection: $catalogue.sortDirection,
             selectedItem: $selectedItem,
-            displayedCount: $displayedCount
-        )
-        // The list is the navigation content itself rather than one row of a VStack, so the
-        // header and tab bar are pinned as a top safe-area inset and the items scroll beneath
-        // them. The band stands in for the navigation title: it carries the name and the
-        // count, and the title is left empty on iOS so the bar's controls float over the
-        // colour instead of repeating the name above it. Tabs exist only when the catalogue
-        // defines a status field, and an empty inset reserves no space. Without tabs the band
-        // takes a little extra bottom clearance — slightly more than the tab bar's padding
-        // would give, since its edge is a harder line than the pills and the cards otherwise
-        // sit too close to it.
-        .safeAreaInset(edge: .top, spacing: 0) {
-            VStack(spacing: 0) {
+            displayedCount: $displayedCount,
+            isHeaderScrolledAway: $isBandScrolledAway,
+            header: {
+                // The band scrolls away with the items: it is the moment of arriving in the
+                // catalogue, not something to keep paying for once the user is reading the
+                // list. It stands in for the navigation title on load — the name and count
+                // are on it, and the bar's title is empty so the controls float over the
+                // colour instead of repeating the name above it — and once it has passed
+                // under the bar the title and subtitle take over, so the name is never off
+                // screen. Without tabs the band takes a little extra bottom clearance: its
+                // edge is a harder line than the pills and the cards otherwise sit too close.
                 CatalogueBand(catalogue: catalogue, itemCount: displayedCount)
-                    .padding(.bottom, statusTabs.isEmpty ? 12 : 0)
+                    .padding(.bottom, statusTabs.isEmpty ? 20 : 0)
+            },
+            pinnedHeader: {
+                // The tabs follow the band up and then stay under the bar: the filter is
+                // wanted while scrolling, and it is short. They exist only when the catalogue
+                // defines a status field. No background of their own: a fill drew a hard
+                // slab across the list as it scrolled. Every tab is a glass capsule, which is
+                // what keeps them legible over the cards passing beneath.
                 if !statusTabs.isEmpty {
-                    // No background of its own. The soft scroll edge on the list blurs and
-                    // fades cards as they pass under here, and any fill — material included —
-                    // would sit on top of that gradation and hide it. (A `.bar` material is
-                    // doubly wrong: iOS 26 reads it as a top-edge bar and extends it up under
-                    // the navigation bar, over the band.)
                     StatusTabBar(tabs: statusTabs, catalogue: catalogue, selection: $selectedTab)
                         .padding(.horizontal)
-                        .padding(.vertical, 8)
+                        .padding(.top, 8)
+                        .padding(.bottom, 16)
                 }
             }
-        }
-        // A soft edge fades and blurs the cards progressively as they pass under the header,
-        // rather than the hard line a plain inset leaves.
+        )
+        // A soft edge fades and blurs the band and cards progressively as they pass under the
+        // navigation bar, rather than a hard line.
         .scrollEdgeEffectStyle(.soft, for: .top)
         .background(CatalogueWash(catalogue: catalogue))
         .tint(catalogue.palette(for: colorScheme).tint)
@@ -123,9 +131,10 @@ struct CatalogueDetailView: View {
         // The window title has nowhere else to come from.
         .navigationTitle(catalogue.name)
 #else
-        .navigationTitle("")
+        .navigationTitle(isBandScrolledAway ? catalogue.name : "")
         .toolbarTitleDisplayMode(.inline)
 #endif
+        .navigationSubtitle(isBandScrolledAway ? itemCountLabel : "")
 #if os(macOS)
         .navigationSplitViewColumnWidth(min: 280, ideal: 360)
 #endif

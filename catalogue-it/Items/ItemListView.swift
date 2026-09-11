@@ -13,7 +13,11 @@ import SwiftUI
 /// split-view selection, `scrollPosition` restoration and the accessibility rotor come for
 /// free. The card look is a clear row background plus `listRowSpacing`; the ground it sits on
 /// is drawn by `CatalogueDetailView`, which is why the list's own background is hidden here.
-struct ItemListView: View {
+///
+/// `header` is the first row: full-bleed, and spaced from the first card by the same gap
+/// the cards keep between themselves. `pinnedHeader` sits between it and the cards, and
+/// stays put once it reaches the top — a plain list's section headers do that on their own.
+struct ItemListView<Header: View, PinnedHeader: View>: View {
     let items: [CatalogueItem]
     let catalogue: Catalogue
     let showStatusChip: Bool
@@ -22,27 +26,49 @@ struct ItemListView: View {
     let hasMore: Bool
     let isLoadingMore: Bool
     let onLoadMore: () -> Void
+    @ViewBuilder let header: Header
+    @ViewBuilder let pinnedHeader: PinnedHeader
 
 #if !os(macOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
 
+    private var headerRow: some View {
+        header
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
+            .selectionDisabled()
+    }
+
+    private var pinnedHeaderRow: some View {
+        pinnedHeader
+            .listRowInsets(EdgeInsets())
+            .listSectionSeparator(.hidden)
+    }
+
     var body: some View {
 #if !os(macOS)
         if horizontalSizeClass == .compact {
             List {
-                ForEach(items) { item in
-                    ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip)
-                        .itemCard(in: catalogue)
-                        .onTapGesture { selectedItem = item }
-                        .tag(item)
-                        .cardRow()
+                headerRow
+                Section {
+                    ForEach(items) { item in
+                        ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip)
+                            .itemCard(in: catalogue)
+                            .onTapGesture { selectedItem = item }
+                            .tag(item)
+                            .cardRow()
+                    }
+                    scrollSentinel
+                } header: {
+                    pinnedHeaderRow
                 }
-                scrollSentinel
             }
             .listStyle(.plain)
+            .listSectionSpacing(0)
             .listRowSpacing(AppConstants.ItemCard.rowSpacing)
-            .contentMargins(.vertical, AppConstants.ItemCard.rowSpacing, for: .scrollContent)
+            .contentMargins(.bottom, AppConstants.ItemCard.rowSpacing, for: .scrollContent)
             .scrollContentBackground(.hidden)
             .scrollPosition($scrollPosition, anchor: .top)
         } else {
@@ -55,17 +81,23 @@ struct ItemListView: View {
 
     private var regularList: some View {
         List(selection: $selectedItem) {
-            ForEach(items) { item in
-                ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip)
-                    .itemCard(in: catalogue, isSelected: selectedItem == item)
-                    .tag(item)
-                    .cardRow()
+            headerRow
+            Section {
+                ForEach(items) { item in
+                    ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip)
+                        .itemCard(in: catalogue, isSelected: selectedItem == item)
+                        .tag(item)
+                        .cardRow()
+                }
+                scrollSentinel
+            } header: {
+                pinnedHeaderRow
             }
-            scrollSentinel
         }
         .listStyle(.plain)
+        .listSectionSpacing(0)
         .listRowSpacing(AppConstants.ItemCard.rowSpacing)
-        .contentMargins(.vertical, AppConstants.ItemCard.rowSpacing, for: .scrollContent)
+        .contentMargins(.bottom, AppConstants.ItemCard.rowSpacing, for: .scrollContent)
         .scrollContentBackground(.hidden)
         .scrollPosition($scrollPosition, anchor: .top)
     }

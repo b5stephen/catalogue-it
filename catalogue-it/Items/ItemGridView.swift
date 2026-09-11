@@ -10,7 +10,7 @@ import SwiftData
 
 // MARK: - Item Grid View
 
-struct ItemGridView: View {
+struct ItemGridView<Header: View, PinnedHeader: View>: View {
     let items: [CatalogueItem]
     let showStatusChip: Bool
     @Bindable var catalogue: Catalogue
@@ -19,6 +19,10 @@ struct ItemGridView: View {
     let hasMore: Bool
     let isLoadingMore: Bool
     let onLoadMore: () -> Void
+    /// Scrolls with the grid, above it, full-bleed.
+    @ViewBuilder let header: Header
+    /// Below `header`; sticks to the top once it gets there.
+    @ViewBuilder let pinnedHeader: PinnedHeader
 
 #if !os(macOS)
     // On compact width, selecting an item pushes ItemDetailView via the same
@@ -42,34 +46,46 @@ struct ItemGridView: View {
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: gridColumns, spacing: 16) {
-                ForEach(items) { item in
-                    ItemCardView(item: item, showStatusChip: showStatusChip)
-                        .onTapGesture { selectedItem = item }
-                        .overlay {
-                            if showsSelectionBorder && selectedItem == item {
-                                RoundedRectangle(cornerRadius: AppConstants.CornerRadius.medium)
-                                    .strokeBorder(.tint, lineWidth: 2.5)
-                            }
-                        }
-                }
-                if hasMore {
-                    Color.clear
-                        .frame(height: 1)
-                        .onAppear { onLoadMore() }
-                }
-                if isLoadingMore {
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .gridCellColumns(gridColumns.count)
+            LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
+                header
+                Section {
+                    grid
+                } header: {
+                    pinnedHeader
                 }
             }
-            .padding(.vertical)
         }
         .scrollPosition($scrollPosition, anchor: .top)
-        .padding(.horizontal, 16)
         .simultaneousGesture(pinchGesture)
+    }
+
+    private var grid: some View {
+        LazyVGrid(columns: gridColumns, spacing: 16) {
+            ForEach(items) { item in
+                ItemCardView(item: item, showStatusChip: showStatusChip)
+                    .onTapGesture { selectedItem = item }
+                    .overlay {
+                        if showsSelectionBorder && selectedItem == item {
+                            RoundedRectangle(cornerRadius: AppConstants.CornerRadius.medium)
+                                .strokeBorder(.tint, lineWidth: 2.5)
+                        }
+                    }
+            }
+            if hasMore {
+                Color.clear
+                    .frame(height: 1)
+                    .onAppear { onLoadMore() }
+            }
+            if isLoadingMore {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .gridCellColumns(gridColumns.count)
+            }
+        }
+        // Top clearance comes from the header above, the same as the list's.
+        .padding(.bottom)
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Gesture
@@ -136,7 +152,9 @@ struct ItemGridView: View {
         scrollPosition: .constant(ScrollPosition()),
         hasMore: false,
         isLoadingMore: false,
-        onLoadMore: {}
+        onLoadMore: {},
+        header: { Text("Model Planes").font(.title2.bold()).padding() },
+        pinnedHeader: { Text("Tabs").padding() }
     )
     .modelContainer(container)
 }

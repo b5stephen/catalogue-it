@@ -94,10 +94,14 @@ struct CatalogueDetailView: View {
         // them. The band stands in for the navigation title: it carries the name and the
         // count, and the title is left empty on iOS so the bar's controls float over the
         // colour instead of repeating the name above it. Tabs exist only when the catalogue
-        // defines a status field, and an empty inset reserves no space.
+        // defines a status field, and an empty inset reserves no space. Without tabs the band
+        // takes a little extra bottom clearance — slightly more than the tab bar's padding
+        // would give, since its edge is a harder line than the pills and the cards otherwise
+        // sit too close to it.
         .safeAreaInset(edge: .top, spacing: 0) {
             VStack(spacing: 0) {
                 CatalogueBand(catalogue: catalogue, itemCount: displayedCount)
+                    .padding(.bottom, statusTabs.isEmpty ? 12 : 0)
                 if !statusTabs.isEmpty {
                     // No background of its own. The soft scroll edge on the list blurs and
                     // fades cards as they pass under here, and any fill — material included —

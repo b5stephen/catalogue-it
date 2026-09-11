@@ -57,9 +57,8 @@ struct PhotoCarouselView: View {
 #endif
             }
             .frame(height: AppConstants.PhotoHeight.detail)
-            // Same radius and inset as the section cards below, so the photo's edges line up
-            // with theirs on the wash rather than running out to the screen edge.
-            .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.card, style: .continuous))
+            // Same inset as the section cards below, so a photo's edges line up with theirs on
+            // the wash rather than running out to the screen edge.
             .padding(.horizontal)
 
             let caption = selectedIndex < photos.count ? photos[selectedIndex].caption : nil
@@ -86,9 +85,12 @@ struct PhotoCarouselView: View {
     private func photoPage(photo: ItemPhoto) -> some View {
         Group {
             if let image = photo.imageData.asImage() {
+                // Rounded on the photo itself, not the pager: a portrait photo sits narrower
+                // than the frame, so a clip on the frame would leave its corners square.
                 image
                     .resizable()
                     .scaledToFit()
+                    .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.card, style: .continuous))
             } else {
                 Rectangle()
                     .fill(.secondary.opacity(0.2))

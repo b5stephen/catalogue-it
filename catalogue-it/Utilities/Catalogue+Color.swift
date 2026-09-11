@@ -50,7 +50,14 @@ extension Catalogue {
 /// solid fill instead has to stay *far enough from* it, so the foreground flips to near-black on
 /// bright picks rather than the fill being held back to suit white text.
 nonisolated struct CataloguePalette {
-    /// The normalised accent, un-rotated — for anything that needs one representative colour.
+    /// The normalised accent, un-rotated — for anything that needs one representative colour:
+    /// the screen tint inside a catalogue, tinted labels, the status capsules.
+    ///
+    /// Lighter than the fill's base in dark appearance — brighter, and eased back from full
+    /// saturation. The fill can afford to sit deep and vivid, but the tint is mostly read as
+    /// *text* on the dark wash — section headers, tab labels — and a fully saturated red
+    /// header on a deep red ground was legible but only just. Pulling it towards a pastel is
+    /// what gives it room against a ground of the same hue.
     let tint: Color
     /// The card's fill.
     let fill: LinearGradient
@@ -83,8 +90,11 @@ nonisolated struct CataloguePalette {
         let saturation = isNeutral ? base.saturation : min(max(base.saturation, 0.72), 1.0)
         let brightness = min(max(base.brightness, isDark ? 0.62 : 0.66), isDark ? 0.92 : 0.96)
 
-        let accent = Color(hue: base.hue, saturation: saturation, brightness: brightness)
-        tint = accent
+        tint = Color(
+            hue: base.hue,
+            saturation: isDark ? min(saturation, 0.7) : saturation,
+            brightness: isDark ? max(brightness, 0.85) : brightness
+        )
 
         let rgb = RGBComponents(hue: base.hue, saturation: saturation, brightness: brightness)
         let luminance = 0.2126 * rgb.red + 0.7152 * rgb.green + 0.0722 * rgb.blue
@@ -134,7 +144,8 @@ nonisolated struct CataloguePalette {
         border = isSelected ? contrastColor.opacity(0.95) : contrastColor.opacity(isDark ? 0.16 : 0.22)
         borderWidth = isSelected ? 2.5 : 1
 
-        shadow = accent.opacity(isSelected ? 0.5 : (isDark ? 0.35 : 0.3))
+        shadow = Color(hue: base.hue, saturation: saturation, brightness: brightness)
+            .opacity(isSelected ? 0.5 : (isDark ? 0.35 : 0.3))
         shadowRadius = isSelected ? 12 : 8
     }
 }

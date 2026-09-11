@@ -99,17 +99,20 @@ struct CatalogueDetailView: View {
             VStack(spacing: 0) {
                 CatalogueBand(catalogue: catalogue, itemCount: displayedCount)
                 if !statusTabs.isEmpty {
-                    // The tab bar sits on an opaque stretch of the wash, so cards scrolling
-                    // under it disappear cleanly rather than showing through the capsules.
-                    // Deliberately not a `.bar` material: iOS 26 reads that as a top-edge bar
-                    // and extends it up under the navigation bar, over the band.
+                    // No background of its own. The soft scroll edge on the list blurs and
+                    // fades cards as they pass under here, and any fill — material included —
+                    // would sit on top of that gradation and hide it. (A `.bar` material is
+                    // doubly wrong: iOS 26 reads it as a top-edge bar and extends it up under
+                    // the navigation bar, over the band.)
                     StatusTabBar(tabs: statusTabs, catalogue: catalogue, selection: $selectedTab)
                         .padding(.horizontal)
                         .padding(.vertical, 8)
-                        .background { CatalogueWash.fill(for: catalogue, in: colorScheme) }
                 }
             }
         }
+        // A soft edge fades and blurs the cards progressively as they pass under the header,
+        // rather than the hard line a plain inset leaves.
+        .scrollEdgeEffectStyle(.soft, for: .top)
         .background(CatalogueWash(catalogue: catalogue))
         .tint(catalogue.palette(for: colorScheme).tint)
 #if os(macOS)

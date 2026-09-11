@@ -16,17 +16,16 @@ import SwiftUI
 /// capsule takes its natural width, and the row scrolls once they overflow, with the current
 /// tab kept in view.
 ///
-/// Solid colour is reserved for the one tab that is current. The text on it comes from the
-/// catalogue's palette rather than being white, since a pale pick (a yellow, say) needs dark
-/// text to clear its own fill.
+/// Every tab is a glass capsule — the bar floats over cards blurring out beneath it, and bare
+/// text was unreadable the moment a photo passed under. The current tab's glass is tinted with
+/// the catalogue colour; the text on it comes from the palette rather than being white, since
+/// a pale pick (a yellow, say) needs dark text to clear its own fill.
 struct StatusTabBar: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     let tabs: [StatusTabDescriptor]
     let catalogue: Catalogue
     @Binding var selection: StatusTab
-
-    @Namespace private var selectionNamespace
 
     var body: some View {
         let palette = catalogue.palette(
@@ -36,33 +35,31 @@ struct StatusTabBar: View {
 
         ScrollViewReader { proxy in
             ScrollView(.horizontal) {
-                HStack(spacing: 6) {
-                    ForEach(tabs) { descriptor in
-                        let isOn = descriptor.tab == selection
-                        Button {
-                            withAnimation(.snappy(duration: 0.25)) { selection = descriptor.tab }
-                        } label: {
-                            Text(descriptor.label)
-                                .font(.subheadline.weight(isOn ? .semibold : .regular))
-                                .lineLimit(1)
-                                .foregroundStyle(isOn ? palette.primaryText : palette.tint)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background {
-                                    if isOn {
-                                        Capsule()
-                                            .fill(palette.tint)
-                                            .matchedGeometryEffect(id: "selection", in: selectionNamespace)
-                                    }
-                                }
-                                .contentShape(Capsule())
+                // The container renders the capsules as one glass pass; its spacing is kept
+                // below the gap between them so neighbours stay separate rather than merging.
+                GlassEffectContainer(spacing: 2) {
+                    HStack(spacing: 8) {
+                        ForEach(tabs) { descriptor in
+                            let isOn = descriptor.tab == selection
+                            Button {
+                                withAnimation(.snappy(duration: 0.25)) { selection = descriptor.tab }
+                            } label: {
+                                Text(descriptor.label)
+                                    .font(.subheadline.weight(isOn ? .semibold : .regular))
+                                    .lineLimit(1)
+                                    .foregroundStyle(isOn ? palette.primaryText : palette.tint)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .glassEffect(isOn ? selectedGlass(palette) : unselectedGlass, in: .capsule)
+                            .id(descriptor.tab)
+                            .accessibilityAddTraits(isOn ? [.isSelected] : [])
                         }
-                        .buttonStyle(.plain)
-                        .id(descriptor.tab)
-                        .accessibilityAddTraits(isOn ? [.isSelected] : [])
                     }
+                    .scrollTargetLayout()
                 }
-                .scrollTargetLayout()
             }
             .scrollIndicators(.hidden)
             .scrollClipDisabled()
@@ -74,6 +71,20 @@ struct StatusTabBar: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Status")
+    }
+
+    /// The current tab's tint is applied at partial opacity so it stays as glassy as its
+    /// neighbours — a full-strength tint reads as a solid pill, since colour is mixed into
+    /// everything showing through.
+    private func selectedGlass(_ palette: CataloguePalette) -> Glass {
+        .regular.tint(palette.tint.opacity(0.75))
+    }
+
+    /// Plain glass over the dark wash is close to invisible — there is nothing light behind it
+    /// to catch. A faint white tint frosts it enough to read as a pill without becoming a
+    /// button. In light appearance the wash itself provides that, so the glass is left clear.
+    private var unselectedGlass: Glass {
+        colorScheme == .dark ? .regular.tint(.white.opacity(0.10)) : .regular
     }
 }
 

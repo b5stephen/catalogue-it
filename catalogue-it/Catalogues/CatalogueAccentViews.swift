@@ -15,23 +15,46 @@ import SwiftUI
 /// is what says you are still inside the catalogue once the band is out of the way, and it is
 /// the one thing the item detail screen keeps, so list and detail read as one place.
 ///
-/// Light enough that photos and label text sit on it comfortably; deeper in dark appearance,
-/// where the same opacity would vanish against a near-black base.
+/// In light appearance the wash is the tint at a few percent over the system background —
+/// light enough that photos and label text sit on it comfortably. In dark appearance that
+/// recipe fails: a few percent of colour over near-black is just black with a cast, and reads
+/// as a slightly wrong grey. So the dark wash is built as a colour of its own — the hue kept,
+/// saturation high, brightness deep — with a gentle gradient that carries more colour at the
+/// top, under the band, and settles darker below. Neutral picks stay neutral either way.
 struct CatalogueWash: View {
     @Environment(\.colorScheme) private var colorScheme
     let catalogue: Catalogue
 
     var body: some View {
-        Self.fill(for: catalogue, in: colorScheme)
-            .ignoresSafeArea()
+        Group {
+            if colorScheme == .dark {
+                Self.darkFill(for: catalogue)
+            } else {
+                Self.lightFill(for: catalogue)
+            }
+        }
+        .ignoresSafeArea()
     }
 
-    /// The wash as an opaque fill, for anything pinned over the scrolling content that has to
-    /// hide what passes beneath it — the status tab bar — without extending into the safe area.
-    static func fill(for catalogue: Catalogue, in scheme: ColorScheme) -> some View {
-        catalogue.palette(for: scheme).tint
-            .opacity(scheme == .dark ? 0.14 : 0.07)
+    private static func lightFill(for catalogue: Catalogue) -> some View {
+        catalogue.palette(for: .light).tint
+            .opacity(0.07)
             .background(.background)
+    }
+
+    private static func darkFill(for catalogue: Catalogue) -> some View {
+        let base = HSBComponents(hex: catalogue.colorHex)
+        let isNeutral = base.saturation < 0.08
+        // Saturation runs high: at these brightnesses anything less collapses into slate.
+        let saturation = isNeutral ? base.saturation : 0.85
+        return LinearGradient(
+            colors: [
+                Color(hue: base.hue, saturation: saturation, brightness: 0.30),
+                Color(hue: base.hue, saturation: saturation, brightness: 0.13)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 }
 
@@ -43,6 +66,11 @@ struct CatalogueWash: View {
 ///
 /// The fill runs up under the navigation bar so the colour reaches the top of the screen and
 /// the bar's controls float on it, rather than the band starting as a stripe below them.
+///
+/// The band is translucent, and deliberately not backed by a material: the list beneath has
+/// a soft scroll edge effect, which blurs and fades cards progressively as they pass under
+/// the inset. A material here would blur the whole region uniformly and hide that gradation,
+/// so the band is just the gradient at partial opacity, and the edge effect does the rest.
 struct CatalogueBand: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
@@ -84,7 +112,7 @@ struct CatalogueBand: View {
         .padding(.horizontal)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background { palette.fill.ignoresSafeArea(edges: .top) }
+        .background { palette.fill.opacity(0.85).ignoresSafeArea(edges: .top) }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }
@@ -92,13 +120,14 @@ struct CatalogueBand: View {
 
 // MARK: - Card Fill
 
-/// What a neutral card on the wash is filled with. White in light appearance; in dark, the
-/// elevated secondary background rather than pure black, which sat on the tinted wash like
-/// a hole rather than a card — the same lift a grouped list gives its cells.
+/// What a neutral card on the wash is filled with. White in light appearance. In dark, a
+/// translucent white rather than an opaque grey: it lifts the card off the wash the way a
+/// grouped list lifts its cells, but lets the wash's hue come through so the card belongs to
+/// the coloured ground instead of sitting on it as a grey rectangle.
 private struct CardFill: ShapeStyle {
     func resolve(in environment: EnvironmentValues) -> some ShapeStyle {
         if environment.colorScheme == .dark {
-            AnyShapeStyle(.background.secondary)
+            AnyShapeStyle(.white.opacity(0.09))
         } else {
             AnyShapeStyle(.background)
         }

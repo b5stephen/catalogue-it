@@ -78,5 +78,10 @@ struct catalogue_itApp: App {
         fieldValue.textValue = "Test Item"
         fieldValue.item = item
         ctx.insert(fieldValue)
+
+        // Commit now. The undo manager is attached to this context right after this
+        // runs, and SwiftData asserts ("A snapshot should exist before creating a new
+        // snapshot for undo") if it then finds unsaved inserts it never snapshotted.
+        try? ctx.save()
     }
 }

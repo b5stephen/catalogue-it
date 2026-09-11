@@ -34,8 +34,10 @@ final class NavigationTests: XCTestCase {
                       "Catalogue should appear in the sidebar list")
         catalogueText.tap()
 
-        // Verify we reached catalogue detail.
-        XCTAssertTrue(app.navigationBars["Test Catalogue"].waitForExistence(timeout: 3),
+        // Verify we reached catalogue detail. The catalogue screen carries no bar title
+        // until its band scrolls away, so the toolbar's Add Item button is the marker.
+        let addItemButton = app.buttons["Add Item"]
+        XCTAssertTrue(addItemButton.waitForExistence(timeout: 3),
                       "Should navigate to catalogue detail")
 
         // Tap the seeded item.
@@ -45,19 +47,20 @@ final class NavigationTests: XCTestCase {
         itemText.tap()
 
         // Verify we reached item detail.
-        XCTAssertTrue(app.navigationBars["Test Item"].waitForExistence(timeout: 3),
+        let itemBar = app.navigationBars["Test Item"]
+        XCTAssertTrue(itemBar.waitForExistence(timeout: 3),
                       "Should navigate to item detail")
 
-        // Tap the back button. On iPhone the back button is labelled with the
-        // previous screen's title, so scope it to the current nav bar to avoid
-        // accidentally hitting a toolbar button.
-        app.navigationBars["Test Item"].buttons["Test Catalogue"].tap()
+        // Tap the back button. Scope it to the item's nav bar so a toolbar button
+        // can't be hit by mistake; its label is "Back" because the catalogue screen
+        // has no bar title for it to inherit.
+        itemBar.buttons["BackButton"].tap()
 
         // Regression assertion: back should land on catalogue detail, not the
         // top-level catalogue list.
-        XCTAssertTrue(app.navigationBars["Test Catalogue"].waitForExistence(timeout: 3),
+        XCTAssertTrue(addItemButton.waitForExistence(timeout: 3),
                       "Back button should return to catalogue detail")
-        XCTAssertFalse(app.navigationBars["Catalogues"].exists,
+        XCTAssertFalse(app.buttons["Add Catalogue"].exists,
                        "Should NOT have jumped all the way back to the catalogue list")
     }
 }

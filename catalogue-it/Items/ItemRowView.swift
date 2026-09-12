@@ -59,10 +59,11 @@ struct ItemRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Thumbnail
+            // Thumbnail — radius derived from the card's, so its corners run parallel to the
+            // card's corners (see `AppConstants.ItemCard.thumbnailCornerRadius`).
             ItemThumbnailView(itemID: item.persistentModelID)
                 .frame(width: AppConstants.ThumbnailSize.list, height: AppConstants.ThumbnailSize.list)
-                .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.small))
+                .clipShape(.rect(cornerRadius: AppConstants.ItemCard.thumbnailCornerRadius, style: .continuous))
 
             // Text content
             VStack(alignment: .leading, spacing: 4) {
@@ -114,7 +115,8 @@ private struct ItemThumbnailView: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                RoundedRectangle(cornerRadius: AppConstants.CornerRadius.small)
+                // The row clips to the tile shape, so the placeholder needs no corners of its own.
+                Rectangle()
                     .fill(.quaternary)
                     .overlay {
                         Image(systemName: "photo")

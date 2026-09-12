@@ -157,8 +157,7 @@ struct ItemCardModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(AppConstants.ItemCard.contentPadding)
             .background(CardFill(catalogue: catalogue), in: shape)
             .overlay {
                 if isSelected {

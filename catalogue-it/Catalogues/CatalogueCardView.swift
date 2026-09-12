@@ -97,7 +97,7 @@ struct CatalogueCardView: View {
             )
             .background(
                 palette.iconTint,
-                in: RoundedRectangle(cornerRadius: AppConstants.CornerRadius.medium, style: .continuous)
+                in: RoundedRectangle(cornerRadius: AppConstants.CatalogueCard.iconTileCornerRadius, style: .continuous)
             )
             .accessibilityHidden(true)
     }

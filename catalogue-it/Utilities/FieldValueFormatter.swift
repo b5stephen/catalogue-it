@@ -17,12 +17,13 @@ import Foundation
 /// being read, including off the main actor.
 nonisolated enum FieldValueFormatter {
     static func number(_ value: Double, options: NumberOptions) -> String {
+        let grouping: NumberFormatStyleConfiguration.Grouping = options.usesGroupingSeparator ? .automatic : .never
         switch options.format {
         case .number:
-            return value.formatted(.number.precision(.fractionLength(options.precision)))
+            return value.formatted(.number.precision(.fractionLength(options.precision)).grouping(grouping))
         case .currency:
             let code = Locale.current.currency?.identifier ?? "USD"
-            return value.formatted(.currency(code: code).precision(.fractionLength(options.precision)))
+            return value.formatted(.currency(code: code).precision(.fractionLength(options.precision)).grouping(grouping))
         }
     }
 

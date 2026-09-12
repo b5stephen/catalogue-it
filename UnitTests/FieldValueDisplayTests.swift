@@ -50,6 +50,21 @@ struct FieldValueDisplayTests {
         #expect(display.hasSuffix("00"), "Precision 2 should pad to two fraction digits")
     }
 
+    @Test("Grouping separator is on by default and can be switched off")
+    func numberGroupingSeparator() {
+        let fv = makeFieldValue(type: .number)
+        fv.numberValue = 1234567
+
+        let grouped = fv.displayValue(options: .number(NumberOptions()))
+        #expect(grouped.count > 7, "Default options should insert grouping separators")
+
+        let plain = fv.displayValue(options: .number(NumberOptions(usesGroupingSeparator: false)))
+        #expect(plain == "1234567")
+
+        let currency = fv.displayValue(options: .number(NumberOptions(format: .currency, precision: 0, usesGroupingSeparator: false)))
+        #expect(currency.contains("1234567"), "Grouping off should apply to currency too")
+    }
+
     @Test("Currency format includes the amount")
     func currencyFormat() {
         let fv = makeFieldValue(type: .number)

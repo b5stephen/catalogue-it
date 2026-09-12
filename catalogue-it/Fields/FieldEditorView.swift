@@ -100,6 +100,8 @@ struct FieldEditorView: View {
                             Text("3").tag(3)
                             Text("4").tag(4)
                         }
+
+                        Toggle("Thousands Separator", isOn: $draft.numberOptions.usesGroupingSeparator)
                     }
                 }
 

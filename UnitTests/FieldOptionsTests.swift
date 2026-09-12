@@ -52,5 +52,31 @@ struct FieldOptionsTests {
         let options = NumberOptions()
         #expect(options.format == .number)
         #expect(options.precision == 0)
+        #expect(options.usesGroupingSeparator)
+    }
+
+    @Test func numberOptionsGroupingSurvivesRoundTrip() throws {
+        let original = FieldOptions.number(NumberOptions(format: .number, precision: 1, usesGroupingSeparator: false))
+        let encoded = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(FieldOptions.self, from: encoded)
+        #expect(decoded == original)
+        if case .number(let opts) = decoded {
+            #expect(opts.usesGroupingSeparator == false)
+        } else {
+            Issue.record("Expected a number case")
+        }
+    }
+
+    /// Blobs stored before the grouping option existed carry no key for it. They must still
+    /// decode, and read as grouping on — the behaviour those fields had when they were saved.
+    @Test func numberOptionsDecodeWithoutGroupingKey() throws {
+        let legacy = Data(#"{"number":{"_0":{"format":"Currency","precision":2}}}"#.utf8)
+        let decoded = try JSONDecoder().decode(FieldOptions.self, from: legacy)
+        #expect(decoded == .number(NumberOptions(format: .currency, precision: 2)))
+        if case .number(let opts) = decoded {
+            #expect(opts.usesGroupingSeparator)
+        } else {
+            Issue.record("Expected a number case")
+        }
     }
 }

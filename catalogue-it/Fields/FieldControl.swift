@@ -49,7 +49,11 @@ struct FieldControl: View {
                 Text(Locale.current.currencySymbol ?? "$")
                     .foregroundStyle(.secondary)
             }
-            TextField(label, value: $numberValue, format: .number)
+            TextField(
+                label,
+                value: $numberValue,
+                format: .number.grouping(numberOptions.usesGroupingSeparator ? .automatic : .never)
+            )
 #if os(iOS)
                 .keyboardType(numberOptions.precision == 0 ? .numberPad : .decimalPad)
 #endif

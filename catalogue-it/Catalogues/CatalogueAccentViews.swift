@@ -111,9 +111,11 @@ struct CatalogueBand: View {
 ///
 /// White in light appearance, lifted off the wash the way a grouped list lifts its cells. In
 /// dark the roles swap: the ground is black and the card carries the catalogue's colour — the
-/// hue kept, saturation moderate, brightness deep — so it is unmistakably a coloured card on
-/// black, as on the Catalogues screen, but quiet enough that the photo and text on it stay the
-/// point. A neutral pick stays neutral, and lands on the same lift a grouped cell would get.
+/// hue kept, saturation restrained, brightness deep — so it reads as a coloured card on black,
+/// as on the Catalogues screen, but quiet enough that the photo and text on it stay the point.
+/// It sits well short of the Catalogues cards' vividness on purpose: those are the accent, and
+/// a whole list of them at that strength was more colour than a reading surface wants. A
+/// neutral pick stays neutral, and lands on the same lift a grouped cell would get.
 private struct CardFill: ShapeStyle {
     /// The hex rather than the catalogue: a `ShapeStyle` is `Sendable`, and a model isn't.
     let colorHex: String
@@ -126,8 +128,8 @@ private struct CardFill: ShapeStyle {
             let isNeutral = base.saturation < 0.08
             return AnyShapeStyle(Color(
                 hue: base.hue,
-                saturation: isNeutral ? base.saturation : 0.55,
-                brightness: isNeutral ? 0.20 : 0.26
+                saturation: isNeutral ? base.saturation : 0.42,
+                brightness: isNeutral ? 0.16 : 0.20
             ))
         } else {
             return AnyShapeStyle(.background)

@@ -102,6 +102,14 @@ final class ItemPaginationController {
     private var pendingStoreChange = false
     private var standbyObserver: NSObjectProtocol?
 
+    isolated deinit {
+        // onDisappear doesn't always precede release (see `reset`), so drop the tokens here
+        // too rather than leaving them registered with NotificationCenter.
+        (observers + [standbyObserver].compactMap { $0 }).forEach {
+            NotificationCenter.default.removeObserver($0)
+        }
+    }
+
     // MARK: - Public API
 
     /// Clears pagination state, recomputes counts, resolves the sort field (for custom
@@ -141,6 +149,17 @@ final class ItemPaginationController {
         }
 
         loadMore(context: context)
+
+        // A reset means this list is being displayed, so it must hear the saves that follow.
+        // Normally onAppear has already armed the observer, but pushing the content column
+        // in compact width can fire onAppear and onDisappear back to back — and cancel the
+        // view's task — for a view that nonetheless stays on screen. Left in standby, the
+        // catalogue's first saved item would never show. Nothing is pending: the load above
+        // just read the store.
+        if observers.isEmpty, standbyObserver != nil {
+            pendingStoreChange = false
+            startObservingStoreChanges()
+        }
     }
 
     /// Appends the next page of items. Called by the scroll sentinel's onAppear.

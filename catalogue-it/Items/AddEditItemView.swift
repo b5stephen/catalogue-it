@@ -262,15 +262,23 @@ struct AddEditItemView: View {
             // Create path
             let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
             let newItem = CatalogueItem(notes: trimmedNotes.isEmpty ? nil : trimmedNotes)
-            newItem.catalogue = catalogue
+            // Insert before wiring the relationship. Set on an un-inserted model, the
+            // catalogue FK reaches the store lazily, and the item list's post-save count
+            // (which filters on that FK) can miss the row — so the first item in a fresh
+            // catalogue sometimes never appeared.
             modelContext.insert(newItem)
+            newItem.catalogue = catalogue
             targetItem = newItem
         }
 
         // Field values
         var createdFieldValues: [FieldValue] = []
         for draft in fieldDrafts {
-            let fv = FieldValue(fieldDefinition: draft.fieldDefinition, fieldType: draft.fieldType)
+            // Same insert-then-relate order as the item above: the custom-sort count
+            // filters on the fieldDefinition FK.
+            let fv = FieldValue(fieldDefinition: nil, fieldType: draft.fieldType)
+            modelContext.insert(fv)
+            fv.fieldDefinition = draft.fieldDefinition
             switch draft.fieldType {
             case .text, .optionList:
                 let trimmedText = draft.textValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -284,7 +292,6 @@ struct AddEditItemView: View {
             }
             fv.sortKey = SortKeyEncoder.sortKey(for: fv)
             fv.item = targetItem
-            modelContext.insert(fv)
             createdFieldValues.append(fv)
         }
 
@@ -315,8 +322,8 @@ struct AddEditItemView: View {
                 priority: draft.priority,
                 caption: trimmedCaption.isEmpty ? nil : trimmedCaption
             )
-            photo.item = targetItem
             modelContext.insert(photo)
+            photo.item = targetItem
         }
 
         // Compute cover thumbnail before saving so it's ready to write to the

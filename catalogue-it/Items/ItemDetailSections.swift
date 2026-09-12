@@ -122,21 +122,46 @@ private struct StatusFieldRowView: View {
 // MARK: - Item Notes Section
 
 /// Inside a card titled "Notes", so the text stands alone rather than under a second label.
+/// Always present, even with nothing written: the placeholder and the pencil together say
+/// "tap here to add some", which a card that only appears once notes exist can't.
 struct ItemNotesSection: View {
-    let notes: String
+    let notes: String?
+    let onEdit: () -> Void
+
+    private var hasNotes: Bool { !(notes ?? "").isEmpty }
 
     var body: some View {
-        Text(notes)
+        Button(action: onEdit) {
+            HStack(alignment: .top, spacing: 12) {
+                if let notes, hasNotes {
+                    Text(notes)
+                        .foregroundStyle(.primary)
+                } else {
+                    Text("Add notes…")
+                        .foregroundStyle(.tertiary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "square.and.pencil")
+                    .foregroundStyle(.tint)
+                    .accessibilityHidden(true)
+            }
             .font(.body)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 10)
             .contentShape(Rectangle())
-            .contextMenu {
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(hasNotes ? "Notes" : "Add notes")
+        .accessibilityValue(notes ?? "")
+        .accessibilityHint("Edits the notes")
+        .contextMenu {
+            if let notes, hasNotes {
                 Button {
                     copyToClipboard(notes)
                 } label: {
                     Label("Copy", systemImage: "doc.on.doc")
                 }
             }
+        }
     }
 }

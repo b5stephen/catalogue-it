@@ -21,6 +21,7 @@ struct ItemDetailView: View {
     @State private var showingEditItem = false
     @State private var showingDuplicateItem = false
     @State private var showingDeleteConfirmation = false
+    @State private var showingEditNotes = false
 
     // MARK: - Computed
 
@@ -77,9 +78,9 @@ struct ItemDetailView: View {
                         }
                     }
 
-                    if let notes = item.notes, !notes.isEmpty {
-                        CatalogueSectionCard(title: "Notes", catalogue: catalogue) {
-                            ItemNotesSection(notes: notes)
+                    CatalogueSectionCard(title: "Notes", catalogue: catalogue) {
+                        ItemNotesSection(notes: item.notes) {
+                            showingEditNotes = true
                         }
                     }
                 }
@@ -192,6 +193,9 @@ struct ItemDetailView: View {
         }
         .sheet(isPresented: $showingDuplicateItem) {
             AddEditItemView(catalogue: catalogue, duplicateSource: item)
+        }
+        .sheet(isPresented: $showingEditNotes) {
+            EditItemNotesSheet(item: item)
         }
     }
 

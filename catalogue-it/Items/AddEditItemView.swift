@@ -29,6 +29,10 @@ struct AddEditItemView: View {
     @State private var notes: String = ""
     @State private var previewPhotoID: UUID? = nil
     @State private var hasLoaded: Bool = false
+    @FocusState private var isNotesFocused: Bool
+
+    /// Anchor for scrolling the notes row into view; see `revealNotesField`.
+    private let notesFieldID = "notesField"
 
     // MARK: - Computed
 
@@ -65,18 +69,39 @@ struct AddEditItemView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                PhotoPickerView(photos: $photoDrafts, previewPhotoID: $previewPhotoID)
+            ScrollViewReader { proxy in
+                Form {
+                    PhotoPickerView(photos: $photoDrafts, previewPhotoID: $previewPhotoID)
 
-                Section("Details") {
-                    ForEach(fieldDrafts.indices, id: \.self) { index in
-                        FieldInputView(label: sortedDefs[index].name, draft: $fieldDrafts[index])
+                    Section("Details") {
+                        ForEach(fieldDrafts.indices, id: \.self) { index in
+                            FieldInputView(label: sortedDefs[index].name, draft: $fieldDrafts[index])
+                        }
+                    }
+
+                    Section("Notes") {
+                        TextField("Optional notes", text: $notes, axis: .vertical)
+                            .lineLimit(4...8)
+                            .focused($isNotesFocused)
+                            .id(notesFieldID)
+                            // The form's own keyboard avoidance only reveals the line that
+                            // had focus when the keyboard came up. When the field grows —
+                            // typing past a line, or pasting a paragraph — the new lines
+                            // extend below it, under the keyboard, and nothing follows them.
+                            // Re-anchoring on every height change keeps the whole box in view.
+                            .onGeometryChange(for: CGFloat.self) { geometry in
+                                geometry.size.height
+                            } action: { _ in
+                                guard isNotesFocused else { return }
+                                revealNotesField(proxy, after: .milliseconds(50))
+                            }
                     }
                 }
-
-                Section("Notes") {
-                    TextField("Optional notes", text: $notes, axis: .vertical)
-                        .lineLimit(4...8)
+                .onChange(of: isNotesFocused) { _, focused in
+                    // Wait for the keyboard to finish rising, so the scroll targets the
+                    // space above it rather than the full height it had before.
+                    guard focused else { return }
+                    revealNotesField(proxy, after: .milliseconds(350))
                 }
             }
             .navigationTitle(isEditing ? "Edit Item" : "New Item")
@@ -121,6 +146,17 @@ struct AddEditItemView: View {
     }
 
     // MARK: - Helpers
+
+    /// Scrolls so the entire notes box sits just above the keyboard, not merely the cursor line.
+    private func revealNotesField(_ proxy: ScrollViewProxy, after delay: Duration) {
+        Task { @MainActor in
+            try? await Task.sleep(for: delay)
+            guard isNotesFocused else { return }
+            withAnimation {
+                proxy.scrollTo(notesFieldID, anchor: .bottom)
+            }
+        }
+    }
 
     private func bindingFor(_ id: UUID) -> Binding<PhotoDraft> {
         Binding(

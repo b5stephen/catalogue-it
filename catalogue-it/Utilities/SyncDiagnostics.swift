@@ -5,6 +5,7 @@
 
 import CloudKit
 import Foundation
+import StoreKit
 import Synchronization
 import os
 
@@ -58,18 +59,19 @@ nonisolated struct SyncFailureReport: Codable, Identifiable, Equatable, Sendable
 /// entry point should exist.
 nonisolated enum BuildEnvironment {
 
-    /// TestFlight builds carry a `sandboxReceipt` rather than the App Store `receipt`.
-    /// Debug builds count as beta so the screen is reachable while developing.
+    /// TestFlight builds run against StoreKit's sandbox environment, App Store builds against
+    /// production. Debug builds count as beta so the screen is reachable while developing.
     ///
-    /// `appStoreReceiptURL` is deprecated in favour of StoreKit's `AppTransaction.shared`,
-    /// which is `async throws` — and this is read synchronously while building a toolbar, for
-    /// a beta-only affordance where being wrong shows or hides one debug button. The
-    /// deprecation warning is accepted rather than restructuring the call site around it.
-    static var isBeta: Bool {
+    /// Async because `AppTransaction.shared` is: it is resolved once from a `.task` and held in
+    /// view state, rather than read inline while building a toolbar. Anything short of a
+    /// verified sandbox transaction — App Store, unverified, no transaction at all — is
+    /// treated as not beta, since being wrong here only shows or hides one debug button.
+    static func isBeta() async -> Bool {
         #if DEBUG
         return true
         #else
-        return Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
+        guard case .verified(let transaction) = try? await AppTransaction.shared else { return false }
+        return transaction.environment == .sandbox
         #endif
     }
 

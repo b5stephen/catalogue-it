@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var showingAddCatalogue = false
     @State private var showingImporter = false
     @State private var showingSyncDiagnostics = false
+    @State private var isBeta = false
     @State private var importErrorMessage: String?
     @State private var importProgress: (current: Int, total: Int)?
     @State private var selectedCatalogue: Catalogue?
@@ -181,7 +182,7 @@ struct ContentView: View {
             // DEBUG builds doesn't exist here — and a silent failure shows no status bar, so
             // the sheet needs a way in that doesn't depend on one being on screen. Release
             // builds from the App Store show nothing.
-            if BuildEnvironment.isBeta {
+            if isBeta {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Sync Diagnostics", systemImage: "stethoscope") {
                         showingSyncDiagnostics = true
@@ -206,6 +207,7 @@ struct ContentView: View {
         .sheet(isPresented: $showingSyncDiagnostics) {
             SyncDiagnosticsView()
         }
+        .task { isBeta = await BuildEnvironment.isBeta() }
         .sheet(item: $catalogueToEdit) { catalogue in
             AddEditCatalogueView(catalogue: catalogue, nextPriority: catalogues.count)
         }

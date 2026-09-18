@@ -477,6 +477,7 @@
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Catalogue It";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphoneos*]" = "Catalogue It uses the camera to add photos to your collection of items.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphonesimulator*]" = "Catalogue It uses the camera to add photos to your collection of items.";
 				"INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription[sdk=iphoneos*]" = "Catalogue It saves photos you take with the camera to your Photos library.";
@@ -528,6 +529,7 @@
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Catalogue It";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphoneos*]" = "Catalogue It uses the camera to add photos to your collection of items.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphonesimulator*]" = "Catalogue It uses the camera to add photos to your collection of items.";
 				"INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription[sdk=iphoneos*]" = "Catalogue It saves photos you take with the camera to your Photos library.";

@@ -42,6 +42,9 @@ struct ItemPaginationControllerReactivityTests {
             configurations: ModelConfiguration(url: url, cloudKitDatabase: .none)
         )
         let context = container.mainContext
+        // Every save here is explicit; an autosave would post a DidSave the remote-merge
+        // tests must be able to rule out.
+        context.autosaveEnabled = false
 
         let inserted = Catalogue(name: "Empty", iconName: "airplane", colorHex: "#000000")
         context.insert(inserted)
@@ -87,9 +90,25 @@ struct ItemPaginationControllerReactivityTests {
 
     /// The save notification is delivered through a main-actor Task, so give it a moment.
     private func waitForItems(in controller: ItemPaginationController) async throws {
-        for _ in 0..<20 where controller.items.isEmpty {
+        try await wait { !controller.items.isEmpty }
+    }
+
+    private func wait(until condition: () -> Bool) async throws {
+        for _ in 0..<20 where !condition() {
             try await Task.sleep(for: .milliseconds(50))
         }
+    }
+
+    /// Adds an item carrying the given status mirror and saves. `statusValue` is set directly:
+    /// the controller filters on the column, so no status field definition is needed.
+    @discardableResult
+    private func addItem(to fixture: Fixture, status: String) throws -> PersistentIdentifier {
+        let item = CatalogueItem()
+        fixture.context.insert(item)
+        item.catalogue = fixture.catalogue
+        item.statusValue = status
+        try fixture.context.save()
+        return item.persistentModelID
     }
 
     @Test("A save while observing loads the catalogue's first item")
@@ -134,5 +153,90 @@ struct ItemPaginationControllerReactivityTests {
         #expect(fixture.controller.items.count == 1)
         // Nothing was pending when reset re-armed: reappearing must not force a reload.
         #expect(fixture.controller.startObservingStoreChanges() == false)
+    }
+
+    // MARK: - Remote merges
+
+    /// An edit on another device can move an item between status tabs without changing how
+    /// many items the current tab matches — exactly the case the save path's count guard
+    /// waves through. `.remoteChangesMerged` must reload regardless.
+    @Test("A remote merge reloads the list even when the matching count is unchanged")
+    func remoteMergeBypassesCountGuard() async throws {
+        let fixture = try makeFixture()
+        let first = try addItem(to: fixture, status: "a")
+        let second = try addItem(to: fixture, status: "b")
+
+        let tabA = FilterFingerprint(
+            catalogueID: fixture.catalogue.persistentModelID,
+            statusTab: .option("a"),
+            searchText: "",
+            sortFieldKey: ItemSortField.dateAdded.rawValue,
+            sortDirection: ItemSortDirection.ascending.rawValue
+        )
+        fixture.controller.reset(fingerprint: tabA, context: fixture.context)
+        fixture.controller.startObservingStoreChanges()
+        #expect(fixture.controller.items.map(\.persistentModelID) == [first])
+
+        // Swap the two items' tabs. The count for tab "a" stays at one, so the save
+        // notification alone leaves the stale list in place.
+        let items = try fixture.context.fetch(FetchDescriptor<CatalogueItem>())
+        for item in items {
+            item.statusValue = item.persistentModelID == first ? "b" : "a"
+        }
+        try fixture.context.save()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(fixture.controller.items.map(\.persistentModelID) == [first])
+
+        NotificationCenter.default.post(name: .remoteChangesMerged, object: nil)
+        try await wait { fixture.controller.items.map(\.persistentModelID) == [second] }
+
+        #expect(fixture.controller.items.map(\.persistentModelID) == [second])
+        #expect(fixture.controller.totalCount == 1)
+    }
+
+    @Test("A remote merge in standby is deferred until the view reappears")
+    func remoteMergeInStandby() async throws {
+        let fixture = try makeFixture()
+        fixture.controller.startObservingStoreChanges()
+        fixture.controller.stopObservingStoreChanges()
+
+        // Insert without saving so no NSManagedObjectContextDidSave fires: only the merge
+        // announcement can mark the change pending. The reload's fetch still sees the row,
+        // since fetches include pending changes.
+        let item = CatalogueItem()
+        fixture.context.insert(item)
+        item.catalogue = fixture.catalogue
+
+        NotificationCenter.default.post(name: .remoteChangesMerged, object: nil)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(fixture.controller.items.isEmpty)
+
+        let didReset = fixture.controller.startObservingStoreChanges()
+        #expect(didReset)
+        #expect(fixture.controller.items.count == 1)
+    }
+
+    /// On iPad the list stays mounted through edits and remote merges, so a reload that
+    /// dropped back to page 1 would clamp a reader who had scrolled deeper.
+    @Test("A forced reload keeps the depth the user had scrolled to")
+    func forcedReloadKeepsDepth() async throws {
+        let fixture = try makeFixture()
+        for _ in 0..<(ItemPaginationController.pageSize + 10) {
+            let item = CatalogueItem()
+            fixture.context.insert(item)
+            item.catalogue = fixture.catalogue
+        }
+        try fixture.context.save()
+        fixture.controller.reset(fingerprint: fixture.fingerprint, context: fixture.context, force: true)
+        fixture.controller.loadMore(context: fixture.context)
+        let depth = fixture.controller.items.count
+        #expect(depth == ItemPaginationController.pageSize + 10)
+        fixture.controller.startObservingStoreChanges()
+
+        NotificationCenter.default.post(name: .remoteChangesMerged, object: nil)
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(fixture.controller.items.count == depth)
+        #expect(fixture.controller.hasMore == false)
     }
 }

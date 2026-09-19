@@ -8,6 +8,19 @@ import Foundation
 import SwiftData
 import os
 
+// MARK: - Notification
+
+extension Notification.Name {
+    /// Posted on the main queue once `RemoteChangeObserver` has finished a pass, i.e. after
+    /// the merged rows are on disk *and* the derived state that depends on them (facet
+    /// mirrors, thumbnail caches) has been brought back in step. `ItemPaginationController`
+    /// reloads on this without its count guard, since an edit merged from another device
+    /// changes no count. Expect it after local saves too: once an export completes, the
+    /// mirroring context writes CloudKit system fields back into the store, and that write
+    /// is a remote change as far as the coordinator is concerned.
+    static let remoteChangesMerged = Notification.Name("catalogue-it.remoteChangesMerged")
+}
+
 // MARK: - Remote Change Observer
 
 /// Reacts to changes merged into the store by CloudKit sync.
@@ -85,6 +98,9 @@ enum RemoteChangeObserver {
         ThumbnailCacheState.shared.invalidateAll()
 
         await recomputeFacetsForChangedCatalogues(in: container.mainContext)
+
+        // Last, so a listener that reloads sees the corrected facet mirrors.
+        NotificationCenter.default.post(name: .remoteChangesMerged, object: nil)
     }
 
     // MARK: - Facet mirrors

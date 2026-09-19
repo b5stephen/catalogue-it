@@ -22,6 +22,11 @@ import SwiftData
 ///   sync, so a photo swapped on another device reloads here too.
 /// - `generation`, bumped by `RemoteChangeObserver` when it clears the caches wholesale. This
 ///   covers a remote change from a device on a build that predates `modifiedDate`.
+///
+/// Both views build their key in `body`, so the bump re-evaluates the whole row, text
+/// included. That is relied upon: a value merged in from CloudKit does not go through the
+/// model's setters, so SwiftData observation cannot be trusted to re-render a row for it, and
+/// `ItemPaginationController`'s reload hands SwiftUI the same instances it already had.
 @MainActor
 @Observable
 final class ThumbnailCacheState {

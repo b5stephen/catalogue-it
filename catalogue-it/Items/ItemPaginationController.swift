@@ -67,6 +67,9 @@ struct FilterFingerprint: Equatable {
 /// benign saves that don't change the matching item count from triggering unnecessary
 /// list rebuilds. Custom-field sort always rebuilds on a store change instead, since an
 /// edit to the active sort field's value can reorder the list without changing the count.
+/// Changes merged from iCloud arrive as `.remoteChangesMerged` (see `RemoteChangeObserver`)
+/// and always rebuild: an edit made elsewhere can move an item between status tabs or
+/// reorder it without touching the count, and the whole batch is already debounced.
 @MainActor
 @Observable
 final class ItemPaginationController {
@@ -97,15 +100,16 @@ final class ItemPaginationController {
     private var currentContext: ModelContext?
     private var observers: [NSObjectProtocol] = []
 
-    // Set by the standby observer when a store save fires while active observing is paused
-    // (e.g. during navigation to item detail). Triggers a force refresh on the next appear.
+    // Set by the standby observers when a store save or remote merge fires while active
+    // observing is paused (e.g. during navigation to item detail). Triggers a force refresh
+    // on the next appear.
     private var pendingStoreChange = false
-    private var standbyObserver: NSObjectProtocol?
+    private var standbyObservers: [NSObjectProtocol] = []
 
     isolated deinit {
         // onDisappear doesn't always precede release (see `reset`), so drop the tokens here
         // too rather than leaving them registered with NotificationCenter.
-        (observers + [standbyObserver].compactMap { $0 }).forEach {
+        (observers + standbyObservers).forEach {
             NotificationCenter.default.removeObserver($0)
         }
     }
@@ -125,6 +129,13 @@ final class ItemPaginationController {
         if !force, fingerprint == currentFingerprint, !items.isEmpty {
             return
         }
+
+        // A forced reload reloads to the depth the user had reached. On iPad the list stays
+        // on screen through edits and remote merges, so dropping back to one page would clamp
+        // a reader at row 300 to the end of a 50-row list. Both load paths are offset-based,
+        // so refetching N pages is cheap and stable ids keep the scroll offset. A fingerprint
+        // change is a different list and starts from the top.
+        let previousDepth = (force && fingerprint == currentFingerprint) ? items.count : 0
 
         currentFingerprint = fingerprint
         currentContext = context
@@ -149,6 +160,9 @@ final class ItemPaginationController {
         }
 
         loadMore(context: context)
+        while items.count < previousDepth, hasMore {
+            loadMore(context: context)
+        }
 
         // A reset means this list is being displayed, so it must hear the saves that follow.
         // Normally onAppear has already armed the observer, but pushing the content column
@@ -156,7 +170,7 @@ final class ItemPaginationController {
         // view's task — for a view that nonetheless stays on screen. Left in standby, the
         // catalogue's first saved item would never show. Nothing is pending: the load above
         // just read the store.
-        if observers.isEmpty, standbyObserver != nil {
+        if observers.isEmpty, !standbyObservers.isEmpty {
             pendingStoreChange = false
             startObservingStoreChanges()
         }
@@ -188,27 +202,35 @@ final class ItemPaginationController {
     /// performed — the caller should restore the scroll position in that case.
     @discardableResult
     func startObservingStoreChanges() -> Bool {
-        // Disarm the standby observer that was watching for saves while we were inactive.
-        if let standby = standbyObserver {
-            NotificationCenter.default.removeObserver(standby)
-            standbyObserver = nil
-        }
+        // Disarm the standby observers that were watching while we were inactive.
+        standbyObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        standbyObservers = []
 
         // NSManagedObjectContextDidSave fires only on explicit context.save() calls —
         // not during read-only fetch operations. This avoids an infinite loop where
         // our own fetch() calls (including relationship prefetching) would fire
         // NSManagedObjectContextObjectsDidChange, triggering another reset().
-        // SwiftData merges iCloud changes into the main context and then saves, so
-        // this notification covers both local saves and remote sync.
+        // The CloudKit mirroring context's saves post it too (observed with `object: nil`),
+        // which is how remote inserts already showed up — but a remote edit leaves the count
+        // untouched and slips past the guard below. `.remoteChangesMerged` covers that: it
+        // arrives once per debounced batch, after RemoteChangeObserver has repaired the
+        // derived state a reload depends on, and always reloads.
         if observers.isEmpty {
-            let token = NotificationCenter.default.addObserver(
+            let saveToken = NotificationCenter.default.addObserver(
                 forName: .NSManagedObjectContextDidSave,
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
                 Task { @MainActor [weak self] in self?.handleStoreChange() }
             }
-            observers = [token]
+            let remoteToken = NotificationCenter.default.addObserver(
+                forName: .remoteChangesMerged,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.handleRemoteChange() }
+            }
+            observers = [saveToken, remoteToken]
         }
 
         // A save fired while we were paused (e.g. user edited an item in the detail view).
@@ -227,20 +249,27 @@ final class ItemPaginationController {
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         observers = []
 
-        // Arm a lightweight standby observer so we notice saves that occur while the view
-        // is behind a navigation push (e.g. the user edits an item in detail view).
-        // The full refresh is deferred until the view reappears via startObservingStoreChanges.
-        guard standbyObserver == nil else { return }
-        standbyObserver = NotificationCenter.default.addObserver(
-            forName: .NSManagedObjectContextDidSave,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.pendingStoreChange = true }
+        // Arm lightweight standby observers so we notice saves and remote merges that occur
+        // while the view is behind a navigation push (e.g. the user edits an item in detail
+        // view). The full refresh is deferred until the view reappears via
+        // startObservingStoreChanges.
+        guard standbyObservers.isEmpty else { return }
+        standbyObservers = [.NSManagedObjectContextDidSave, .remoteChangesMerged].map { name in
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.pendingStoreChange = true }
+            }
         }
     }
 
     // MARK: - Reactivity
+
+    /// A batch merged from iCloud. No count guard: the edit that prompted it can change an
+    /// item's status tab, flags or sort position without changing how many rows match, and
+    /// the notification is already one per debounced batch.
+    private func handleRemoteChange() {
+        guard let fp = currentFingerprint, let ctx = currentContext else { return }
+        reset(fingerprint: fp, context: ctx, force: true)
+    }
 
     private func handleStoreChange() {
         guard let fp = currentFingerprint, let ctx = currentContext else { return }

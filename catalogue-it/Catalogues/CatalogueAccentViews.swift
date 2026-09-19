@@ -27,11 +27,18 @@ import SwiftUI
 struct CatalogueWash: View {
     @Environment(\.colorScheme) private var colorScheme
     let catalogue: Catalogue
-    /// Which safe-area edges the wash runs under. In a split view the detail column spans the
-    /// full width with the leading column floating over it as a safe-area inset, so a wash
-    /// that ignores the horizontal edges shows through that column's glass; pass `.vertical`
-    /// to keep it within the detail column.
+    /// Which safe-area edges the wash runs under. Pushed on a compact stack it fills the
+    /// screen; in a split view pass `detailColumnEdges` while the leading column is showing.
     var edges: Edge.Set = .all
+
+    /// The edges for the detail column of a split view while the leading column is showing.
+    /// The detail column spans the full width with the leading column floating over it as a
+    /// safe-area inset, so a wash that ran under the leading edge showed through that
+    /// column's glass and tinted the catalogue list. The trailing edge is different: on an
+    /// iPhone in landscape its inset is the notch or home-indicator side of the screen, and a
+    /// wash that respected it stopped short of the screen edge. Once the leading column is
+    /// collapsed the leading inset is that same notch, so the wash goes back to `.all`.
+    static let detailColumnEdges: Edge.Set = [.vertical, .trailing]
 
     var body: some View {
         Group {

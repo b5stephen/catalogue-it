@@ -12,4 +12,9 @@ extension EnvironmentValues {
     /// where the detail column is right there next to it — so a view asking its own size class
     /// would push a second copy of the detail onto the stack.
     @Entry var hasDetailColumn: Bool = true
+
+    /// The safe-area edges the catalogue wash runs under. The default fills the screen, which
+    /// is right for a pushed screen; `ContentView` narrows it for the detail column of a split
+    /// view while the leading column is showing (see `CatalogueWash.detailColumnEdges`).
+    @Entry var catalogueWashEdges: Edge.Set = .all
 }

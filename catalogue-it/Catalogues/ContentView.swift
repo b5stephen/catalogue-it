@@ -49,6 +49,10 @@ struct ContentView: View {
     /// Read here, outside the split view, so it reflects the window and not a column.
     private var hasDetailColumn: Bool { horizontalSizeClass != .compact }
     @State private var columnVisibility: NavigationSplitViewVisibility = .doubleColumn
+    /// The detail column's wash keeps clear of the leading column only while it is showing.
+    private var detailWashEdges: Edge.Set {
+        columnVisibility == .detailOnly ? .all : CatalogueWash.detailColumnEdges
+    }
 #endif
 
     var body: some View {
@@ -181,6 +185,7 @@ struct ContentView: View {
             // to the catalogue list, where nothing is selected.
             if hasDetailColumn, let item = selectedItem, let catalogue = item.catalogue {
                 ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
+                    .environment(\.catalogueWashEdges, detailWashEdges)
             } else {
                 selectAnItemPlaceholder
             }
@@ -195,7 +200,7 @@ struct ContentView: View {
     private var selectAnItemPlaceholder: some View {
         let placeholder = ContentUnavailableView("Select an item", systemImage: "cube")
         if let catalogue = selectedCatalogue {
-            placeholder.background(CatalogueWash(catalogue: catalogue, edges: .vertical))
+            placeholder.background(CatalogueWash(catalogue: catalogue, edges: detailWashEdges))
         } else {
             placeholder
         }

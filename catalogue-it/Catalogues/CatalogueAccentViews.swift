@@ -97,8 +97,12 @@ struct CatalogueBand: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             // As scroll content the band has no safe area to ignore, so the fill is simply
-            // extended upwards — far enough to cover the bar and a rubber-band pull.
-            palette.fill.opacity(0.85).padding(.top, -600)
+            // extended past its bounds — upwards far enough to cover the bar and a
+            // rubber-band pull, and sideways past the horizontal safe area (the notch and
+            // home-indicator sides in landscape) so it reaches the screen edges.
+            palette.fill.opacity(0.85)
+                .padding(.top, -600)
+                .padding(.horizontal, -600)
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)

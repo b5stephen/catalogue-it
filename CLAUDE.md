@@ -90,7 +90,21 @@ Backed by CloudKit through SwiftData's built-in mirroring.
 Local writes keep derived state in step; a change merged from another device does not.
 `RemoteChangeObserver` observes `NSPersistentStoreRemoteChange` (debounced) and rebuilds what
 sync bypasses: facet mirrors for catalogues whose field configuration changed, the thumbnail
-caches, and the pending-deletion sweep. Add to it whenever new derived state is introduced.
+caches, and the pending-deletion sweep, then posts `.remoteChangesMerged`. Add to it whenever
+new derived state is introduced.
+
+- A value merged in by CloudKit bypasses the model setters, so SwiftData observation does not
+  fire for it, and SwiftUI will not re-run a row whose only input is the same model instance.
+  A mounted view that must reflect a remote edit has to read an observed generation in `body`
+  (`ThumbnailCacheState.generation`, which the rows already read via `ThumbnailKey`).
+- `NSManagedObjectContextDidSave` *does* fire for the mirroring context's merges, but the
+  pagination controller's count guard hides edits; it reloads on `.remoteChangesMerged`
+  instead, without the guard. Reloads must keep the loaded depth — on iPad the list stays
+  mounted, and truncating to one page clamps anyone scrolled past it.
+- The remote-change pass also runs ~1.5s after every local save on an iCloud device: after
+  export, the mirroring context writes CloudKit system fields back. Work hung on it must be
+  cheap and must not disturb scroll or selection.
+- The Simulator receives no APNs pushes. Remote-merge behaviour only shows on real devices.
 
 ### Sync status UI
 

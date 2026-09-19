@@ -11,23 +11,23 @@ import SwiftData
 /// A catalogue as a standalone card on the Catalogues screen.
 ///
 /// Still rendered as a `List` row rather than in a `LazyVStack`: `swipeActions` is a
-/// `List`-only modifier, and staying in a list also keeps `onMove` reordering, split-view
-/// selection and the VoiceOver action rotor for free. The card look comes from a clear
-/// `listRowBackground` plus `listRowSpacing` — see `ContentView.catalogueRow`. Using
-/// `listRowSpacing` for the gaps rather than vertical `listRowInsets` matters: insets would
-/// inflate the row rect and leave the swipe buttons standing taller than the card.
+/// `List`-only modifier, and staying in a list also keeps `onMove` reordering and the
+/// VoiceOver action rotor for free. The card look comes from a clear `listRowBackground` plus
+/// `listRowSpacing` — see `CatalogueSidebar`. Using `listRowSpacing` for the gaps rather than
+/// vertical `listRowInsets` matters: insets would inflate the row rect and leave the swipe
+/// buttons standing taller than the card.
 ///
 /// Because the row background is clear, the system selection highlight no longer draws. The
 /// card can't signal selection by becoming coloured either — it already is — so selection is an
-/// inset ring in the card's own foreground colour, which reads on any fill.
+/// inset ring in the card's own foreground colour, which reads on any fill. The app no longer
+/// keeps a catalogue selected while its list is on screen (the items are pushed over it), so
+/// `isSelected` is unused there; it stays for the preview and any future use.
 struct CatalogueCardView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     let catalogue: Catalogue
-    /// Drives the selected appearance. It only really shows in regular width, where the split
-    /// view keeps a catalogue selected alongside its items; in compact width the detail screen
-    /// covers the list anyway.
+    /// Drives the selected appearance.
     var isSelected: Bool = false
 
     private var shape: RoundedRectangle {

@@ -54,9 +54,11 @@ struct AddItemButton: View {
 
 /// Surfaces the catalogue's `.flagFilter` fields as filter controls.
 ///
-/// One flag gets a direct toggle button — the star/favourite pattern, one tap to filter.
-/// Several collapse into a menu of independent toggles, since a row of toolbar icons
-/// would crowd out everything else. Renders nothing when the catalogue defines no flags.
+/// One flag gets a direct toggle — the star/favourite pattern, one tap to filter. Several
+/// collapse into a menu of independent toggles, since a row of toolbar icons would crowd out
+/// everything else. On iOS the whole thing sits in the bar's overflow menu (see
+/// `CatalogueDetailView`), where the menu becomes a submenu. Renders nothing when the
+/// catalogue defines no flags.
 struct FlagFilterButton: View {
     let flagFields: [FieldDefinition]
     @Binding var activeFlagIDs: Set<UUID>
@@ -66,6 +68,13 @@ struct FlagFilterButton: View {
     var body: some View {
         if flagFields.count == 1, let flag = flagFields.first {
             let isActive = activeFlagIDs.contains(flag.fieldID)
+#if os(iOS)
+            // On iOS this is a `.secondaryAction`, which always lands in the overflow menu:
+            // a toggle there gets a checkmark, where a filled symbol on a button says nothing.
+            Toggle(isOn: Binding(get: { isActive }, set: { _ in toggle(flag.fieldID) })) {
+                Label(flag.name, systemImage: flag.flagIconName ?? BooleanOptions.fallbackFilterIconName)
+            }
+#else
             Button {
                 toggle(flag.fieldID)
             } label: {
@@ -76,6 +85,7 @@ struct FlagFilterButton: View {
             // still renders instead of vanishing.
             .symbolVariant(isActive ? .fill : .none)
             .tint(isActive ? flag.flagColor : nil)
+#endif
         } else if flagFields.count > 1 {
             Menu {
                 ForEach(flagFields) { flag in

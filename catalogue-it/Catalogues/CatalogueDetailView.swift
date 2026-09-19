@@ -17,7 +17,7 @@ struct CatalogueDetailView: View {
 
     @Environment(\.colorScheme) private var colorScheme
 #if !os(macOS)
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.hasDetailColumn) private var hasDetailColumn
 #endif
 
     @State private var selectedTab: StatusTab = .all
@@ -179,7 +179,7 @@ struct CatalogueDetailView: View {
 #if !os(macOS)
         .navigationDestination(
             item: Binding(
-                get: { horizontalSizeClass == .compact ? selectedItem : nil },
+                get: { hasDetailColumn ? nil : selectedItem },
                 set: { selectedItem = $0 }
             )
         ) { item in
@@ -188,32 +188,38 @@ struct CatalogueDetailView: View {
 #endif
         .toolbar {
 #if os(iOS)
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    LayoutToggleButton(layout: $catalogue.itemLayout)
-                    SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
-                    Divider()
-                    ExportMenuItems(catalogue: catalogue)
-                    CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
-                    if hasRecentlyDeletedItems {
-                        Divider()
-                        Button {
-                            showingRecentlyDeleted = true
-                        } label: {
-                            Label("Recently Deleted", systemImage: "trash.circle")
-                        }
-                    }
-                } label: {
-                    Label("More Options", systemImage: "ellipsis")
-                }
+            // Add is the one primary action. Everything else is `.secondaryAction`, which the
+            // system keeps in the bar while there is room and folds into its own overflow
+            // menu when there isn't — so the flag filter collapses into the same "…" as the
+            // rest, rather than a hand-rolled menu sitting beside it and crowding the bar.
+            ToolbarItem(placement: .primaryAction) {
+                AddItemButton(showingAddItem: $showingAddItem)
             }
             if !flagFields.isEmpty {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .secondaryAction) {
                     FlagFilterButton(flagFields: flagFields, activeFlagIDs: $activeFlagIDs)
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                AddItemButton(showingAddItem: $showingAddItem)
+            ToolbarItem(placement: .secondaryAction) {
+                LayoutToggleButton(layout: $catalogue.itemLayout)
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                ExportMenuItems(catalogue: catalogue)
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
+            }
+            if hasRecentlyDeletedItems {
+                ToolbarItem(placement: .secondaryAction) {
+                    Button {
+                        showingRecentlyDeleted = true
+                    } label: {
+                        Label("Recently Deleted", systemImage: "trash.circle")
+                    }
+                }
             }
 #else
             ToolbarItem(placement: .primaryAction) {

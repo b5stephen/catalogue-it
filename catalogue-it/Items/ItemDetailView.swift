@@ -103,24 +103,32 @@ struct ItemDetailView: View {
         .navigationTitle(primaryValue)
         .toolbar {
 #if os(iOS)
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    ShareLink(item: shareText) {
-                        Label("Export", systemImage: "square.and.arrow.up")
-                    }
-                    Button {
-                        showingDuplicateItem = true
-                    } label: {
-                        Label("Duplicate", systemImage: "plus.square.on.square")
-                    }
-                    Divider()
-                    Button(role: .destructive) {
-                        showingDeleteConfirmation = true
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
+            // Edit is the one primary action; the rest are `.secondaryAction` so the system
+            // folds them into its own "…" at the trailing edge, matching the item list.
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showingEditItem = true
                 } label: {
-                    Label("More Options", systemImage: "ellipsis")
+                    Label("Edit", systemImage: "pencil")
+                }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                ShareLink(item: shareText) {
+                    Label("Export", systemImage: "square.and.arrow.up")
+                }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    showingDuplicateItem = true
+                } label: {
+                    Label("Duplicate", systemImage: "plus.square.on.square")
+                }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button(role: .destructive) {
+                    showingDeleteConfirmation = true
+                } label: {
+                    Label("Delete", systemImage: "trash")
                 }
                 .confirmationDialog(
                     "Delete \"\(primaryValue)\"?",
@@ -135,13 +143,6 @@ struct ItemDetailView: View {
                     Button("Cancel", role: .cancel) {}
                 } message: {
                     Text("The item will be moved to Recently Deleted.")
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showingEditItem = true
-                } label: {
-                    Label("Edit", systemImage: "pencil")
                 }
             }
 #else

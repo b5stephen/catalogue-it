@@ -24,16 +24,10 @@ struct ItemGridView<Header: View, PinnedHeader: View>: View {
     /// Below `header`; sticks to the top once it gets there.
     @ViewBuilder let pinnedHeader: PinnedHeader
 
-#if !os(macOS)
-    // On compact width, selecting an item pushes ItemDetailView via the same
-    // `selectedItem` binding, so the border would flash for a frame before the
-    // push transition covers it. Only show it where selection persists on-screen
-    // (regular width split view / macOS detail column).
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    private var showsSelectionBorder: Bool { horizontalSizeClass != .compact }
-#else
-    private let showsSelectionBorder = true
-#endif
+    // Without a detail column, selecting an item pushes ItemDetailView via the same
+    // `selectedItem` binding, so the border would flash for a frame before the push
+    // transition covers it. Only show it where selection persists on-screen.
+    @Environment(\.hasDetailColumn) private var showsSelectionBorder
 
     // Pinch gesture state — @State only, never @GestureState (see ZoomablePhotoView:
     // @GestureState resets before onEnded fires, causing a one-frame snap-back).

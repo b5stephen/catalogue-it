@@ -10,8 +10,8 @@ import SwiftUI
 // MARK: - Item List View
 
 /// Still a `List` rather than a `LazyVStack`, for the same reasons as the catalogue cards:
-/// split-view selection, `scrollPosition` restoration and the accessibility rotor come for
-/// free. The card look is a clear row background plus `listRowSpacing`; the ground it sits on
+/// `scrollPosition` restoration and the accessibility rotor come for free, and on macOS so
+/// does split-view selection. The card look is a clear row background plus `listRowSpacing`; the ground it sits on
 /// is drawn by `CatalogueDetailView`, which is why the list's own background is hidden here.
 ///
 /// `header` is the first row: full-bleed, and spaced from the first card by the same gap
@@ -30,7 +30,7 @@ struct ItemListView<Header: View, PinnedHeader: View>: View {
     @ViewBuilder let pinnedHeader: PinnedHeader
 
 #if !os(macOS)
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.hasDetailColumn) private var hasDetailColumn
 #endif
 
     private var headerRow: some View {
@@ -49,36 +49,39 @@ struct ItemListView<Header: View, PinnedHeader: View>: View {
 
     var body: some View {
 #if !os(macOS)
-        if horizontalSizeClass == .compact {
-            List {
-                headerRow
-                Section {
-                    ForEach(items) { item in
-                        ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip)
-                            .itemCard(in: catalogue)
-                            .onTapGesture { selectedItem = item }
-                            .tag(item)
-                            .cardRow()
-                    }
-                    scrollSentinel
-                } header: {
-                    pinnedHeaderRow
+        // Never `List(selection:)` on iOS. This list sits in the split view's leading column,
+        // where a selectable list takes the sidebar's selection treatment — a filled tint
+        // block over the row, text inverted — whatever its style, and that reads as a bug over
+        // a card. The tap sets `selectedItem` directly and the card draws its own ring, which
+        // only matters where the detail sits beside the list; pushed over it, the ring would
+        // flash for a frame before the transition covers it.
+        List {
+            headerRow
+            Section {
+                ForEach(items) { item in
+                    ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip)
+                        .itemCard(in: catalogue, isSelected: hasDetailColumn && selectedItem == item)
+                        .onTapGesture { selectedItem = item }
+                        .tag(item)
+                        .cardRow()
                 }
+                scrollSentinel
+            } header: {
+                pinnedHeaderRow
             }
-            .listStyle(.plain)
-            .listSectionSpacing(0)
-            .listRowSpacing(AppConstants.ItemCard.rowSpacing)
-            .contentMargins(.bottom, AppConstants.ItemCard.rowSpacing, for: .scrollContent)
-            .scrollContentBackground(.hidden)
-            .scrollPosition($scrollPosition, anchor: .top)
-        } else {
-            regularList
         }
+        .listStyle(.plain)
+        .listSectionSpacing(0)
+        .listRowSpacing(AppConstants.ItemCard.rowSpacing)
+        .contentMargins(.bottom, AppConstants.ItemCard.rowSpacing, for: .scrollContent)
+        .scrollContentBackground(.hidden)
+        .scrollPosition($scrollPosition, anchor: .top)
 #else
         regularList
 #endif
     }
 
+    /// macOS only: selection is the split view's, with keyboard navigation for free.
     private var regularList: some View {
         List(selection: $selectedItem) {
             headerRow

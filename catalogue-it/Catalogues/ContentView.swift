@@ -21,7 +21,19 @@ struct ContentView: View {
     @State private var isBeta = false
     @State private var importErrorMessage: String?
     @State private var importProgress: (current: Int, total: Int)?
+#if os(macOS)
     @State private var selectedCatalogue: Catalogue?
+#else
+    /// The leading column's stack: empty on the catalogue list, one catalogue on its items.
+    /// `selectedCatalogue` is derived from it so import, seeding and deletion write one piece
+    /// of state on every platform. Popping the stack clears the selection, which in turn
+    /// clears `selectedItem` via `onChange`.
+    @State private var cataloguePath: [Catalogue] = []
+    private var selectedCatalogue: Catalogue? {
+        get { cataloguePath.last }
+        nonmutating set { cataloguePath = newValue.map { [$0] } ?? [] }
+    }
+#endif
     @State private var selectedItem: CatalogueItem?
     @State private var catalogueToEdit: Catalogue?
     @State private var catalogueToDelete: Catalogue?
@@ -34,30 +46,17 @@ struct ContentView: View {
 
 #if !os(macOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    /// Read here, outside the split view, so it reflects the window and not a column.
+    private var hasDetailColumn: Bool { horizontalSizeClass != .compact }
+    @State private var columnVisibility: NavigationSplitViewVisibility = .doubleColumn
 #endif
 
     var body: some View {
-        NavigationSplitView {
-            sidebarContent
-        } content: {
-            if let catalogue = selectedCatalogue {
-                CatalogueDetailView(catalogue: catalogue, selectedItem: $selectedItem)
-            } else {
-                ContentUnavailableView("Select a catalogue", systemImage: "square.grid.2x2")
-            }
-        } detail: {
+        Group {
 #if os(macOS)
-            if let catalogue = selectedCatalogue, let item = selectedItem {
-                ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
-            } else {
-                ContentUnavailableView("Select an item", systemImage: "cube")
-            }
+            threeColumnLayout
 #else
-            if horizontalSizeClass != .compact, let catalogue = selectedCatalogue, let item = selectedItem {
-                ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
-            } else {
-                ContentUnavailableView("Select an item", systemImage: "cube")
-            }
+            twoColumnLayout
 #endif
         }
         .overlay {
@@ -103,10 +102,7 @@ struct ContentView: View {
             Button("Delete Catalogue", role: .destructive) {
                 if let catalogue = catalogueToDelete {
                     catalogueToDelete = nil
-                    if selectedCatalogue == catalogue {
-                        selectedCatalogue = nil
-                    }
-                    DeletionService.markForBackgroundDeletion(catalogue, in: modelContext)
+                    delete(catalogue)
                 }
             }
             Button("Cancel", role: .cancel) { catalogueToDelete = nil }
@@ -125,23 +121,90 @@ struct ContentView: View {
         }
     }
 
+#if os(macOS)
+    /// Catalogues | items | item detail. The Mac has the width for all three, and the sidebar
+    /// selection is what keyboard navigation and the standard sidebar look are built on.
+    private var threeColumnLayout: some View {
+        NavigationSplitView {
+            sidebarContent
+        } content: {
+            if let catalogue = selectedCatalogue {
+                CatalogueDetailView(catalogue: catalogue, selectedItem: $selectedItem)
+            } else {
+                ContentUnavailableView("Select a catalogue", systemImage: "square.grid.2x2")
+            }
+        } detail: {
+            if let catalogue = selectedCatalogue, let item = selectedItem {
+                ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
+            } else {
+                ContentUnavailableView("Select an item", systemImage: "cube")
+            }
+        }
+    }
+#else
+    /// Two columns, with the items screen pushed onto a stack *inside* the leading column.
+    ///
+    /// Three columns don't work on iPad in portrait: the only resting state is items + detail
+    /// with the sidebar hidden, so a fresh launch with nothing selected shows two empty
+    /// placeholders, and every attempt to force the sidebar open with a `columnVisibility`
+    /// binding was overwritten during the split view's first layout pass. With two columns and
+    /// `.balanced`, the leading column is always tiled, and it shows either the catalogue list
+    /// or — a Back tap away — the items of the chosen one. In compact width the whole thing
+    /// collapses to catalogues → items → item detail on this one explicit stack, which also
+    /// sidesteps the split view's own re-hosting of pushed columns.
+    private var twoColumnLayout: some View {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            NavigationStack(path: $cataloguePath) {
+                sidebarContent
+                    .navigationDestination(for: Catalogue.self) { catalogue in
+                        CatalogueDetailView(catalogue: catalogue, selectedItem: $selectedItem)
+                            // On the destination itself: set on the stack, it never reached
+                            // the pushed view once the split view had collapsed on iPhone.
+                            .environment(\.hasDetailColumn, hasDetailColumn)
+                    }
+            }
+            .navigationSplitViewColumnWidth(min: 280, ideal: 420, max: 560)
+        } detail: {
+            if hasDetailColumn, let catalogue = selectedCatalogue, let item = selectedItem {
+                ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
+            } else {
+                ContentUnavailableView("Select an item", systemImage: "cube")
+            }
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+#endif
+
+    /// Where the catalogue list's seldom-used actions go: the overflow menu on iOS, the bar on
+    /// macOS, which has the room and no overflow to speak of.
+    private var rareActionPlacement: ToolbarItemPlacement {
+#if os(macOS)
+        .primaryAction
+#else
+        .secondaryAction
+#endif
+    }
+
     @ViewBuilder
     private var sidebarContent: some View {
-        List(selection: $selectedCatalogue) {
-            ForEach(catalogues) { catalogue in
-                catalogueRow(catalogue)
-            }
-            .onMove(perform: moveCatalogues)
-        }
-#if !os(macOS)
-        // Cards, not a tied-together list: a plain list plus clear row backgrounds hands the
-        // whole row rect to `CatalogueCardView`, while the list keeps swipe actions, drag
-        // reordering and selection. `listRowSpacing` (rather than vertical row insets) puts the
-        // gap *between* rows, so the swipe buttons stay flush with the card edges.
-        .listStyle(.plain)
-        .listRowSpacing(AppConstants.CatalogueCard.rowSpacing)
-        .contentMargins(.vertical, AppConstants.CatalogueCard.rowSpacing, for: .scrollContent)
+        Group {
+#if os(macOS)
+            MacCatalogueSidebar(
+                catalogues: catalogues,
+                selectedCatalogue: $selectedCatalogue,
+                onEdit: { catalogueToEdit = $0 },
+                onDelete: { requestDelete($0) },
+                onMove: moveCatalogues
+            )
+#else
+            CatalogueSidebar(
+                catalogues: catalogues,
+                onEdit: { catalogueToEdit = $0 },
+                onDelete: { requestDelete($0) },
+                onMove: moveCatalogues
+            )
 #endif
+        }
         .navigationTitle("Catalogues")
         .cloudSyncStatusBar()
         .overlay {
@@ -164,10 +227,6 @@ struct ContentView: View {
                 }
             }
         }
-
-#if os(macOS)
-        .navigationSplitViewColumnWidth(min: 180, ideal: 220)
-#endif
         .toolbar {
 #if DEBUG
             DebugToolbarItem(
@@ -183,19 +242,22 @@ struct ContentView: View {
             // the sheet needs a way in that doesn't depend on one being on screen. Release
             // builds from the App Store show nothing.
             if isBeta {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: rareActionPlacement) {
                     Button("Sync Diagnostics", systemImage: "stethoscope") {
                         showingSyncDiagnostics = true
                     }
                 }
             }
 #endif
-            ToolbarItem(placement: .topBarTrailing) {
+            // Import is rare, so on iOS it goes behind the overflow menu: the leading column
+            // is ~300pt on an iPad in portrait, and a title plus three or four trailing
+            // buttons don't fit — the bar drops the title rather than a button.
+            ToolbarItem(placement: rareActionPlacement) {
                 Button("Import Catalogue", systemImage: "square.and.arrow.down") {
                     showingImporter = true
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .primaryAction) {
                 Button("Add Catalogue", systemImage: "plus") {
                     showingAddCatalogue = true
                 }
@@ -227,69 +289,6 @@ struct ContentView: View {
         .sheet(isPresented: $showingSeedSheet) {
             SeedDataSheet { itemCount, includesPhotos, catalogueName in
                 seedTestData(itemCount: itemCount, includesPhotos: includesPhotos, catalogueName: catalogueName)
-            }
-        }
-#endif
-    }
-
-    /// Navigation is driven by the list's selection rather than a `NavigationLink`: a link
-    /// draws a disclosure chevron that has nowhere sensible to sit on a card. The split view
-    /// pushes the catalogue's items from the selection alone, in compact width as well as
-    /// regular, so the `tag` below is what makes a row selectable.
-    @ViewBuilder
-    private func catalogueRow(_ catalogue: Catalogue) -> some View {
-        Group {
-#if os(macOS)
-            CatalogueRow(catalogue: catalogue)
-#else
-            CatalogueCardView(catalogue: catalogue, isSelected: selectedCatalogue == catalogue)
-#endif
-        }
-        .tag(catalogue)
-#if !os(macOS)
-        .listRowSeparator(.hidden)
-        .listRowBackground(Color.clear)
-        .listRowInsets(
-            EdgeInsets(
-                top: 0,
-                leading: AppConstants.CatalogueCard.horizontalInset,
-                bottom: 0,
-                trailing: AppConstants.CatalogueCard.horizontalInset
-            )
-        )
-#endif
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button {
-                catalogueToEdit = catalogue
-            } label: {
-                Label("Edit", systemImage: "pencil")
-            }
-            .tint(.blue)
-
-            Button(role: .destructive) {
-                if selectedCatalogue == catalogue {
-                    selectedCatalogue = nil
-                }
-                deleteCatalogue(catalogue)
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-        }
-#if os(macOS)
-        .contextMenu {
-            Button {
-                catalogueToEdit = catalogue
-            } label: {
-                Label("Edit Catalogue", systemImage: "pencil")
-            }
-
-            Button(role: .destructive) {
-                if selectedCatalogue == catalogue {
-                    selectedCatalogue = nil
-                }
-                deleteCatalogue(catalogue)
-            } label: {
-                Label("Delete Catalogue", systemImage: "trash")
             }
         }
 #endif
@@ -385,14 +384,24 @@ struct ContentView: View {
         }
     }
 
-    private func deleteCatalogue(_ catalogue: Catalogue) {
+    /// Deletes outright when there is nothing in the catalogue, otherwise asks first.
+    private func requestDelete(_ catalogue: Catalogue) {
         let hasItems = catalogue.items.contains { $0.deletedDate == nil }
         let hasRecentlyDeleted = catalogue.items.contains { $0.deletedDate != nil }
         if hasItems || hasRecentlyDeleted {
             catalogueToDelete = catalogue
         } else {
-            DeletionService.markForBackgroundDeletion(catalogue, in: modelContext)
+            delete(catalogue)
         }
+    }
+
+    /// Clears the selection first so no column is left showing a catalogue that is about to
+    /// vanish, then hands the teardown to the background actor.
+    private func delete(_ catalogue: Catalogue) {
+        if selectedCatalogue == catalogue {
+            selectedCatalogue = nil
+        }
+        DeletionService.markForBackgroundDeletion(catalogue, in: modelContext)
     }
 
     private func moveCatalogues(from source: IndexSet, to destination: Int) {

@@ -14,7 +14,14 @@ struct DebugToolbarItem: ToolbarContent {
     var onShowSyncDiagnostics: () -> Void
 
     var body: some ToolbarContent {
-        ToolbarItem(placement: .primaryAction) {
+        // Overflow on iOS: the leading column is ~300pt on an iPad in portrait, and the
+        // title is the first thing the bar drops when the buttons don't fit.
+#if os(macOS)
+        let placement: ToolbarItemPlacement = .primaryAction
+#else
+        let placement: ToolbarItemPlacement = .secondaryAction
+#endif
+        ToolbarItem(placement: placement) {
             Menu {
                 Button("Load Test Data", systemImage: "hammer") {
                     onLoadTestData()
@@ -37,7 +44,8 @@ struct DebugToolbarItem: ToolbarContent {
                     onShowSyncDiagnostics()
                 }
             } label: {
-                Image(systemName: "hammer")
+                // A full label: inside the overflow menu the image alone reads as "build".
+                Label("Developer", systemImage: "hammer")
             }
         }
     }

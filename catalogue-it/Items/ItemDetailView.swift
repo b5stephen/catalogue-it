@@ -13,6 +13,7 @@ import SwiftData
 struct ItemDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.hasDetailColumn) private var hasDetailColumn
 
     let catalogue: Catalogue
     let item: CatalogueItem
@@ -90,7 +91,9 @@ struct ItemDetailView: View {
         // The same ground as the item list, so pushing an item changes the content and nothing
         // about the room it sits in. No band here: the band is the list's title, and this
         // screen has its own.
-        .background(CatalogueWash(catalogue: catalogue))
+        // In the detail column the wash stays out of the horizontal safe area, which is where
+        // the leading column floats; pushed on the compact stack it fills the screen.
+        .background(CatalogueWash(catalogue: catalogue, edges: hasDetailColumn ? .vertical : .all))
         .tint(catalogue.palette(for: colorScheme).tint)
         // Deliberately no `.navigationBarTitleDisplayMode(.inline)`. This is a pushed screen
         // in the main navigation chain, like the catalogue list and the item list, so it uses

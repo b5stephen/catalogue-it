@@ -78,9 +78,21 @@ struct ContentView: View {
             }
 #endif
         }
+#if os(macOS)
         .onChange(of: selectedCatalogue) {
             selectedItem = nil
         }
+#else
+        // Going back to the catalogue list (nil) keeps the open item in the detail column: the
+        // list is a step away, not a different place, and losing the item on every Back was
+        // jarring. Entering a catalogue clears it unless it's the item's own, so stepping back
+        // into the same catalogue finds it still selected.
+        .onChange(of: selectedCatalogue) { _, catalogue in
+            if let catalogue, catalogue != selectedItem?.catalogue {
+                selectedItem = nil
+            }
+        }
+#endif
         .alert(
             "Import Failed",
             isPresented: Binding(
@@ -137,7 +149,7 @@ struct ContentView: View {
             if let catalogue = selectedCatalogue, let item = selectedItem {
                 ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
             } else {
-                ContentUnavailableView("Select an item", systemImage: "cube")
+                selectAnItemPlaceholder
             }
         }
     }
@@ -165,15 +177,29 @@ struct ContentView: View {
             }
             .navigationSplitViewColumnWidth(min: 280, ideal: 420, max: 560)
         } detail: {
-            if hasDetailColumn, let catalogue = selectedCatalogue, let item = selectedItem {
+            // The item's own catalogue, not the selected one: the item outlives the pop back
+            // to the catalogue list, where nothing is selected.
+            if hasDetailColumn, let item = selectedItem, let catalogue = item.catalogue {
                 ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
             } else {
-                ContentUnavailableView("Select an item", systemImage: "cube")
+                selectAnItemPlaceholder
             }
         }
         .navigationSplitViewStyle(.balanced)
     }
 #endif
+
+    /// The empty detail column. Inside a catalogue it sits on that catalogue's wash, so the
+    /// two columns read as one place rather than the detail side dropping back to plain grey.
+    @ViewBuilder
+    private var selectAnItemPlaceholder: some View {
+        let placeholder = ContentUnavailableView("Select an item", systemImage: "cube")
+        if let catalogue = selectedCatalogue {
+            placeholder.background(CatalogueWash(catalogue: catalogue, edges: .vertical))
+        } else {
+            placeholder
+        }
+    }
 
     /// Where the catalogue list's seldom-used actions go: the overflow menu on iOS, the bar on
     /// macOS, which has the room and no overflow to speak of.
@@ -398,6 +424,9 @@ struct ContentView: View {
     /// Clears the selection first so no column is left showing a catalogue that is about to
     /// vanish, then hands the teardown to the background actor.
     private func delete(_ catalogue: Catalogue) {
+        if selectedItem?.catalogue == catalogue {
+            selectedItem = nil
+        }
         if selectedCatalogue == catalogue {
             selectedCatalogue = nil
         }

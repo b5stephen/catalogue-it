@@ -27,6 +27,11 @@ import SwiftUI
 struct CatalogueWash: View {
     @Environment(\.colorScheme) private var colorScheme
     let catalogue: Catalogue
+    /// Which safe-area edges the wash runs under. In a split view the detail column spans the
+    /// full width with the leading column floating over it as a safe-area inset, so a wash
+    /// that ignores the horizontal edges shows through that column's glass; pass `.vertical`
+    /// to keep it within the detail column.
+    var edges: Edge.Set = .all
 
     var body: some View {
         Group {
@@ -38,7 +43,7 @@ struct CatalogueWash: View {
                     .background(.background)
             }
         }
-        .ignoresSafeArea()
+        .ignoresSafeArea(edges: edges)
     }
 }
 

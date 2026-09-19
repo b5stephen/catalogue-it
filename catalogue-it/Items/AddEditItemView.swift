@@ -29,6 +29,13 @@ struct AddEditItemView: View {
     @State private var notes: String = ""
     @State private var previewPhotoID: UUID? = nil
     @State private var hasLoaded: Bool = false
+    /// A failed save keeps the sheet open with the drafts intact rather than dismissing as
+    /// if it had worked.
+    @State private var saveError: Error?
+    /// Guards the Save button against a second tap while the first save is in flight.
+    @State private var isSaving = false
+    /// The photos as loaded, so the save can tell whether the thumbnail needs invalidating.
+    @State private var loadedPhotoDrafts: [PhotoDraft] = []
     @FocusState private var isNotesFocused: Bool
 
     /// Anchor for scrolling the notes row into view; see `revealNotesField`.
@@ -114,15 +121,24 @@ struct AddEditItemView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isEditing ? "Save" : "Add") {
-                        saveItem()
+                        Task { await saveItem() }
                     }
-                    .disabled(hasNoContent)
+                    .disabled(hasNoContent || isSaving)
                 }
             }
             .onAppear {
                 guard !hasLoaded else { return }
                 hasLoaded = true
                 loadItemData()
+                loadedPhotoDrafts = photoDrafts
+            }
+            .alert("Couldn't Save Item", isPresented: Binding(
+                get: { saveError != nil },
+                set: { if !$0 { saveError = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(saveError?.localizedDescription ?? "")
             }
             .sheet(isPresented: Binding(
                 get: { previewPhotoID != nil },
@@ -203,7 +219,8 @@ struct AddEditItemView: View {
                     PhotoDraft(
                         imageData: photo.imageData,
                         caption: photo.caption ?? "",
-                        priority: index
+                        priority: index,
+                        existingPhotoID: photo.persistentModelID
                     )
                 }
 
@@ -282,117 +299,52 @@ struct AddEditItemView: View {
 
     // MARK: - Save
 
-    private func saveItem() {
-        let targetItem: CatalogueItem
+    /// Diffs the drafts against the stored item (see `ItemSaveService`) and keeps the cover
+    /// thumbnail caches in step. The in-memory cache is evicted *before* the save: the save
+    /// bumps `modifiedDate`, which is what the list's thumbnail views reload on, and they
+    /// must not find the old image still cached when they do.
+    private func saveItem() async {
+        guard !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
 
-        if let existing = existingItem {
-            // Edit path
-            let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
-            existing.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
-
-            for fv in existing.fieldValues { modelContext.delete(fv) }
-            for photo in existing.photos { modelContext.delete(photo) }
-
-            targetItem = existing
-        } else {
-            // Create path
-            let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
-            let newItem = CatalogueItem(notes: trimmedNotes.isEmpty ? nil : trimmedNotes)
-            // Insert before wiring the relationship. Set on an un-inserted model, the
-            // catalogue FK reaches the store lazily, and the item list's post-save count
-            // (which filters on that FK) can miss the row — so the first item in a fresh
-            // catalogue sometimes never appeared.
-            modelContext.insert(newItem)
-            newItem.catalogue = catalogue
-            targetItem = newItem
+        // Only a photo change can make the cached cover wrong; a fields-only edit keeps it.
+        let photosEdited = photoDrafts != loadedPhotoDrafts
+        if let existingItem, photosEdited {
+            await ImageCache.shared.removeImage(for: "cover_\(existingItem.persistentModelID)")
         }
 
-        // Field values
-        var createdFieldValues: [FieldValue] = []
-        for draft in fieldDrafts {
-            // Same insert-then-relate order as the item above: the custom-sort count
-            // filters on the fieldDefinition FK.
-            let fv = FieldValue(fieldDefinition: nil, fieldType: draft.fieldType)
-            modelContext.insert(fv)
-            fv.fieldDefinition = draft.fieldDefinition
-            switch draft.fieldType {
-            case .text, .optionList:
-                let trimmedText = draft.textValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                fv.textValue = trimmedText.isEmpty ? nil : trimmedText
-            case .number:
-                fv.numberValue = draft.numberValue
-            case .date:
-                fv.dateValue = draft.dateValue
-            case .boolean:
-                fv.boolValue = draft.boolValue
+        let outcome: ItemSaveService.Outcome
+        do {
+            outcome = try ItemSaveService.save(
+                existing: existingItem,
+                in: catalogue,
+                notes: notes,
+                fieldDrafts: fieldDrafts,
+                photoDrafts: photoDrafts,
+                context: modelContext
+            )
+        } catch {
+            saveError = error
+            return
+        }
+
+        // The cover thumbnail lives in the filesystem cache, not the model: storing it on
+        // CatalogueItem bloats the SQLite rows the main context reads on every page fetch.
+        // Written after the save so a new item has its permanent identifier.
+        if outcome.photosChanged {
+            let itemID = outcome.item.persistentModelID
+            if !photosEdited {
+                // The store disagreed with the drafts (a photo removed on another device
+                // while the sheet was open), so the eviction above was skipped.
+                await ImageCache.shared.removeImage(for: "cover_\(itemID)")
             }
-            fv.sortKey = SortKeyEncoder.sortKey(for: fv)
-            fv.item = targetItem
-            createdFieldValues.append(fv)
-        }
-
-        // Tiebreak key depends on every field's value on this item, so it's computed in a
-        // second pass once all of the item's FieldValues exist.
-        for fv in createdFieldValues {
-            fv.tiebreakKey = SortKeyEncoder.tiebreakKey(
-                for: fv,
-                allFieldValuesOnItem: createdFieldValues,
-                fieldDefinitionsByPriority: sortedDefs,
-                itemCreatedDate: targetItem.createdDate
-            )
-        }
-
-        // Denormalised search blob — kept in sync so SQLite can filter without loading children.
-        targetItem.searchText = SearchTextBuilder.build(from: createdFieldValues)
-
-        // Denormalised status/flag columns — the item list filters on these, so they must
-        // be rewritten whenever the underlying field values change.
-        ItemFacetBuilder.apply(to: targetItem, fieldValues: createdFieldValues, definitions: sortedDefs)
-
-        // Photos
-        for draft in photoDrafts {
-            let trimmedCaption = draft.caption.trimmingCharacters(in: .whitespacesAndNewlines)
-            let photo = ItemPhoto(
-                imageData: draft.imageData,
-                thumbnailData: draft.imageData.makeThumbnail(),
-                priority: draft.priority,
-                caption: trimmedCaption.isEmpty ? nil : trimmedCaption
-            )
-            modelContext.insert(photo)
-            photo.item = targetItem
-        }
-
-        // Compute cover thumbnail before saving so it's ready to write to the
-        // filesystem cache immediately after save (when the permanent ID is available).
-        let coverThumbnailData = photoDrafts
-            .sorted(by: { $0.priority < $1.priority })
-            .first
-            .flatMap { $0.imageData.makeThumbnail() }
-
-        // Save immediately so newly inserted models get permanent PersistentIdentifiers
-        // before any view renders them. Without this, autosave fires 20+ seconds later:
-        // ItemPaginationController never sees NSManagedObjectContextDidSave, so the
-        // new item doesn't appear; and if temporary IDs are handed to views before the
-        // save converts them, accessing the model via a stale temporary ID crashes.
-        try? modelContext.save()
-
-        // Write the cover thumbnail to the filesystem cache (not the model).
-        // Storing thumbnails in the model bloats CatalogueItem SQLite rows — the main
-        // context reads those bytes on every page fetch even though it never uses them.
-        // The filesystem cache persists across launches and is regenerable from source photos.
-        let itemID = targetItem.persistentModelID
-        if let data = coverThumbnailData {
-            ThumbnailLoader.writeThumbnailToCache(data, for: itemID)
-        } else {
-            // All photos removed — delete the stale disk thumbnail so tier-2 doesn't serve it.
-            if let url = ThumbnailLoader.thumbnailCacheURL(for: itemID) {
+            if let data = outcome.coverThumbnailData {
+                ThumbnailLoader.writeThumbnailToCache(data, for: itemID)
+            } else if let url = ThumbnailLoader.thumbnailCacheURL(for: itemID) {
+                // All photos removed — drop the stale disk thumbnail so tier-2 doesn't serve it.
                 try? FileManager.default.removeItem(at: url)
             }
-        }
-
-        // Invalidate the in-memory decoded-image cache so the updated thumbnail is shown.
-        Task { @MainActor in
-            await ImageCache.shared.removeImage(for: "cover_\(itemID)")
         }
 
         dismiss()

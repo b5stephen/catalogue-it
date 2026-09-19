@@ -12,7 +12,7 @@ import SwiftData
 struct catalogue_itApp: App {
     let sharedModelContainer: ModelContainer = {
         // Model list lives on the versioned schema so it stays in one place; see SchemaVersions.swift.
-        let schema = Schema(versionedSchema: CatalogueSchemaV1.self)
+        let schema = Schema(versionedSchema: CatalogueSchemaCurrent.self)
         let isUITesting = ProcessInfo.processInfo.arguments.contains("--ui-testing")
         // CloudKit is not a valid combination with an in-memory store, so UI-test runs opt out.
         // Otherwise `.automatic` adopts the container named in catalogue-it.entitlements — the

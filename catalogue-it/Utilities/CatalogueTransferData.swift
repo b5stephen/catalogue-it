@@ -58,6 +58,9 @@ struct FieldDefinitionDTO: Codable {
 
 struct CatalogueItemDTO: Codable {
     var createdDate: Date
+    /// Optional so files written before it existed still decode; import falls back to
+    /// `createdDate`, matching what the V1 → V2 store migration does.
+    var modifiedDate: Date?
     /// Decode-only, for v1 files. Never written on export (Optionals are omitted by the
     /// synthesised encoder) — wishlist is a regular field value in v2.
     /// See `LegacyWishlistUpgrade` for how this is converted on import.
@@ -145,6 +148,7 @@ extension FieldDefinitionDTO {
 extension CatalogueItemDTO {
     init(_ item: CatalogueItem, includePhotos: Bool = true) {
         createdDate = item.createdDate
+        modifiedDate = item.modifiedDate
         isWishlist = nil   // v2 exports carry status as a field value, not a flag
         notes = item.notes
         fieldValues = item.fieldValues.compactMap(FieldValueDTO.init)
@@ -248,6 +252,7 @@ extension CatalogueDTO {
         for (index, itemDTO) in items.enumerated() {
             let item = CatalogueItem(notes: itemDTO.notes)
             item.createdDate = itemDTO.createdDate
+            item.modifiedDate = itemDTO.modifiedDate ?? itemDTO.createdDate
             item.catalogue = catalogue
             context.insert(item)
 

@@ -51,7 +51,7 @@ struct ItemCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Photo or placeholder
             GeometryReader { geometry in
-                ItemCardPhotoView(itemID: item.persistentModelID)
+                ItemCardPhotoView(key: ThumbnailKey(item: item))
                     .frame(width: geometry.size.width, height: geometry.size.width)
                     .clipped()
             }
@@ -104,7 +104,8 @@ struct ItemCardView: View {
 // MARK: - Item Card Photo View
 
 private struct ItemCardPhotoView: View {
-    let itemID: PersistentIdentifier
+    /// See `ThumbnailKey`: the load re-runs whenever any part of it changes.
+    let key: ThumbnailKey
     @State private var loadedImage: Image?
 
     var body: some View {
@@ -124,8 +125,9 @@ private struct ItemCardPhotoView: View {
                     }
             }
         }
-        .task(id: itemID) {
+        .task(id: key) {
 #if os(iOS)
+            let itemID = key.itemID
             let key = "cover_\(itemID)"
             // Tier 1: in-memory cache — synchronous, no I/O.
             if let cached = await ImageCache.shared.image(for: key) {
@@ -140,6 +142,9 @@ private struct ItemCardPhotoView: View {
                       let img = UIImage(data: data) else { return nil }
                 return img.preparingForDisplay()
             }.value
+            // A load still in flight when the item was saved must not overwrite the fresh
+            // thumbnail the save wrote — the re-keyed task will load that one.
+            guard !Task.isCancelled else { return }
             if let ui = diskImage {
                 await ImageCache.shared.store(ui, for: key)
                 loadedImage = Image(uiImage: ui)
@@ -148,7 +153,7 @@ private struct ItemCardPhotoView: View {
             // Tier 3: cold path — each card gets its own ephemeral ModelContext so all
             // visible cards fetch and decode fully in parallel (no shared actor queue).
             guard let container = ThumbnailLoader.container else { loadedImage = nil; return }
-            let ui = await Task.detached(priority: .utility) { () -> UIImage? in
+            let generated = await Task.detached(priority: .utility) { () -> (data: Data, image: UIImage)? in
                 let context = ModelContext(container)
                 var descriptor = FetchDescriptor<ItemPhoto>(
                     predicate: #Predicate { $0.item?.persistentModelID == itemID },
@@ -156,13 +161,17 @@ private struct ItemCardPhotoView: View {
                 )
                 descriptor.fetchLimit = 1
                 guard let imageData = try? context.fetch(descriptor).first?.imageData,
-                      let thumbData = makeThumbnailData(from: imageData) else { return nil }
-                ThumbnailLoader.writeThumbnailToCache(thumbData, for: itemID)
-                return UIImage(data: thumbData)?.preparingForDisplay()
+                      let thumbData = makeThumbnailData(from: imageData),
+                      let image = UIImage(data: thumbData)?.preparingForDisplay() else { return nil }
+                return (thumbData, image)
             }.value
-            guard let ui else { loadedImage = nil; return }
-            await ImageCache.shared.store(ui, for: key)
-            loadedImage = Image(uiImage: ui)
+            // Same guard as above: only a load that is still current may populate the caches.
+            guard !Task.isCancelled else { return }
+            guard let generated else { loadedImage = nil; return }
+            let thumbData = generated.data
+            Task.detached(priority: .utility) { ThumbnailLoader.writeThumbnailToCache(thumbData, for: itemID) }
+            await ImageCache.shared.store(generated.image, for: key)
+            loadedImage = Image(uiImage: generated.image)
 #endif
         }
     }

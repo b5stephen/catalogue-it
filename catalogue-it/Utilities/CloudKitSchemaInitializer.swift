@@ -52,7 +52,7 @@ nonisolated enum CloudKitSchemaInitializer {
     /// - Returns: A short summary for display.
     nonisolated static func run(dryRun: Bool) async throws -> String {
         // The same model list the app's container is built from, so coverage can't drift.
-        guard let model = NSManagedObjectModel.makeManagedObjectModel(for: CatalogueSchemaV1.models) else {
+        guard let model = NSManagedObjectModel.makeManagedObjectModel(for: CatalogueSchemaCurrent.models) else {
             throw SchemaError.modelUnavailable
         }
 

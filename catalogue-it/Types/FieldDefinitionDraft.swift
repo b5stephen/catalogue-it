@@ -52,4 +52,8 @@ struct PhotoDraft: Identifiable, Equatable {
     var imageData: Data
     var caption: String = ""
     var priority: Int
+    /// The stored `ItemPhoto` this draft was loaded from, so saving updates that record
+    /// rather than deleting and re-uploading it. `nil` for a newly picked photo — and for a
+    /// duplicated item's photos, which must become new records on the new item.
+    var existingPhotoID: PersistentIdentifier? = nil
 }

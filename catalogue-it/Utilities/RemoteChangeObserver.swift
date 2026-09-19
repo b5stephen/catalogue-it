@@ -81,6 +81,8 @@ enum RemoteChangeObserver {
 
         await ImageCache.shared.removeAll()
         ThumbnailLoader.clearDiskCache()
+        // Mounted rows still hold their decoded image; this is what makes them look again.
+        ThumbnailCacheState.shared.invalidateAll()
 
         await recomputeFacetsForChangedCatalogues(in: container.mainContext)
     }

@@ -131,6 +131,8 @@ enum TestDataGenerator {
             let item = CatalogueItem(notes: notes)
             let createdDayOffset = (index * 3) % (365 * 3)
             item.createdDate = calendar.date(byAdding: .day, value: createdDayOffset, to: baseDate) ?? baseDate
+            // Never edited, so the same convention as migrated and imported items.
+            item.modifiedDate = item.createdDate
             item.catalogue = catalogue
             context.insert(item)
 

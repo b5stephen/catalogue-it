@@ -91,10 +91,9 @@ struct EditItemNotesSheet: View {
     }
 
     private func save() {
-        // Same normalisation as the full edit screen, so "" and nil don't drift apart.
-        item.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
-        // Saved now rather than left to autosave, so the change reaches iCloud promptly.
-        try? modelContext.save()
+        // Same normalisation as the full edit screen, so "" and nil don't drift apart, and
+        // saved now rather than left to autosave, so the change reaches iCloud promptly.
+        try? ItemSaveService.updateNotes(notes, on: item, context: modelContext)
         dismiss()
     }
 }

@@ -166,6 +166,45 @@ struct CatalogueImportTests {
         _ = container
     }
 
+    // MARK: - Modified Date
+
+    @Test("A file without modifiedDate imports it as createdDate")
+    func importFallsBackToCreatedDateForModifiedDate() async throws {
+        // The v1 fixture predates the property entirely.
+        let (container, catalogues) = try await importFixture()
+        let catalogue = try #require(catalogues.first)
+        #expect(!catalogue.items.isEmpty)
+        for item in catalogue.items {
+            #expect(item.modifiedDate == item.createdDate)
+        }
+        _ = container
+    }
+
+    @Test("Export and import round-trip preserves modifiedDate")
+    func modifiedDateRoundTrips() async throws {
+        let source = try makeContainer()
+        let ctx = source.mainContext
+        let catalogue = Catalogue(name: "Round Trip")
+        ctx.insert(catalogue)
+        let field = FieldDefinition(name: "Name", fieldType: .text, priority: 0)
+        ctx.insert(field)
+        field.catalogue = catalogue
+        let item = CatalogueItem(notes: "edited later")
+        ctx.insert(item)
+        item.catalogue = catalogue
+        item.createdDate = Date(timeIntervalSince1970: 1_600_000_000)
+        item.modifiedDate = Date(timeIntervalSince1970: 1_650_000_000)
+        try ctx.save()
+
+        let data = try CatalogueExporter.jsonData(for: catalogue)
+        let destination = try makeContainer()
+        let imported = try await CatalogueImporter.importCatalogues(from: data, into: destination.mainContext, priorityOffset: 0)
+
+        let importedItem = try #require(imported.first?.items.first)
+        #expect(importedItem.createdDate == Date(timeIntervalSince1970: 1_600_000_000))
+        #expect(importedItem.modifiedDate == Date(timeIntervalSince1970: 1_650_000_000))
+    }
+
     // MARK: - v1 Wishlist Upgrade
 
     @Test("A v1 file gains a status field driving the tab bar")

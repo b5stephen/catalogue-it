@@ -33,6 +33,12 @@ final class CatalogueItem {
     // Every stored property below carries a default value: CloudKit rejects
     // non-optional attributes that have none, and the container fails to build.
     var createdDate: Date = Date.now
+    /// When the user last changed this item's own content — field values, photos or notes.
+    /// Bumped by `ItemSaveService`, never by derived-column maintenance (sort keys, facets,
+    /// search text) or by soft delete, which has `deletedDate`. Equal to `createdDate` for an
+    /// item that has never been edited, including every item migrated from schema V1.
+    /// Doubles as the key the thumbnail views reload on, locally and after a sync.
+    var modifiedDate: Date = Date.now
     var notes: String? // Optional general notes field
     var deletedDate: Date? // nil = active; non-nil = soft deleted
 
@@ -65,7 +71,9 @@ final class CatalogueItem {
     var storedPhotos: [ItemPhoto]? = []
 
     init(notes: String? = nil) {
-        self.createdDate = Date.now
+        let now = Date.now
+        self.createdDate = now
+        self.modifiedDate = now
         self.notes = notes
     }
 

@@ -61,7 +61,7 @@ struct ItemRowView: View {
         HStack(spacing: 12) {
             // Thumbnail — radius derived from the card's, so its corners run parallel to the
             // card's corners (see `AppConstants.ItemCard.thumbnailCornerRadius`).
-            ItemThumbnailView(itemID: item.persistentModelID)
+            ItemThumbnailView(key: ThumbnailKey(item: item))
                 .frame(width: AppConstants.ThumbnailSize.list, height: AppConstants.ThumbnailSize.list)
                 .clipShape(.rect(cornerRadius: AppConstants.ItemCard.thumbnailCornerRadius, style: .continuous))
 
@@ -105,7 +105,8 @@ struct ItemRowView: View {
 // MARK: - Item Thumbnail View
 
 private struct ItemThumbnailView: View {
-    let itemID: PersistentIdentifier
+    /// See `ThumbnailKey`: the load re-runs whenever any part of it changes.
+    let key: ThumbnailKey
     @State private var loadedImage: Image?
 
     var body: some View {
@@ -125,8 +126,9 @@ private struct ItemThumbnailView: View {
                     }
             }
         }
-        .task(id: itemID) {
+        .task(id: key) {
 #if os(iOS)
+            let itemID = key.itemID
             let key = "cover_\(itemID)"
             // Tier 1: in-memory cache — synchronous, no I/O.
             if let cached = await ImageCache.shared.image(for: key) {
@@ -141,6 +143,9 @@ private struct ItemThumbnailView: View {
                       let img = UIImage(data: data) else { return nil }
                 return img.preparingForDisplay()
             }.value
+            // A load still in flight when the item was saved must not overwrite the fresh
+            // thumbnail the save wrote — the re-keyed task will load that one.
+            guard !Task.isCancelled else { return }
             if let ui = diskImage {
                 await ImageCache.shared.store(ui, for: key)
                 loadedImage = Image(uiImage: ui)
@@ -149,7 +154,7 @@ private struct ItemThumbnailView: View {
             // Tier 3: cold path — each row gets its own ephemeral ModelContext so all
             // visible rows fetch and decode fully in parallel (no shared actor queue).
             guard let container = ThumbnailLoader.container else { loadedImage = nil; return }
-            let ui = await Task.detached(priority: .utility) { () -> UIImage? in
+            let generated = await Task.detached(priority: .utility) { () -> (data: Data, image: UIImage)? in
                 let context = ModelContext(container)
                 var descriptor = FetchDescriptor<ItemPhoto>(
                     predicate: #Predicate { $0.item?.persistentModelID == itemID },
@@ -157,13 +162,17 @@ private struct ItemThumbnailView: View {
                 )
                 descriptor.fetchLimit = 1
                 guard let imageData = try? context.fetch(descriptor).first?.imageData,
-                      let thumbData = makeThumbnailData(from: imageData) else { return nil }
-                ThumbnailLoader.writeThumbnailToCache(thumbData, for: itemID)
-                return UIImage(data: thumbData)?.preparingForDisplay()
+                      let thumbData = makeThumbnailData(from: imageData),
+                      let image = UIImage(data: thumbData)?.preparingForDisplay() else { return nil }
+                return (thumbData, image)
             }.value
-            guard let ui else { loadedImage = nil; return }
-            await ImageCache.shared.store(ui, for: key)
-            loadedImage = Image(uiImage: ui)
+            // Same guard as above: only a load that is still current may populate the caches.
+            guard !Task.isCancelled else { return }
+            guard let generated else { loadedImage = nil; return }
+            let thumbData = generated.data
+            Task.detached(priority: .utility) { ThumbnailLoader.writeThumbnailToCache(thumbData, for: itemID) }
+            await ImageCache.shared.store(generated.image, for: key)
+            loadedImage = Image(uiImage: generated.image)
 #endif
         }
     }

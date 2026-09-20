@@ -122,3 +122,15 @@ extension FieldDefinition {
         set { storedFieldValues = newValue }
     }
 }
+
+// MARK: - Ordering
+
+extension FieldDefinition {
+    /// The user's field order, made total: equal priorities (two devices adding a field
+    /// before a merge) fall back to `fieldID`, so every device orders the same set the same
+    /// way. `Catalogue.sortedFieldDefinitions` is the usual entry point.
+    nonisolated static func isOrderedBefore(_ a: FieldDefinition, _ b: FieldDefinition) -> Bool {
+        if a.priority != b.priority { return a.priority < b.priority }
+        return a.fieldID.uuidString < b.fieldID.uuidString
+    }
+}

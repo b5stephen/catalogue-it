@@ -200,17 +200,7 @@ enum TestDataGenerator {
             context.insert(favouriteFV)
             fieldValues.append(favouriteFV)
 
-            for fv in fieldValues {
-                fv.tiebreakKey = SortKeyEncoder.tiebreakKey(
-                    for: fv,
-                    allFieldValuesOnItem: fieldValues,
-                    fieldDefinitionsByPriority: allDefs,
-                    itemCreatedDate: item.createdDate
-                )
-            }
-
-            item.searchText = SearchTextBuilder.build(from: fieldValues)
-            ItemFacetBuilder.apply(to: item, fieldValues: fieldValues, definitions: allDefs)
+            ItemDerivedColumns.refresh(on: item, fieldValues: fieldValues, definitions: allDefs)
 
             if includesPhotos, let photoData = makePhotoData(index: index) {
                 let thumbnail = makeThumbnailData(from: photoData)

@@ -103,8 +103,7 @@ extension CatalogueDTO {
         sortFieldKey = catalogue.sortFieldKey
         sortDirection = catalogue.sortDirection
         showAllTab = catalogue.showAllTab
-        fieldDefinitions = catalogue.fieldDefinitions
-            .sorted { $0.priority < $1.priority }
+        fieldDefinitions = catalogue.sortedFieldDefinitions
             .map(FieldDefinitionDTO.init)
         items = catalogue.items
             .filter { $0.deletedDate == nil }
@@ -230,7 +229,7 @@ extension CatalogueDTO {
             context.insert(fd)
             defMap[fdDTO.fieldID] = fd
         }
-        let sortedFieldDefs = defMap.values.sorted { $0.priority < $1.priority }
+        let sortedFieldDefs = defMap.values.sorted(by: FieldDefinition.isOrderedBefore)
 
         // At most one status field may exist. A file with several (hand-edited, or merged
         // by hand) keeps the lowest-priority one and demotes the rest to ordinary fields.
@@ -276,16 +275,7 @@ extension CatalogueDTO {
                 context.insert(fv)
                 createdFieldValues.append(fv)
             }
-            for fv in createdFieldValues {
-                fv.tiebreakKey = SortKeyEncoder.tiebreakKey(
-                    for: fv,
-                    allFieldValuesOnItem: createdFieldValues,
-                    fieldDefinitionsByPriority: sortedFieldDefs,
-                    itemCreatedDate: item.createdDate
-                )
-            }
-            item.searchText = SearchTextBuilder.build(from: createdFieldValues)
-            ItemFacetBuilder.apply(to: item, fieldValues: createdFieldValues, definitions: sortedFieldDefs)
+            ItemDerivedColumns.refresh(on: item, fieldValues: createdFieldValues, definitions: sortedFieldDefs)
 
             for photoDTO in itemDTO.photos {
                 let photo = ItemPhoto(

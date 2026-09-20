@@ -19,7 +19,7 @@ enum CatalogueExporter {
     /// Status no longer gets a dedicated leading column — it's an ordinary field now, so it
     /// exports in its own position like any other.
     static func csvString(for catalogue: Catalogue) -> String {
-        let fields = catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
+        let fields = catalogue.sortedFieldDefinitions
         var rows: [String] = []
 
         // Header row

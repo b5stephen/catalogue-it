@@ -21,7 +21,7 @@ enum CatalogueItemSort {
         catalogue: Catalogue
     ) -> [CatalogueItem] {
         let asc = direction == .ascending
-        let sortedFieldDefs = catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
+        let sortedFieldDefs = catalogue.sortedFieldDefinitions
 
         // Fields used as tiebreakers: all fields in priority order, except the primary.
         let secondaryFields: [FieldDefinition]

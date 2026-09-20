@@ -46,7 +46,10 @@ struct catalogue_itApp: App {
         WindowGroup {
             ContentView()
                 .onAppear { seedUITestDataIfNeeded() }
-                .task { BackgroundDeletionActor.resumePendingDeletions() }
+                .task {
+                    BackgroundDeletionActor.resumePendingDeletions()
+                    await DerivedDataBackfill.runIfNeeded(in: sharedModelContainer.mainContext)
+                }
                 .withModelContextUndoManager()
         }
         .modelContainer(sharedModelContainer)

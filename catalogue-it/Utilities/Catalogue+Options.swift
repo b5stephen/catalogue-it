@@ -21,14 +21,14 @@ extension Catalogue {
     var statusField: FieldDefinition? {
         fieldDefinitions
             .filter(\.isStatusField)
-            .min { $0.priority < $1.priority }
+            .min(by: FieldDefinition.isOrderedBefore)
     }
 
     /// Fields driving independent toggle filters, in the user's field order.
     var flagFields: [FieldDefinition] {
         fieldDefinitions
             .filter(\.isFlagField)
-            .sorted { $0.priority < $1.priority }
+            .sorted(by: FieldDefinition.isOrderedBefore)
     }
 
     /// The tabs to render, including the synthetic "All" tab when enabled.

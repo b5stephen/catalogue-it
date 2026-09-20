@@ -117,6 +117,17 @@ extension Catalogue {
         set { storedFieldDefinitions = newValue }
     }
 
+    /// The definitions in the user's field order, with `fieldID` breaking priority ties.
+    ///
+    /// Always use this rather than sorting on `priority` alone. Two devices adding a field
+    /// before a merge produce two definitions with the same priority, and an unstable sort
+    /// then orders them differently per device — which would make every synced derived
+    /// column that encodes field order (`tiebreakKey`, `searchText`) differ per device, and
+    /// two devices rewrite each other's columns forever. See `ItemDerivedColumns`.
+    var sortedFieldDefinitions: [FieldDefinition] {
+        fieldDefinitions.sorted(by: FieldDefinition.isOrderedBefore)
+    }
+
     var items: [CatalogueItem] {
         get { storedItems ?? [] }
         set { storedItems = newValue }

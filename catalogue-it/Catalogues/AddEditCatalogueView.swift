@@ -225,8 +225,7 @@ struct AddEditCatalogueView: View {
         selectedIcon = catalogue.iconName
         selectedColor = catalogue.color
         showAllTab = catalogue.showAllTab
-        fieldDefinitions = catalogue.fieldDefinitions
-            .sorted { $0.priority < $1.priority }
+        fieldDefinitions = catalogue.sortedFieldDefinitions
             .map {
                 FieldDefinitionDraft(
                     existingDefinition: $0,
@@ -265,8 +264,7 @@ struct AddEditCatalogueView: View {
             // any such change invalidates every FieldValue's tiebreakKey across the whole
             // catalogue (not just the field that moved), since tiebreakKey encodes "every
             // other field, in priority order".
-            let originalFieldIDsInOrder = existingCatalogue.fieldDefinitions
-                .sorted { $0.priority < $1.priority }
+            let originalFieldIDsInOrder = existingCatalogue.sortedFieldDefinitions
                 .map(\.fieldID)
 
             // Captured for the same reason, but for the denormalised status/flag columns:
@@ -366,17 +364,9 @@ struct AddEditCatalogueView: View {
 
         if let catalogueForRecompute {
             if structuralChange || facetChange {
-                await recomputeDerivedDataWithDelayedOverlay(
-                    for: catalogueForRecompute,
-                    tiebreakKeys: structuralChange,
-                    facets: facetChange
-                )
-                if !structuralChange && !itemsNeedingSiblingRecompute.isEmpty {
-                    // The full sweep above only rebuilt facets, so sibling tiebreak keys
-                    // invalidated by an option rename/delete still need their own pass.
-                    recomputeSiblingTiebreakKeys(for: catalogueForRecompute, itemIDs: itemsNeedingSiblingRecompute)
-                    try? modelContext.save()
-                }
+                // The full sweep refreshes every derived column, including the sibling
+                // tiebreak keys an option rename/delete invalidates.
+                await recomputeDerivedDataWithDelayedOverlay(for: catalogueForRecompute)
             } else if !itemsNeedingSiblingRecompute.isEmpty {
                 // Cheap, bounded by how many items reference the renamed/deleted option
                 // value — no chunking needed (the full-catalogue path above already covers
@@ -430,11 +420,7 @@ struct AddEditCatalogueView: View {
     /// Runs the full-catalogue recompute, showing `ProgressOverlay` only if it's still
     /// running ~500ms after starting — so a fast recompute on a small catalogue shows
     /// nothing, while a large one gets clear feedback instead of the sheet appearing to hang.
-    private func recomputeDerivedDataWithDelayedOverlay(
-        for catalogue: Catalogue,
-        tiebreakKeys: Bool,
-        facets: Bool
-    ) async {
+    private func recomputeDerivedDataWithDelayedOverlay(for catalogue: Catalogue) async {
         sortKeyRecomputeProgress = (current: 0, total: 0)
         let overlayDelay = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(500))
@@ -446,8 +432,6 @@ struct AddEditCatalogueView: View {
         await CatalogueSortKeyMaintenance.recomputeDerivedData(
             for: catalogue,
             in: modelContext,
-            tiebreakKeys: tiebreakKeys,
-            facets: facets,
             onProgress: { current, total in sortKeyRecomputeProgress = (current: current, total: total) }
         )
 
@@ -456,22 +440,14 @@ struct AddEditCatalogueView: View {
         sortKeyRecomputeProgress = nil
     }
 
-    /// Recomputes tiebreakKey for every FieldValue on the given items — used when an
-    /// option-list value is renamed or deleted, since that value is embedded as a tiebreak
-    /// segment on sibling FieldValues for the same items.
+    /// Refreshes the derived columns of the given items — used when an option-list value is
+    /// renamed or deleted, since that value is the item's sort key, part of its search blob,
+    /// and a tiebreak segment on its sibling FieldValues.
     private func recomputeSiblingTiebreakKeys(for catalogue: Catalogue, itemIDs: Set<PersistentIdentifier>) {
-        let sortedDefs = catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
+        let sortedDefs = catalogue.sortedFieldDefinitions
         for itemID in itemIDs {
             guard let item = modelContext.model(for: itemID) as? CatalogueItem else { continue }
-            let itemFieldValues = item.fieldValues
-            for fv in itemFieldValues {
-                fv.tiebreakKey = SortKeyEncoder.tiebreakKey(
-                    for: fv,
-                    allFieldValuesOnItem: itemFieldValues,
-                    fieldDefinitionsByPriority: sortedDefs,
-                    itemCreatedDate: item.createdDate
-                )
-            }
+            ItemDerivedColumns.refresh(on: item, fieldValues: item.fieldValues, definitions: sortedDefs)
         }
     }
 

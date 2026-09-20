@@ -19,7 +19,7 @@ import Foundation
 /// - **Date**: ISO 8601 (`YYYY-MM-DDTHH:MM:SS`) — naturally sortable as-is.
 /// - **Boolean**: `"0"` (false) or `"1"` (true).
 /// - **Nil / missing**: `missingValueSentinel` (`"\u{FFFF}"`) — sorts after all real values.
-enum SortKeyEncoder {
+nonisolated enum SortKeyEncoder {
 
     /// Sentinel placed in `sortKey` when the field has no value. Sorts last in ascending order.
     static let missingValueSentinel = "\u{FFFF}"
@@ -27,7 +27,8 @@ enum SortKeyEncoder {
     /// Offset added to all numbers before encoding, ensuring practical values are positive.
     private static let numberOffset: Double = 1e12
 
-    private static let iso8601: ISO8601DateFormatter = {
+    // Thread-safe per its documentation; only its type lacks the Sendable annotation.
+    nonisolated(unsafe) private static let iso8601: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withFullDate, .withTime, .withColonSeparatorInTime]
         return f
@@ -73,7 +74,7 @@ enum SortKeyEncoder {
 
 // MARK: - Tiebreak Key
 
-extension SortKeyEncoder {
+nonisolated extension SortKeyEncoder {
 
     /// Separator between tiebreak segments in `FieldValue.tiebreakKey`. Sorts below any real
     /// content character and below `missingValueSentinel` ("\u{FFFF}"), so it never disturbs
@@ -97,12 +98,7 @@ extension SortKeyEncoder {
         let ownFieldID = fieldValue.fieldDefinition?.fieldID
         var parts: [String] = []
         for def in fieldDefinitionsByPriority where def.fieldID != ownFieldID {
-            var segment = missingValueSentinel
-            for sibling in allFieldValuesOnItem where sibling.fieldDefinition?.fieldID == def.fieldID {
-                segment = sortKey(for: sibling)
-                break
-            }
-            parts.append(segment)
+            parts.append(preferredValue(for: def, among: allFieldValuesOnItem).map(sortKey(for:)) ?? missingValueSentinel)
         }
         parts.append(iso8601.string(from: itemCreatedDate))
         let key = parts.joined(separator: tiebreakSeparator)
@@ -111,5 +107,26 @@ extension SortKeyEncoder {
         // the same reason as searchText; threshold-gated, so the common path costs a compare.
         SyncDiagnostics.noteFieldSize("FieldValue.tiebreakKey", key.utf8.count)
         return key
+    }
+}
+
+// MARK: - Duplicate Values
+
+nonisolated extension SortKeyEncoder {
+    /// The one `FieldValue` to read for `definition` when an item holds several — a merge
+    /// artefact when two devices each create the row for a field the item lacked.
+    ///
+    /// Chosen by smallest `sortKey`, which is deterministic across devices (the key is a pure
+    /// function of the value) and prefers a populated value, since every real key sorts below
+    /// `missingValueSentinel`. Relationship order, which `first(where:)` would use, differs per
+    /// device and would make every derived column that reads through here differ too.
+    static func preferredValue(for definition: FieldDefinition, among fieldValues: [FieldValue]) -> FieldValue? {
+        preferredValue(forFieldID: definition.fieldID, among: fieldValues)
+    }
+
+    static func preferredValue(forFieldID fieldID: UUID, among fieldValues: [FieldValue]) -> FieldValue? {
+        fieldValues
+            .filter { $0.fieldDefinition?.fieldID == fieldID }
+            .min { sortKey(for: $0) < sortKey(for: $1) }
     }
 }

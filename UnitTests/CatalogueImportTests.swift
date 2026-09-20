@@ -143,7 +143,7 @@ struct CatalogueImportTests {
     func importFieldDefinitions() async throws {
         let (container, catalogues) = try await importFixture()
         let catalogue = try #require(catalogues.first)
-        let defs = catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
+        let defs = catalogue.sortedFieldDefinitions
         // 4 from the file, plus the Status field synthesised from the legacy isWishlist flags.
         #expect(defs.count == 5)
         #expect(defs[0].name == "Manufacturer"); #expect(defs[0].fieldType == .text);    #expect(defs[0].fieldOptions == nil)

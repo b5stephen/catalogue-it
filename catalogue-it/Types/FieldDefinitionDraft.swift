@@ -36,12 +36,46 @@ struct FieldDefinitionDraft: Identifiable {
 struct FieldValueDraft: Identifiable {
     let id: UUID = UUID()
     let fieldDefinition: FieldDefinition
+    /// Captured at creation so the draft stays usable if its definition is deleted (on
+    /// another device, while the sheet is open) — a deleted model's properties are not
+    /// safe to read.
+    let fieldID: UUID
     let fieldType: FieldType
 
     var textValue: String = ""
     var numberValue: Double? = nil
     var dateValue: Date? = nil
     var boolValue: Bool = false
+
+    init(fieldDefinition: FieldDefinition, fieldType: FieldType) {
+        self.fieldDefinition = fieldDefinition
+        self.fieldID = fieldDefinition.fieldID
+        self.fieldType = fieldType
+    }
+
+    /// Whether the two drafts hold the same value for their type. Only the slot the type
+    /// uses is compared, so a stray value left in another slot never reads as an edit.
+    func hasSameValue(as other: FieldValueDraft) -> Bool {
+        guard fieldType == other.fieldType else { return false }
+        switch fieldType {
+        case .text, .optionList: return textValue == other.textValue
+        case .number: return numberValue == other.numberValue
+        case .date: return dateValue == other.dateValue
+        case .boolean: return boolValue == other.boolValue
+        }
+    }
+}
+
+// MARK: - Edit Baseline
+
+/// What the edit sheet loaded, so the save can tell a field the user changed from one they
+/// merely saw. A draft equal to its baseline is not written back: the stored value may have
+/// moved on another device while the sheet was open, and writing the sheet's copy over it
+/// would undo that edit. See `ItemSaveService`.
+struct EditBaseline {
+    var fieldDrafts: [FieldValueDraft]
+    var photoDrafts: [PhotoDraft]
+    var notes: String
 }
 
 // MARK: - Photo Draft

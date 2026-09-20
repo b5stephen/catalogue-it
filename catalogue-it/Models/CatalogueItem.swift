@@ -79,9 +79,11 @@ final class CatalogueItem {
 
     /// Get the value for a specific field definition.
     /// Performs an O(n) in-memory linear scan over `fieldValues`.
-    /// Not predicate-backed — safe because item field counts are small.
+    /// Not predicate-backed — safe because item field counts are small. Should the item
+    /// hold duplicates for the definition (a merge artefact), the same one is chosen on
+    /// every device — see `SortKeyEncoder.preferredValue`.
     func value(for definition: FieldDefinition) -> FieldValue? {
-        fieldValues.first { $0.fieldDefinition == definition }
+        SortKeyEncoder.preferredValue(for: definition, among: fieldValues)
     }
 }
 

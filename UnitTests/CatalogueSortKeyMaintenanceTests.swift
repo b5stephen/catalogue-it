@@ -64,7 +64,7 @@ struct CatalogueSortKeyMaintenanceTests {
 
         await CatalogueSortKeyMaintenance.recomputeTiebreakKeys(for: catalogue, in: ctx)
 
-        let defs = catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
+        let defs = catalogue.sortedFieldDefinitions
         let expectedAirline = SortKeyEncoder.tiebreakKey(
             for: airlineValue,
             allFieldValuesOnItem: item.fieldValues,
@@ -118,5 +118,51 @@ struct CatalogueSortKeyMaintenanceTests {
         await CatalogueSortKeyMaintenance.recomputeTiebreakKeys(for: catalogue, in: ctx)
 
         #expect(ctx.hasChanges == false, "Recompute should leave no unsaved changes")
+    }
+
+    // MARK: - Every derived column, and only when stale
+
+    @Test("The sweep rebuilds the search blob and facets too, and leaves a correct item clean")
+    func sweepRefreshesEveryDerivedColumnOnlyWhenStale() async throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let (catalogue, item, _, _) = makeCatalogue(in: ctx)
+        item.searchText = "stale"
+        try ctx.save()
+
+        await CatalogueSortKeyMaintenance.recomputeDerivedData(for: catalogue, in: ctx)
+        #expect(item.searchText == "qantas a380")
+        #expect(!ctx.hasChanges)
+
+        // Same values, same encoders: a second sweep must not dirty anything, or every
+        // maintenance pass would export the whole catalogue.
+        let modifiedBefore = item.modifiedDate
+        await CatalogueSortKeyMaintenance.recomputeDerivedData(for: catalogue, in: ctx)
+        #expect(!ctx.hasChanges)
+        #expect(item.modifiedDate == modifiedBefore)
+    }
+
+    // MARK: - Backfill
+
+    @Test("The backfill rewrites stale blobs once and records the format version")
+    func backfillRunsOncePerFormatVersion() async throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let (_, item, _, _) = makeCatalogue(in: ctx)
+        item.searchText = "stale"
+        try ctx.save()
+
+        let suiteName = "DerivedDataBackfillTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        await DerivedDataBackfill.runIfNeeded(in: ctx, defaults: defaults)
+        #expect(item.searchText == "qantas a380")
+        #expect(defaults.integer(forKey: DerivedDataBackfill.searchTextVersionKey) == SearchTextBuilder.formatVersion)
+
+        item.searchText = "stale again"
+        try ctx.save()
+        await DerivedDataBackfill.runIfNeeded(in: ctx, defaults: defaults)
+        #expect(item.searchText == "stale again", "an up-to-date device must not sweep again")
     }
 }

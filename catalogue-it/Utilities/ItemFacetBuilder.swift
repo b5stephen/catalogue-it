@@ -57,7 +57,8 @@ nonisolated enum ItemFacetBuilder {
         )
     }
 
-    /// Computes and assigns both columns on the item in one step.
+    /// Computes both columns and assigns each only if it differs, so an item whose mirror is
+    /// already right stays clean — and exports nothing.
     /// Every write path should call this rather than setting the columns directly.
     static func apply(
         to item: CatalogueItem,
@@ -65,8 +66,8 @@ nonisolated enum ItemFacetBuilder {
         definitions: [FieldDefinition]
     ) {
         let facets = facets(from: fieldValues, definitions: definitions)
-        item.statusValue = facets.statusValue
-        item.flagKeys = facets.flagKeys
+        if item.statusValue != facets.statusValue { item.statusValue = facets.statusValue }
+        if item.flagKeys != facets.flagKeys { item.flagKeys = facets.flagKeys }
     }
 
     // MARK: - Components
@@ -75,7 +76,7 @@ nonisolated enum ItemFacetBuilder {
     /// field or the item has no value for it.
     static func statusValue(from fieldValues: [FieldValue], definitions: [FieldDefinition]) -> String {
         guard let statusField = definitions.first(where: { $0.isStatusField }) else { return "" }
-        guard let value = fieldValues.first(where: { $0.fieldDefinition?.fieldID == statusField.fieldID })
+        guard let value = SortKeyEncoder.preferredValue(for: statusField, among: fieldValues)
         else { return "" }
 
         switch statusField.fieldType {
@@ -102,7 +103,7 @@ nonisolated enum ItemFacetBuilder {
 
         return flagFields
             .filter { field in
-                fieldValues.first { $0.fieldDefinition?.fieldID == field.fieldID }?.boolValue == true
+                SortKeyEncoder.preferredValue(for: field, among: fieldValues)?.boolValue == true
             }
             .map { flagToken(for: $0.fieldID) }
             .joined()

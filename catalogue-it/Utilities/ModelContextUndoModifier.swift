@@ -26,3 +26,25 @@ extension View {
         modifier(ModelContextUndoModifier())
     }
 }
+
+nonisolated extension ModelContext {
+    /// Runs `body` with undo registration off, for writes that are not the user's to undo:
+    /// hard deletes the confirmation promised were permanent, and derived-column upkeep
+    /// (sort keys, search blob, facet mirrors) after a merge or a backfill — "undoing" those
+    /// would put stale values back and export them.
+    func withUndoRegistrationSuspended<T>(_ body: () throws -> T) rethrows -> T {
+        let undoManager = self.undoManager
+        self.undoManager = nil
+        defer { self.undoManager = undoManager }
+        return try body()
+    }
+
+    /// `withUndoRegistrationSuspended` for a body that suspends. User edits made during
+    /// the body's awaits are not registered either, so keep such bodies short.
+    func withUndoRegistrationSuspended<T>(_ body: () async throws -> T) async rethrows -> T {
+        let undoManager = self.undoManager
+        self.undoManager = nil
+        defer { self.undoManager = undoManager }
+        return try await body()
+    }
+}

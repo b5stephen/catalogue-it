@@ -109,8 +109,7 @@ struct RecentlyDeletedView: View {
     }
 
     private func primaryValue(for item: CatalogueItem) -> String {
-        guard let first = catalogue.fieldDefinitions
-            .sorted(by: { $0.priority < $1.priority }).first,
+        guard let first = catalogue.sortedFieldDefinitions.first,
               let fv = item.value(for: first),
               !fv.displayValue(options: first.fieldOptions).isEmpty
         else { return "Untitled Item" }

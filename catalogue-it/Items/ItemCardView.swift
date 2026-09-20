@@ -21,7 +21,7 @@ struct ItemCardView: View {
         guard let catalogue = item.catalogue,
               let first = catalogue.fieldDefinitions
                   .filter({ $0.displayRole == .none })
-                  .sorted(by: { $0.priority < $1.priority })
+                  .sorted(by: FieldDefinition.isOrderedBefore)
                   .first,
               let fv = item.value(for: first),
               !fv.displayValue(options: first.fieldOptions).isEmpty

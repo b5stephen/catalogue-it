@@ -36,6 +36,9 @@ struct AddEditItemView: View {
     @State private var isSaving = false
     /// The photos as loaded, so the save can tell whether the thumbnail needs invalidating.
     @State private var loadedPhotoDrafts: [PhotoDraft] = []
+    /// Everything as loaded when editing, so the save writes only what the user changed
+    /// and not a stale copy of what another device edited meanwhile — see `EditBaseline`.
+    @State private var baseline: EditBaseline?
     @FocusState private var isNotesFocused: Bool
 
     /// Anchor for scrolling the notes row into view; see `revealNotesField`.
@@ -131,6 +134,9 @@ struct AddEditItemView: View {
                 hasLoaded = true
                 loadItemData()
                 loadedPhotoDrafts = photoDrafts
+                if isEditing {
+                    baseline = EditBaseline(fieldDrafts: fieldDrafts, photoDrafts: photoDrafts, notes: notes)
+                }
             }
             .alert("Couldn't Save Item", isPresented: Binding(
                 get: { saveError != nil },
@@ -188,7 +194,7 @@ struct AddEditItemView: View {
     // MARK: - Load
 
     private func loadItemData() {
-        sortedDefs = catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
+        sortedDefs = catalogue.sortedFieldDefinitions
 
         if let item = existingItem {
             // Edit mode: populate from existing item
@@ -273,7 +279,7 @@ struct AddEditItemView: View {
     /// field's own configured default when no tab context was passed (or "All" was active).
     private func applyDefaultStatusTab() {
         guard let statusField = catalogue.statusField,
-              let index = fieldDrafts.firstIndex(where: { $0.fieldDefinition.fieldID == statusField.fieldID })
+              let index = fieldDrafts.firstIndex(where: { $0.fieldID == statusField.fieldID })
         else { return }
 
         // `.all` carries no status, so defer to the field's configured default.
@@ -322,6 +328,7 @@ struct AddEditItemView: View {
                 notes: notes,
                 fieldDrafts: fieldDrafts,
                 photoDrafts: photoDrafts,
+                baseline: baseline,
                 context: modelContext
             )
         } catch {

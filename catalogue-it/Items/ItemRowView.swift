@@ -18,7 +18,7 @@ struct ItemRowView: View {
     var showStatusChip: Bool = false
 
     private var sortedFields: [FieldDefinition] {
-        catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
+        catalogue.sortedFieldDefinitions
     }
 
     /// Status fields are surfaced as a chip and flags as badges, so repeating them in the

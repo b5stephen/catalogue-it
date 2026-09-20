@@ -30,7 +30,7 @@ struct ItemSaveServiceTests {
         let status: FieldDefinition
         let favourite: FieldDefinition
 
-        var sortedDefs: [FieldDefinition] { catalogue.fieldDefinitions.sorted { $0.priority < $1.priority } }
+        var sortedDefs: [FieldDefinition] { catalogue.sortedFieldDefinitions }
     }
 
     /// A catalogue with a text field, a number field, an option-list status field and a
@@ -137,6 +137,7 @@ struct ItemSaveServiceTests {
         notes: String? = nil,
         fieldDrafts: [FieldValueDraft]? = nil,
         photoDrafts: [PhotoDraft]? = nil,
+        baseline: EditBaseline? = nil,
         now: Date = .now
     ) throws -> ItemSaveService.Outcome {
         try ItemSaveService.save(
@@ -144,8 +145,33 @@ struct ItemSaveServiceTests {
             notes: notes ?? item.notes ?? "",
             fieldDrafts: fieldDrafts ?? drafts(for: fixture),
             photoDrafts: photoDrafts ?? self.photoDrafts(from: item),
+            baseline: baseline,
             context: fixture.context, now: now
         )
+    }
+
+    /// What `AddEditItemView` captures when the sheet opens on `item`.
+    private func baseline(for item: CatalogueItem, in fixture: Fixture) -> EditBaseline {
+        let fieldDrafts = fixture.sortedDefs.map { def in
+            var draft = FieldValueDraft(fieldDefinition: def, fieldType: def.fieldType)
+            if let fv = value(def, on: item) {
+                switch def.fieldType {
+                case .text, .optionList: draft.textValue = fv.textValue ?? ""
+                case .number: draft.numberValue = fv.numberValue
+                case .date: draft.dateValue = fv.dateValue
+                case .boolean: draft.boolValue = fv.boolValue ?? false
+                }
+            }
+            return draft
+        }
+        return EditBaseline(fieldDrafts: fieldDrafts, photoDrafts: photoDrafts(from: item), notes: item.notes ?? "")
+    }
+
+    /// Simulates another device's edit landing while a sheet is open: a direct write to
+    /// the store, bypassing the drafts.
+    private func remoteEdit(_ edit: () -> Void, in fixture: Fixture) throws {
+        edit()
+        try fixture.context.save()
     }
 
     private func value(_ def: FieldDefinition, on item: CatalogueItem) -> FieldValue? {
@@ -615,5 +641,153 @@ struct ItemSaveServiceTests {
 
         #expect(ThumbnailKey(item: item) != before)
         #expect(ThumbnailKey(item: item).modifiedDate == before.modifiedDate)
+    }
+
+    // MARK: - Three-way merge against the sheet's baseline
+
+    @Test func untouchedFieldIsNotWrittenOverARemoteEdit() throws {
+        let f = try makeFixture()
+        let item = try create(in: f)
+        let opened = baseline(for: item, in: f)
+
+        // iPad changes the year while the phone's sheet is open on the same item.
+        try remoteEdit({ value(f.year, on: item)?.numberValue = 1986 }, in: f)
+
+        // Phone edits only the title; its year draft still says 1979.
+        var drafts = opened.fieldDrafts
+        drafts[0].textValue = "Aliens"
+        let outcome = try update(item, in: f, fieldDrafts: drafts, baseline: opened)
+
+        #expect(outcome.fieldsChanged)
+        #expect(value(f.title, on: item)?.textValue == "Aliens")
+        #expect(value(f.year, on: item)?.numberValue == 1986, "the stale draft must not undo the remote edit")
+        #expect(item.searchText.contains("1986"))
+    }
+
+    @Test func withoutABaselineEveryDraftIsApplied() throws {
+        let f = try makeFixture()
+        let item = try create(in: f)
+        try remoteEdit({ value(f.year, on: item)?.numberValue = 1986 }, in: f)
+
+        _ = try update(item, in: f, fieldDrafts: drafts(for: f, title: "Aliens"))
+
+        #expect(value(f.year, on: item)?.numberValue == 1979)
+    }
+
+    @Test func untouchedFieldWithNoStoredValueIsStillCreated() throws {
+        let f = try makeFixture()
+        let item = try create(in: f)
+        let yearValue = try #require(value(f.year, on: item))
+        f.context.delete(yearValue)
+        try f.context.save()
+        #expect(value(f.year, on: item) == nil)
+
+        let opened = baseline(for: item, in: f)
+        let modifiedBefore = item.modifiedDate
+        let outcome = try update(item, in: f, fieldDrafts: opened.fieldDrafts, baseline: opened,
+                                 now: Date(timeIntervalSince1970: 1_900_000_000))
+
+        #expect(value(f.year, on: item) != nil, "custom sort on Year only surfaces items with a value row")
+        #expect(!outcome.fieldsChanged, "upkeep, not an edit")
+        #expect(item.modifiedDate == modifiedBefore)
+    }
+
+    @Test func untouchedDraftForAFieldRemovedElsewhereCreatesNothing() throws {
+        let f = try makeFixture()
+        let item = try create(in: f)
+        let opened = baseline(for: item, in: f)
+
+        // The Year field is deleted on another device while the sheet is open.
+        let yearValue = try #require(value(f.year, on: item))
+        f.context.delete(yearValue)
+        f.context.delete(f.year)
+        try f.context.save()
+
+        let outcome = try update(item, in: f, fieldDrafts: opened.fieldDrafts, baseline: opened)
+
+        #expect(!outcome.fieldsChanged)
+        #expect(item.fieldValues.count == 3)
+    }
+
+    @Test func untouchedNotesAreNotWrittenOverARemoteEdit() throws {
+        let f = try makeFixture()
+        let item = try create(in: f, notes: "phone")
+        let opened = baseline(for: item, in: f)
+        try remoteEdit({ item.notes = "ipad" }, in: f)
+
+        let outcome = try update(item, in: f, notes: "phone", fieldDrafts: opened.fieldDrafts, baseline: opened)
+
+        #expect(!outcome.notesChanged)
+        #expect(item.notes == "ipad")
+    }
+
+    @Test func touchedNotesStillWin() throws {
+        let f = try makeFixture()
+        let item = try create(in: f, notes: "phone")
+        let opened = baseline(for: item, in: f)
+        try remoteEdit({ item.notes = "ipad" }, in: f)
+
+        let outcome = try update(item, in: f, notes: "phone, revised", fieldDrafts: opened.fieldDrafts, baseline: opened)
+
+        #expect(outcome.notesChanged)
+        #expect(item.notes == "phone, revised")
+    }
+
+    @Test func photoAddedRemotelyWhileTheSheetWasOpenSurvivesTheSave() throws {
+        let f = try makeFixture()
+        let item = try create(in: f, photoDrafts: [PhotoDraft(imageData: try makePNGData(red: 0.1), priority: 0)])
+        let opened = baseline(for: item, in: f)
+
+        let remotePhoto = ItemPhoto(imageData: try makePNGData(red: 0.9), priority: 1)
+        try remoteEdit({
+            f.context.insert(remotePhoto)
+            remotePhoto.item = item
+        }, in: f)
+
+        var drafts = opened.fieldDrafts
+        drafts[0].textValue = "Aliens"
+        let outcome = try update(item, in: f, fieldDrafts: drafts, photoDrafts: opened.photoDrafts, baseline: opened)
+
+        #expect(!outcome.photosChanged)
+        #expect(item.photos.count == 2)
+    }
+
+    @Test func photoRemovedByTheUserIsStillDeleted() throws {
+        let f = try makeFixture()
+        let item = try create(in: f, photoDrafts: [
+            PhotoDraft(imageData: try makePNGData(red: 0.1), priority: 0),
+            PhotoDraft(imageData: try makePNGData(red: 0.9), priority: 1),
+        ])
+        let opened = baseline(for: item, in: f)
+
+        let outcome = try update(item, in: f, photoDrafts: Array(opened.photoDrafts.prefix(1)), baseline: opened)
+
+        #expect(outcome.photosChanged)
+        #expect(item.photos.count == 1)
+    }
+
+    @Test func untouchedPhotoDeletedRemotelyStaysDeleted() throws {
+        let f = try makeFixture()
+        let item = try create(in: f, photoDrafts: [PhotoDraft(imageData: try makePNGData(), priority: 0)])
+        let opened = baseline(for: item, in: f)
+        let stored = try #require(item.photos.first)
+        try remoteEdit({ f.context.delete(stored) }, in: f)
+
+        let outcome = try update(item, in: f, photoDrafts: opened.photoDrafts, baseline: opened)
+
+        #expect(!outcome.photosChanged)
+        #expect(item.photos.isEmpty)
+    }
+
+    @Test func untouchedPhotoKeepsARemoteCaption() throws {
+        let f = try makeFixture()
+        let item = try create(in: f, photoDrafts: [PhotoDraft(imageData: try makePNGData(), priority: 0)])
+        let opened = baseline(for: item, in: f)
+        try remoteEdit({ item.photos.first?.caption = "from ipad" }, in: f)
+
+        let outcome = try update(item, in: f, photoDrafts: opened.photoDrafts, baseline: opened)
+
+        #expect(!outcome.photosChanged)
+        #expect(item.photos.first?.caption == "from ipad")
     }
 }

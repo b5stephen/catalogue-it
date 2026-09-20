@@ -90,7 +90,7 @@ nonisolated enum DeletionService {
     /// silently vanish on the next save — nothing is actually restored). Registration is
     /// suspended so the undo stack never offers a lying undo.
     static func deleteCatalogueAndSave(_ catalogue: Catalogue, in context: ModelContext) {
-        withSuspendedUndoRegistration(context) {
+        context.withUndoRegistrationSuspended {
             deleteCatalogue(catalogue, in: context)
             save(context)
         }
@@ -102,7 +102,7 @@ nonisolated enum DeletionService {
     /// mid-teardown would resurrect a half-deleted catalogue.
     @MainActor
     static func markForBackgroundDeletion(_ catalogue: Catalogue, in context: ModelContext) {
-        withSuspendedUndoRegistration(context) {
+        context.withUndoRegistrationSuspended {
             catalogue.pendingDeletion = true
             save(context)
         }
@@ -111,7 +111,7 @@ nonisolated enum DeletionService {
     }
 
     static func deleteItemsAndSave(_ items: [CatalogueItem], in context: ModelContext) {
-        withSuspendedUndoRegistration(context) {
+        context.withUndoRegistrationSuspended {
             for item in items { deleteItem(item, in: context) }
             save(context)
         }
@@ -130,13 +130,6 @@ nonisolated enum DeletionService {
 
     /// Runs `body` with SwiftData's automatic undo registration disabled, so hard deletes
     /// never land on the undo stack as natively-undoable (see above).
-    private static func withSuspendedUndoRegistration<T>(_ context: ModelContext, _ body: () -> T) -> T {
-        let undoManager = context.undoManager
-        context.undoManager = nil
-        defer { context.undoManager = undoManager }
-        return body()
-    }
-
     private static func removeThumbnails(for itemIDs: [PersistentIdentifier]) {
         Task.detached {
             for itemID in itemIDs {

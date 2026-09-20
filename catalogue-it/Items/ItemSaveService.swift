@@ -23,10 +23,23 @@ import SwiftData
 /// - A `FieldValue` is matched to its draft by `FieldDefinition.fieldID`. Values whose
 ///   definition is `nil` are left alone: the definition may simply not have synced yet.
 /// - Duplicate values for one definition (possible after a merge) collapse to one.
-/// - An `ItemPhoto` is matched by `PhotoDraft.existingPhotoID`; a draft whose photo no
-///   longer exists (deleted on another device meanwhile) is inserted afresh so the user's
-///   intent survives.
+/// - An `ItemPhoto` is matched by `PhotoDraft.existingPhotoID`.
 /// - `modifiedDate` moves only for a real content change, never for derived-column upkeep.
+///
+/// The diff is three-way when the caller passes the `EditBaseline` the sheet was loaded
+/// from. The drafts are a copy of the item as of opening the sheet, not a statement of the
+/// user's intent, and an edit merged in from another device while the sheet is open makes
+/// that copy stale: a two-way diff against the store would see the stale draft differ and
+/// write it back, undoing the other device's edit. With a baseline, a draft the user did
+/// not touch (equal to its baseline) leaves the stored value alone, whatever it now holds:
+/// - An untouched field is not written. One with no stored value yet is still created, so
+///   the item stays reachable by a custom sort on that field.
+/// - An untouched photo keeps its stored caption and position; if it was deleted elsewhere
+///   it stays deleted. Only photos the user saw and removed are deleted, so one added
+///   elsewhere while the sheet was open survives. A touched draft whose photo is gone is
+///   inserted afresh, since the user's edit would otherwise be lost.
+/// - Untouched notes are not written.
+/// Without a baseline (creating, duplicating), every draft is applied.
 @MainActor
 enum ItemSaveService {
 
@@ -51,6 +64,7 @@ enum ItemSaveService {
         notes: String,
         fieldDrafts: [FieldValueDraft],
         photoDrafts: [PhotoDraft],
+        baseline: EditBaseline? = nil,
         context: ModelContext,
         now: Date = .now
     ) throws -> Outcome {
@@ -61,7 +75,8 @@ enum ItemSaveService {
 
         if let existing {
             item = existing
-            if existing.notes != normalisedNotes {
+            let notesTouched = baseline.map { $0.notes != notes } ?? true
+            if notesTouched, existing.notes != normalisedNotes {
                 existing.notes = normalisedNotes
                 notesChanged = true
             }
@@ -86,11 +101,14 @@ enum ItemSaveService {
         let storedValues = try existing.map { try fetchFieldValues(of: $0, context: context) } ?? []
         let storedPhotos = try existing.map { try fetchPhotos(of: $0, context: context) } ?? []
 
-        let sortedDefs = catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
-        let (fieldValues, fieldsChanged) = applyFieldDrafts(fieldDrafts, to: item, stored: storedValues, context: context)
-        refreshDerivedColumns(on: item, fieldValues: fieldValues, definitions: sortedDefs)
+        let sortedDefs = catalogue.sortedFieldDefinitions
+        let (fieldValues, fieldsChanged) = applyFieldDrafts(
+            fieldDrafts, to: item, stored: storedValues, baseline: baseline?.fieldDrafts,
+            definitions: sortedDefs, context: context)
+        ItemDerivedColumns.refresh(on: item, fieldValues: fieldValues, definitions: sortedDefs)
 
-        let (photosChanged, coverThumbnailData) = applyPhotoDrafts(photoDrafts, to: item, stored: storedPhotos, context: context)
+        let (photosChanged, coverThumbnailData) = applyPhotoDrafts(
+            photoDrafts, to: item, stored: storedPhotos, baseline: baseline?.photoDrafts, context: context)
 
         if fieldsChanged || photosChanged || notesChanged {
             item.modifiedDate = now
@@ -147,18 +165,26 @@ enum ItemSaveService {
         _ drafts: [FieldValueDraft],
         to item: CatalogueItem,
         stored: [FieldValue],
+        baseline: [FieldValueDraft]?,
+        definitions: [FieldDefinition],
         context: ModelContext
     ) -> (values: [FieldValue], changed: Bool) {
         var changed = false
+        let baselineByFieldID = baseline.map { drafts in
+            Dictionary(drafts.map { ($0.fieldID, $0) }, uniquingKeysWith: { first, _ in first })
+        }
+        let definitionsByFieldID = Dictionary(definitions.map { ($0.fieldID, $0) }, uniquingKeysWith: { first, _ in first })
 
         // One value per definition. Extras are a merge artefact and are dropped; orphans
-        // (definition nil) are kept, since their definition may still be in transit.
+        // (definition nil) are kept, since their definition may still be in transit. The
+        // survivor is chosen the way every reader chooses (`SortKeyEncoder.preferredValue`),
+        // so two devices saving the same item keep the same row — keeping different ones
+        // would delete both.
         var valuesByFieldID: [UUID: FieldValue] = [:]
-        for value in stored {
-            guard let fieldID = value.fieldDefinition?.fieldID else { continue }
-            if valuesByFieldID[fieldID] == nil {
-                valuesByFieldID[fieldID] = value
-            } else {
+        for fieldID in Set(stored.compactMap { $0.fieldDefinition?.fieldID }) {
+            guard let keep = SortKeyEncoder.preferredValue(forFieldID: fieldID, among: stored) else { continue }
+            valuesByFieldID[fieldID] = keep
+            for value in stored where value !== keep && value.fieldDefinition?.fieldID == fieldID {
                 context.delete(value)
                 changed = true
             }
@@ -166,10 +192,16 @@ enum ItemSaveService {
 
         var result: [FieldValue] = []
         for draft in drafts {
-            let definition = draft.fieldDefinition
+            let fieldID = draft.fieldID
+            // No baseline, or a field that wasn't in the sheet, counts as touched.
+            let touched = baselineByFieldID?[fieldID].map { !draft.hasSameValue(as: $0) } ?? true
             let value: FieldValue
-            if let existing = valuesByFieldID[definition.fieldID] {
+            if let existing = valuesByFieldID[fieldID] {
                 value = existing
+                if !touched {
+                    result.append(value)
+                    continue
+                }
                 if value.fieldType != draft.fieldType {
                     // The definition's type changed under this value; nothing stored under the
                     // old type is meaningful any more.
@@ -181,6 +213,10 @@ enum ItemSaveService {
                     changed = true
                 }
             } else {
+                // The field was removed from the catalogue (on another device, while the
+                // sheet was open): nothing to hold the value, whether typed or not. The
+                // catalogue's own instance is related, not the draft's possibly stale one.
+                guard let definition = definitionsByFieldID[fieldID] else { continue }
                 // Same insert-then-relate order as the item: the custom-sort count filters on
                 // the fieldDefinition FK.
                 value = FieldValue(fieldDefinition: nil, fieldType: draft.fieldType)
@@ -189,10 +225,12 @@ enum ItemSaveService {
                 value.item = item
                 // A second draft for the same definition updates this one rather than
                 // inserting again.
-                valuesByFieldID[definition.fieldID] = value
-                changed = true
+                valuesByFieldID[fieldID] = value
+                // Creating the row for an untouched field is upkeep (it keeps the item
+                // reachable by a custom sort), not an edit: it must not move modifiedDate.
+                if touched { changed = true }
             }
-            if apply(draft, to: value) { changed = true }
+            if apply(draft, to: value), touched { changed = true }
             result.append(value)
         }
         return (result, changed)
@@ -219,58 +257,46 @@ enum ItemSaveService {
         return true
     }
 
-    /// Sort keys, search blob and facet mirrors. Each is assigned only when it differs, so
-    /// an unchanged item stays clean and exports nothing.
-    private static func refreshDerivedColumns(
-        on item: CatalogueItem,
-        fieldValues: [FieldValue],
-        definitions: [FieldDefinition]
-    ) {
-        for value in fieldValues {
-            let sortKey = SortKeyEncoder.sortKey(for: value)
-            if value.sortKey != sortKey { value.sortKey = sortKey }
-        }
-        // Tiebreak keys depend on every field's sortKey, so they follow in a second pass.
-        for value in fieldValues {
-            let tiebreakKey = SortKeyEncoder.tiebreakKey(
-                for: value,
-                allFieldValuesOnItem: fieldValues,
-                fieldDefinitionsByPriority: definitions,
-                itemCreatedDate: item.createdDate
-            )
-            if value.tiebreakKey != tiebreakKey { value.tiebreakKey = tiebreakKey }
-        }
-
-        let searchText = SearchTextBuilder.build(from: fieldValues)
-        if item.searchText != searchText { item.searchText = searchText }
-
-        let facets = ItemFacetBuilder.facets(from: fieldValues, definitions: definitions)
-        if item.statusValue != facets.statusValue { item.statusValue = facets.statusValue }
-        if item.flagKeys != facets.flagKeys { item.flagKeys = facets.flagKeys }
-    }
-
     // MARK: - Photos
 
+    /// Position is a property of the *sequence*, not of one photo: the drafts are numbered
+    /// 0…n−1 on load, so a stored set with a gap (one deleted elsewhere) never matches
+    /// them. Priorities are therefore rewritten for every draft when the user reordered,
+    /// added or removed something — the sequence of ids differs from the baseline — and
+    /// left alone otherwise, so a touched caption can never hand its photo a priority that
+    /// collides with an untouched sibling's stored one.
     private static func applyPhotoDrafts(
         _ drafts: [PhotoDraft],
         to item: CatalogueItem,
         stored: [ItemPhoto],
+        baseline: [PhotoDraft]?,
         context: ModelContext
     ) -> (changed: Bool, coverThumbnailData: Data?) {
         var changed = false
         let existingByID = Dictionary(stored.map { ($0.persistentModelID, $0) }, uniquingKeysWith: { first, _ in first })
+        let baselineByID = baseline.map { drafts in
+            Dictionary(drafts.compactMap { draft in draft.existingPhotoID.map { ($0, draft) } },
+                       uniquingKeysWith: { first, _ in first })
+        }
+        let sequenceChanged = baseline.map { $0.map(\.existingPhotoID) != drafts.map(\.existingPhotoID) } ?? true
         var kept: Set<PersistentIdentifier> = []
+        /// What the item holds after this save, for the cover.
+        var remaining: [ItemPhoto] = []
 
         for draft in drafts {
             let trimmedCaption = draft.caption.trimmingCharacters(in: .whitespacesAndNewlines)
             let caption: String? = trimmedCaption.isEmpty ? nil : trimmedCaption
+            // A newly picked photo has no baseline entry and so always counts as touched.
+            let touched = draft.existingPhotoID.flatMap { baselineByID?[$0] }.map { $0 != draft } ?? true
 
             if let id = draft.existingPhotoID, let photo = existingByID[id] {
                 kept.insert(id)
-                if photo.priority != draft.priority {
+                remaining.append(photo)
+                if sequenceChanged, photo.priority != draft.priority {
                     photo.priority = draft.priority
                     changed = true
                 }
+                guard touched else { continue }
                 if photo.caption != caption {
                     photo.caption = caption
                     changed = true
@@ -283,6 +309,9 @@ enum ItemSaveService {
                     changed = true
                 }
             } else {
+                // Untouched and gone from the store: deleted on another device, and the
+                // user expressed no wish to keep it.
+                guard touched else { continue }
                 let photo = ItemPhoto(
                     imageData: draft.imageData,
                     thumbnailData: draft.imageData.makeThumbnail(),
@@ -291,17 +320,26 @@ enum ItemSaveService {
                 )
                 context.insert(photo)
                 photo.item = item
+                remaining.append(photo)
                 changed = true
             }
         }
 
         for (id, photo) in existingByID where !kept.contains(id) {
+            // With a baseline, only a photo the sheet showed can have been removed by the
+            // user; anything else arrived from another device while the sheet was open.
+            if let baselineByID, baselineByID[id] == nil {
+                remaining.append(photo)
+                continue
+            }
             context.delete(photo)
             changed = true
         }
 
         guard changed else { return (false, nil) }
-        let cover = drafts.min { $0.priority < $1.priority }
-        return (true, cover?.imageData.makeThumbnail())
+        // From what the item actually holds now — not the drafts, which can still name a
+        // photo deleted elsewhere or miss one added elsewhere.
+        let cover = remaining.min { $0.priority < $1.priority }
+        return (true, cover.flatMap { $0.thumbnailData ?? $0.imageData.makeThumbnail() })
     }
 }

@@ -27,8 +27,7 @@ struct ItemDetailView: View {
     // MARK: - Computed
 
     private var primaryValue: String {
-        guard let firstDef = catalogue.fieldDefinitions
-            .sorted(by: { $0.priority < $1.priority })
+        guard let firstDef = catalogue.sortedFieldDefinitions
             .first,
               let val = item.value(for: firstDef),
               !val.displayValue(options: firstDef.fieldOptions).isEmpty
@@ -42,8 +41,7 @@ struct ItemDetailView: View {
 
     /// Field definitions paired with their values, filtered to non-empty entries only.
     private var displayFields: [(FieldDefinition, FieldValue)] {
-        catalogue.fieldDefinitions
-            .sorted { $0.priority < $1.priority }
+        catalogue.sortedFieldDefinitions
             .compactMap { def in
                 guard let val = item.value(for: def), !val.displayValue(options: def.fieldOptions).isEmpty else { return nil }
                 return (def, val)
@@ -52,7 +50,7 @@ struct ItemDetailView: View {
 
     private var shareText: String {
         var lines: [String] = []
-        for def in catalogue.fieldDefinitions.sorted(by: { $0.priority < $1.priority }) {
+        for def in catalogue.sortedFieldDefinitions {
             if let val = item.value(for: def) {
                 lines.append("\(def.name): \(val.displayValue(options: def.fieldOptions))")
             }
@@ -66,6 +64,10 @@ struct ItemDetailView: View {
     // MARK: - Body
 
     var body: some View {
+        // A value merged in from CloudKit bypasses the model's setters, so nothing about
+        // `item` alone re-runs this body. Reading the generation `RemoteChangeObserver`
+        // bumps after each merge does — the same hook the list rows use (ThumbnailCacheState).
+        let _ = ThumbnailCacheState.shared.generation
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 if !sortedPhotos.isEmpty {

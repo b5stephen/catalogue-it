@@ -130,7 +130,7 @@ struct SortMenuButton: View {
     @Binding var sortDirection: String
 
     private var sortedFields: [FieldDefinition] {
-        catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
+        catalogue.sortedFieldDefinitions
     }
 
     private var currentSortLabel: String {

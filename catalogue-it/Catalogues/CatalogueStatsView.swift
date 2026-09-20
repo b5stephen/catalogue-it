@@ -23,7 +23,7 @@ struct CatalogueStatsView: View {
     }
 
     private var sortedFields: [FieldDefinition] {
-        catalogue.fieldDefinitions.sorted { $0.priority < $1.priority }
+        catalogue.sortedFieldDefinitions
     }
 
     /// One row per status tab (excluding the synthetic "All"), so a catalogue tracking

@@ -359,7 +359,7 @@ final class ItemPaginationController {
         let tokens = fingerprint.flagTokens
         let query = (ignoreSearch || fingerprint.searchText.isEmpty)
             ? nil
-            : fingerprint.searchText.lowercased()
+            : SearchTextBuilder.queryVariants(fingerprint.searchText)
 
         guard query != nil || !tokens.isEmpty else {
             return try context.fetchCount(FetchDescriptor<FieldValue>(predicate: predicate))
@@ -369,7 +369,7 @@ final class ItemPaginationController {
         descriptor.relationshipKeyPathsForPrefetching = [\.item]
         return try context.fetch(descriptor).count { fv in
             guard let item = fv.item else { return false }
-            if let query, !item.searchText.contains(query) { return false }
+            if let query, !matchesSearch(item, query) { return false }
             if !tokens.isEmpty, !matchesFlags(item, tokens: tokens) { return false }
             return true
         }
@@ -380,7 +380,7 @@ final class ItemPaginationController {
 
         let ascending = (ItemSortDirection(rawValue: fingerprint.sortDirection) ?? .ascending) == .ascending
         let hasSearch = !fingerprint.searchText.isEmpty
-        let lowercasedQuery = fingerprint.searchText.lowercased()
+        let query = SearchTextBuilder.queryVariants(fingerprint.searchText)
         // Flags are applied here rather than in the predicate — see matchesFlags.
         let flagTokens = fingerprint.flagTokens
 
@@ -414,7 +414,7 @@ final class ItemPaginationController {
             // in the store but appears empty until the fault fires.
             items += fieldValues.compactMap { fv in
                 guard let item = fv.item else { return nil }
-                if hasSearch, !item.searchText.contains(lowercasedQuery) { return nil }
+                if hasSearch, !matchesSearch(item, query) { return nil }
                 if !matchesFlags(item, tokens: flagTokens) { return nil }
                 _ = item.fieldValues
                 return item
@@ -486,6 +486,11 @@ final class ItemPaginationController {
     ///
     /// The cost is bounded: flags only filter rows the DB predicate has already narrowed to
     /// one catalogue, one status tab, and the active search.
+    /// The in-memory counterpart of the search clause in `makePredicate`.
+    private func matchesSearch(_ item: CatalogueItem, _ query: (raw: String, canonical: String)) -> Bool {
+        item.searchText.contains(query.raw) || item.searchText.contains(query.canonical)
+    }
+
     private func matchesFlags(_ item: CatalogueItem, tokens: [String]) -> Bool {
         tokens.allSatisfy { item.flagKeys.contains($0) }
     }
@@ -520,13 +525,13 @@ final class ItemPaginationController {
         let status = statusFilter ?? ""
 
         let hasSearch = !fingerprint.searchText.isEmpty && !ignoreSearch
-        let lowercasedQuery = fingerprint.searchText.lowercased()
+        let (rawQuery, canonicalQuery) = SearchTextBuilder.queryVariants(fingerprint.searchText)
 
         return #Predicate { item in
             item.catalogue?.persistentModelID == targetID
                 && item.deletedDate == nil
                 && (!hasStatus || item.statusValue == status)
-                && (!hasSearch || item.searchText.contains(lowercasedQuery))
+                && (!hasSearch || item.searchText.contains(rawQuery) || item.searchText.contains(canonicalQuery))
         }
     }
 

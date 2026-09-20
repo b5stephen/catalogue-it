@@ -312,4 +312,68 @@ struct SortKeyEncoderTiebreakTests {
         let segments = refetched.tiebreakKey.components(separatedBy: SortKeyEncoder.tiebreakSeparator)
         #expect(segments.count == 3, "expected [fieldB value, fieldC value, createdDate], got \(segments)")
     }
+
+    // MARK: - Determinism across devices
+
+    /// Derived columns sync and are recomputed on every device after a merge, so the same
+    /// values must encode identically whatever order the relationship hands them back in,
+    /// and whichever duplicate row a merge left behind.
+
+    @Test("Duplicate values for one field resolve to the same row regardless of order")
+    func duplicatesResolveDeterministically() throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let catalogue = Catalogue(name: "Test", iconName: "star", colorHex: "#000000")
+        ctx.insert(catalogue)
+        let fieldA = FieldDefinition(name: "A", fieldType: .text, priority: 0)
+        let fieldB = FieldDefinition(name: "B", fieldType: .text, priority: 1)
+        fieldA.catalogue = catalogue
+        fieldB.catalogue = catalogue
+        ctx.insert(fieldA)
+        ctx.insert(fieldB)
+        let item = CatalogueItem()
+        item.catalogue = catalogue
+        ctx.insert(item)
+
+        let fvA = FieldValue(fieldDefinition: fieldA, fieldType: .text)
+        fvA.textValue = "X"
+        fvA.item = item
+        ctx.insert(fvA)
+        // Two rows for B: one empty (created by a device that never typed into it), one set.
+        let emptyB = FieldValue(fieldDefinition: fieldB, fieldType: .text)
+        emptyB.item = item
+        ctx.insert(emptyB)
+        let setB = FieldValue(fieldDefinition: fieldB, fieldType: .text)
+        setB.textValue = "Y"
+        setB.item = item
+        ctx.insert(setB)
+
+        let defs = catalogue.sortedFieldDefinitions
+        let forward = SortKeyEncoder.tiebreakKey(for: fvA, allFieldValuesOnItem: [fvA, emptyB, setB],
+                                                 fieldDefinitionsByPriority: defs, itemCreatedDate: item.createdDate)
+        let reversed = SortKeyEncoder.tiebreakKey(for: fvA, allFieldValuesOnItem: [setB, emptyB, fvA],
+                                                  fieldDefinitionsByPriority: defs, itemCreatedDate: item.createdDate)
+        #expect(forward == reversed)
+        #expect(forward.hasPrefix("y"), "the populated duplicate wins over the empty one")
+        #expect(item.value(for: fieldB) === setB)
+    }
+
+    @Test("Definitions with equal priority order by fieldID, not by relationship order")
+    func equalPrioritiesOrderByFieldID() throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let catalogue = Catalogue(name: "Test", iconName: "star", colorHex: "#000000")
+        ctx.insert(catalogue)
+        let low = FieldDefinition(name: "Low", fieldType: .text, priority: 1,
+                                  fieldID: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!)
+        let high = FieldDefinition(name: "High", fieldType: .text, priority: 1,
+                                   fieldID: UUID(uuidString: "FFFFFFFF-0000-0000-0000-000000000001")!)
+        for def in [high, low] {
+            def.catalogue = catalogue
+            ctx.insert(def)
+        }
+
+        #expect(catalogue.sortedFieldDefinitions.map(\.name) == ["Low", "High"])
+        #expect([high, low].sorted(by: FieldDefinition.isOrderedBefore).map(\.name) == ["Low", "High"])
+    }
 }

@@ -66,7 +66,10 @@ Backed by CloudKit through SwiftData's built-in mirroring.
   generator silently ignores `INFOPLIST_KEY_UIBackgroundModes` — the setting is read but never
   reaches the built plist. The file sits outside `catalogue-it/` so the file-system-synchronized
   group doesn't also copy it in as a resource.
-- SwiftData handles conflict resolution automatically (last writer wins, per property).
+- SwiftData handles conflict resolution automatically (last writer wins, per property —
+  confirmed on device Sept 2026). Each `FieldValue` is its own record, so two devices editing
+  different fields of one item never conflict. The remaining seams are the derived columns
+  and the edit sheet, below.
 
 ### Model constraints — breaking these breaks sync *and* local data
 
@@ -105,6 +108,37 @@ new derived state is introduced.
   export, the mirroring context writes CloudKit system fields back. Work hung on it must be
   cheap and must not disturb scroll or selection.
 - The Simulator receives no APNs pushes. Remote-merge behaviour only shows on real devices.
+
+### Derived columns and merges
+
+`FieldValue.sortKey`/`tiebreakKey`, `CatalogueItem.searchText`, `statusValue` and `flagKeys`
+are computed from an item's *whole* set of values, and they sync. A field edited on another
+device arrives alone, so everything derived from it here is stale until
+`RemoteChangeObserver` recomputes the affected items (found through SwiftData history:
+`FieldValue` inserts/content updates not authored by the main context, whose `author` is set
+for that purpose). That recompute is itself exported, which is only safe because of three
+rules every write path must keep:
+
+- **Deterministic across devices.** Anything locale-, language-, clock- or *order*-dependent
+  in a synced derived column makes two devices rewrite each other forever. So:
+  `SearchTextBuilder` writes a canonical, locale-free blob (numbers ungrouped, dates as the
+  GMT days of the instant ±14h, booleans omitted, values ordered by field priority) and
+  `queryVariants` folds the query to match; field definitions are always ordered with
+  `Catalogue.sortedFieldDefinitions` / `FieldDefinition.isOrderedBefore` (equal priorities
+  happen when two devices add a field before a merge); and duplicate `FieldValue`s for one
+  definition are read through `SortKeyEncoder.preferredValue`, never `first(where:)`. Bump
+  `SearchTextBuilder.formatVersion` when the blob rules change; `DerivedDataBackfill`
+  rewrites the column once per device.
+- **Compare before assign.** All recomputation goes through `ItemDerivedColumns.refresh`, which
+  writes only what differs, so an already-correct item stays clean and the round trip stops.
+  Never bump `modifiedDate` from a recompute.
+- **Not the user's to undo.** Recompute passes run inside
+  `ModelContext.withUndoRegistrationSuspended`; on the undo stack they would put stale values
+  back and export them.
+
+The edit sheet's drafts are a copy of the item as of opening, not the user's intent, so
+`ItemSaveService` takes the `EditBaseline` the sheet loaded and skips any draft equal to it —
+otherwise a stale draft writes over a value that merged in while the sheet was open.
 
 ### Sync status UI
 

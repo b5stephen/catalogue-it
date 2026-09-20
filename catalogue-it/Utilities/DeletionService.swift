@@ -16,10 +16,11 @@ import os
 /// how the in-memory graph got into its current state — and also sweeps up orphaned rows
 /// (e.g. a FieldValue with a definition but no item) that a relationship walk would miss.
 ///
-/// Not actor-isolated (explicitly, since the module defaults to MainActor): every function
-/// operates solely on the `ModelContext` passed in, so it runs safely on whichever executor
-/// owns that context — the main actor for the main context, or `BackgroundDeletionActor`
-/// for its background context.
+/// Not actor-isolated (explicitly, since the module defaults to MainActor): the delete
+/// functions operate solely on the `ModelContext` passed in, so they run safely on whichever
+/// executor owns that context — the main actor for the main context, or
+/// `BackgroundDeletionActor` for its background context. The `…AndSave` variants are
+/// `@MainActor` because they suspend undo registration, which is main-context state.
 nonisolated enum DeletionService {
     private static let logger = Logger(subsystem: "catalogue-it", category: "DeletionService")
 
@@ -89,6 +90,7 @@ nonisolated enum DeletionService {
     /// anyway (it re-inserts models under their old, now-deleted row identities, which
     /// silently vanish on the next save — nothing is actually restored). Registration is
     /// suspended so the undo stack never offers a lying undo.
+    @MainActor
     static func deleteCatalogueAndSave(_ catalogue: Catalogue, in context: ModelContext) {
         context.withUndoRegistrationSuspended {
             deleteCatalogue(catalogue, in: context)
@@ -110,6 +112,7 @@ nonisolated enum DeletionService {
         BackgroundDeletionActor.scheduleDeletion(of: catalogue.persistentModelID)
     }
 
+    @MainActor
     static func deleteItemsAndSave(_ items: [CatalogueItem], in context: ModelContext) {
         context.withUndoRegistrationSuspended {
             for item in items { deleteItem(item, in: context) }

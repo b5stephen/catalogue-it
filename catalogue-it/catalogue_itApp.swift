@@ -45,12 +45,16 @@ struct catalogue_itApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                // Attach undo before anything below touches the store: an inner modifier's
+                // onAppear runs before an outer one's, and `.task` bodies run before the
+                // outer onAppear too. Attaching after the backfill has started modifying
+                // rows crashes its next save — see ModelContextUndoModifier.
+                .withModelContextUndoManager()
                 .onAppear { seedUITestDataIfNeeded() }
                 .task {
                     BackgroundDeletionActor.resumePendingDeletions()
                     await DerivedDataBackfill.runIfNeeded(in: sharedModelContainer.mainContext)
                 }
-                .withModelContextUndoManager()
         }
         .modelContainer(sharedModelContainer)
     }
@@ -82,9 +86,8 @@ struct catalogue_itApp: App {
         fieldValue.item = item
         ctx.insert(fieldValue)
 
-        // Commit now. The undo manager is attached to this context right after this
-        // runs, and SwiftData asserts ("A snapshot should exist before creating a new
-        // snapshot for undo") if it then finds unsaved inserts it never snapshotted.
+        // Commit now so the seed is never left pending across an undo-manager change —
+        // SwiftData asserts on a save that finds changes made without a manager attached.
         try? ctx.save()
     }
 }

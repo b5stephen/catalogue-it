@@ -242,7 +242,7 @@ struct DeletionServiceTests {
         let ctx = container.mainContext
         let undoManager = UndoManager()
         undoManager.groupsByEvent = false
-        ctx.undoManager = undoManager
+        ctx.setDesiredUndoManager(undoManager)
         let (catalogue, _) = makePopulatedCatalogue(in: ctx)
         try ctx.save()
 
@@ -265,7 +265,7 @@ struct DeletionServiceTests {
         let ctx = container.mainContext
         let undoManager = UndoManager()
         undoManager.groupsByEvent = false
-        ctx.undoManager = undoManager
+        ctx.setDesiredUndoManager(undoManager)
         let (_, item) = makePopulatedCatalogue(in: ctx)
         try ctx.save()
 

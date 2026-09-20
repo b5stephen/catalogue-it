@@ -233,7 +233,9 @@ enum RemoteChangeObserver {
             let id = catalogue.persistentModelID
             guard fieldFingerprints[id] != fingerprint else { continue }
             fieldFingerprints[id] = fingerprint
-            await CatalogueSortKeyMaintenance.recomputeFacets(for: catalogue, in: context)
+            await context.withUndoRegistrationSuspended {
+                await CatalogueSortKeyMaintenance.recomputeFacets(for: catalogue, in: context)
+            }
         }
     }
 

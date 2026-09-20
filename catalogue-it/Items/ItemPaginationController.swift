@@ -57,7 +57,11 @@ struct FilterFingerprint: Equatable {
 ///   leveraging the #Index([\.fieldDefinition, \.sortKey, \.tiebreakKey]) compound index.
 ///   Sorting by both `sortKey` (the selected field's own value) and `tiebreakKey` (every
 ///   other field, in priority order, then dateAdded) means ties on the primary field are
-///   still resolved entirely in the DB fetch — no in-memory re-sort. Status-tab filtering is
+///   still resolved entirely in the DB fetch — no in-memory re-sort. Items with no
+///   FieldValue for the sort field can't be reached that way, so once the FieldValue stream
+///   is exhausted a tail pass fetches them by createdDate and appends them at the bottom,
+///   whichever the direction; the count comes from the item side so it matches the
+///   Catalogues screen. Status-tab filtering is
 ///   pushed to the DB predicate (an indexed column comparison on `statusValue`); search and
 ///   flag filtering are applied in-memory on each fetched batch (50 rows) to avoid #Predicate
 ///   macro compiler timeout on complex optional chains.
@@ -92,6 +96,14 @@ final class ItemPaginationController {
 
     private var customSortOffset = 0
     private var customSortPredicate: Predicate<FieldValue>?
+    // The tail pass for items with no FieldValue for the sort field. `customSortHasTail` is
+    // decided once per reset from the counts, so the common case (every item has a row)
+    // never scans the catalogue for nothing. The surfaced set lets the tail skip items the
+    // stream already produced — and keeps a duplicate FieldValue from showing an item twice.
+    private var customSortHasTail = false
+    private var customSortInTail = false
+    private var customSortTailOffset = 0
+    private var customSortSurfacedIDs: Set<PersistentIdentifier> = []
     // PersistentIdentifier of the resolved FieldDefinition — used in the predicate so
     // the DB filters on the FK column, hitting the #Index([\.fieldDefinition, \.sortKey]).
     private var customSortFieldDefID: PersistentIdentifier?
@@ -145,6 +157,10 @@ final class ItemPaginationController {
         customSortOffset = 0
         customSortPredicate = nil
         customSortFieldDefID = nil
+        customSortHasTail = false
+        customSortInTail = false
+        customSortTailOffset = 0
+        customSortSurfacedIDs = []
         hasMore = true
         isLoadingMore = false
 
@@ -292,7 +308,9 @@ final class ItemPaginationController {
     // MARK: - Custom Sort Setup
 
     /// Resolves the FieldDefinition for the active sort field, pre-computes the FieldValue
-    /// predicate (tab-filtered, DB-sorted), and initialises totalCount and hasAnyItems.
+    /// predicate (tab-filtered, DB-sorted), initialises totalCount and hasAnyItems from the
+    /// item side (the same population as the dateAdded path and the Catalogues screen), and
+    /// decides whether a tail pass is needed for items with no FieldValue for the field.
     ///
     /// The FieldValue predicate uses the #Index([\.fieldDefinition, \.sortKey, \.tiebreakKey])
     /// compound index on FieldValue via the fieldID equality constraint. Search filtering is
@@ -314,65 +332,20 @@ final class ItemPaginationController {
 
         let fieldDefID = resolvedField.persistentModelID
         customSortFieldDefID = fieldDefID
-        customSortPredicate = makeFieldValuePredicate(fieldDefID: fieldDefID, statusTab: fingerprint.statusTab)
-
-        // totalCount mirrors the same catalogue/tab/search filter as the dateAdded path,
-        // but additionally requires a FieldValue for the sort field — items without one
-        // are never surfaced by loadMoreCustomSort's FieldValue-based fetch, so counting
-        // them here would show a total the user can never fully scroll to.
-        totalCount = try customSortMatchingCount(fingerprint: fingerprint, fieldDefID: fieldDefID, context: context)
-        hasMore = totalCount > 0
-
-        if fingerprint.searchText.isEmpty {
-            hasAnyItems = totalCount > 0
-        } else {
-            let anyCount = try customSortMatchingCount(
-                fingerprint: fingerprint,
-                fieldDefID: fieldDefID,
-                context: context,
-                ignoreSearch: true
-            )
-            hasAnyItems = anyCount > 0
-        }
-    }
-
-    /// Custom-sort counterpart to `matchingCount`.
-    ///
-    /// Counted from the FieldValue side rather than through a `CatalogueItem` predicate that
-    /// tests the relationship. Now that the relationship is optional (CloudKit requires it),
-    /// `contains(where:)` over it cannot be expressed in `#Predicate` at all — the composed
-    /// expression does not conform to `StandardPredicateExpression`. Counting the FieldValues
-    /// for the sort field is equivalent: `loadMoreCustomSort` surfaces exactly one item per
-    /// such FieldValue, which is the population this count exists to describe.
-    ///
-    /// `makeFieldValuePredicate` already applies the sort field, soft-delete and status-tab
-    /// filters in the DB (the field belongs to one catalogue, so the catalogue filter is
-    /// implied). Search and flags stay in memory, matching `loadMoreCustomSort` — and when
-    /// neither is active this remains a plain `fetchCount`, as before.
-    private func customSortMatchingCount(
-        fingerprint: FilterFingerprint,
-        fieldDefID: PersistentIdentifier,
-        context: ModelContext,
-        ignoreSearch: Bool = false
-    ) throws -> Int {
         let predicate = makeFieldValuePredicate(fieldDefID: fieldDefID, statusTab: fingerprint.statusTab)
-        let tokens = fingerprint.flagTokens
-        let query = (ignoreSearch || fingerprint.searchText.isEmpty)
-            ? nil
-            : SearchTextBuilder.queryVariants(fingerprint.searchText)
+        customSortPredicate = predicate
 
-        guard query != nil || !tokens.isEmpty else {
-            return try context.fetchCount(FetchDescriptor<FieldValue>(predicate: predicate))
-        }
+        // An item with no FieldValue for the sort field ("contains(where:)" over the optional
+        // to-many can't be expressed in #Predicate) is invisible to the FieldValue stream, so
+        // the count comes from the item side instead and the tail pass surfaces the rest.
+        try setupDateAddedSort(fingerprint: fingerprint, context: context)
 
-        var descriptor = FetchDescriptor<FieldValue>(predicate: predicate)
-        descriptor.relationshipKeyPathsForPrefetching = [\.item]
-        return try context.fetch(descriptor).count { fv in
-            guard let item = fv.item else { return false }
-            if let query, !matchesSearch(item, query) { return false }
-            if !tokens.isEmpty, !matchesFlags(item, tokens: tokens) { return false }
-            return true
-        }
+        // The stream count is unfiltered by search and flags, so it only proves the tail
+        // empty when neither is active; a filtered list is short enough to scan regardless.
+        let streamCount = try context.fetchCount(FetchDescriptor<FieldValue>(predicate: predicate))
+        customSortHasTail = totalCount > streamCount
+            || !fingerprint.searchText.isEmpty
+            || !fingerprint.flagTokens.isEmpty
     }
 
     private func loadMoreCustomSort(fingerprint: FilterFingerprint, context: ModelContext) throws {
@@ -391,6 +364,11 @@ final class ItemPaginationController {
         // when the list grows) would stall forever.
         let countBeforeLoad = items.count
         repeat {
+            if customSortInTail {
+                try loadMoreCustomSortTail(fingerprint: fingerprint, context: context)
+                continue
+            }
+
             var desc = FetchDescriptor<FieldValue>(
                 predicate: predicate,
                 sortBy: [
@@ -414,14 +392,49 @@ final class ItemPaginationController {
             // in the store but appears empty until the fault fires.
             items += fieldValues.compactMap { fv in
                 guard let item = fv.item else { return nil }
+                guard customSortSurfacedIDs.insert(item.persistentModelID).inserted else { return nil }
                 if hasSearch, !matchesSearch(item, query) { return nil }
                 if !matchesFlags(item, tokens: flagTokens) { return nil }
                 _ = item.fieldValues
                 return item
             }
 
-            hasMore = fieldValues.count == Self.pageSize
+            if fieldValues.count < Self.pageSize {
+                // Stream exhausted. Hand over to the tail if there is anything for it to find.
+                customSortInTail = customSortHasTail
+                hasMore = customSortHasTail
+            }
         } while hasMore && items.count == countBeforeLoad
+    }
+
+    /// The tail of a custom sort: items with no FieldValue for the sort field, in createdDate
+    /// order, appended after the sorted items whichever the direction. Same shape as
+    /// `loadMoreDateAdded`; the DB predicate carries catalogue, soft-delete, status tab and
+    /// search, flags are applied in memory, and items the stream already surfaced are skipped.
+    ///
+    /// No predicate can express "has no FieldValue for this field", so this is a walk over
+    /// every item in the catalogue, almost all of which are skipped. It is only entered when
+    /// the counts say there is something to find, and nothing is prefetched for it: field
+    /// values are faulted for the few survivors, not the pages thrown away.
+    private func loadMoreCustomSortTail(fingerprint: FilterFingerprint, context: ModelContext) throws {
+        var descriptor = FetchDescriptor<CatalogueItem>(predicate: makePredicate(fingerprint: fingerprint))
+        descriptor.sortBy = [SortDescriptor(\.createdDate, order: .forward)]
+        descriptor.fetchLimit = Self.pageSize
+        descriptor.fetchOffset = customSortTailOffset
+
+        let page = try context.fetch(descriptor)
+        customSortTailOffset += page.count
+
+        let flagTokens = fingerprint.flagTokens
+        items += page.compactMap { item in
+            guard !customSortSurfacedIDs.contains(item.persistentModelID),
+                  matchesFlags(item, tokens: flagTokens) else { return nil }
+            // Same as the stream path: resolve the fault before the row renders.
+            _ = item.fieldValues
+            return item
+        }
+
+        hasMore = page.count == Self.pageSize
     }
 
     // MARK: - Date Added Sort Setup

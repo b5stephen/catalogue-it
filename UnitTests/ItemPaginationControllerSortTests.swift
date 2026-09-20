@@ -114,11 +114,24 @@ struct ItemPaginationControllerSortTests {
         fixture: Fixture,
         direction: ItemSortDirection
     ) -> [CatalogueItem] {
+        exhaustedController(fixture: fixture, direction: direction).items
+    }
+
+    /// Drives the real pagination path to exhaustion and returns the controller, for
+    /// tests that also need `totalCount`.
+    private func exhaustedController(
+        fixture: Fixture,
+        direction: ItemSortDirection,
+        statusTab: StatusTab = .all,
+        activeFlagIDs: [UUID] = [],
+        searchText: String = ""
+    ) -> ItemPaginationController {
         let controller = ItemPaginationController()
         let fingerprint = FilterFingerprint(
             catalogueID: fixture.catalogue.persistentModelID,
-            statusTab: .all,
-            searchText: "",
+            statusTab: statusTab,
+            activeFlagIDs: activeFlagIDs,
+            searchText: searchText,
             sortFieldKey: ItemSortField.field(fixture.airlineDef.fieldID).rawValue,
             sortDirection: direction.rawValue
         )
@@ -126,7 +139,32 @@ struct ItemPaginationControllerSortTests {
         while controller.hasMore {
             controller.loadMore(context: fixture.context)
         }
-        return controller.items
+        return controller
+    }
+
+    /// An item with a value for Aircraft only — no `FieldValue` for the Airline sort field.
+    @discardableResult
+    private func makeAircraftOnlyItem(
+        in fixture: Fixture,
+        aircraft: String,
+        createdDate: Date = Date(timeIntervalSince1970: 10_000)
+    ) -> CatalogueItem {
+        let item = CatalogueItem()
+        item.catalogue = fixture.catalogue
+        item.createdDate = createdDate
+        fixture.context.insert(item)
+        let fv = FieldValue(fieldDefinition: fixture.aircraftDef, fieldType: .text)
+        fv.textValue = aircraft
+        fv.item = item
+        fixture.context.insert(fv)
+        fv.sortKey = SortKeyEncoder.sortKey(for: fv)
+        fv.tiebreakKey = SortKeyEncoder.tiebreakKey(
+            for: fv,
+            allFieldValuesOnItem: [fv],
+            fieldDefinitionsByPriority: [fixture.airlineDef, fixture.aircraftDef],
+            itemCreatedDate: item.createdDate
+        )
+        return item
     }
 
     @Test("Ascending custom-field sort matches the CatalogueItemSort reference order")
@@ -178,30 +216,103 @@ struct ItemPaginationControllerSortTests {
         ])
     }
 
-    @Test("Items with no value for the sort field are excluded from the custom-field fetch")
-    func itemsWithoutSortFieldValueAreExcluded() throws {
+    /// Regression guard for the catalogue card saying 32 while the list showed 31: an item
+    /// with no `FieldValue` for the sort field can't be reached from the FieldValue side, so
+    /// it must be counted from the item side and appended after the sorted items.
+    @Test("Items with no value for the sort field are counted and appear last", arguments: [ItemSortDirection.ascending, .descending])
+    func itemsWithoutSortFieldValueAppearLast(direction: ItemSortDirection) throws {
         let fixture = try makeFixture()
 
         // A fifth item with an Aircraft value but no Airline value at all.
-        let noAirlineItem = CatalogueItem()
-        noAirlineItem.catalogue = fixture.catalogue
-        fixture.context.insert(noAirlineItem)
-        let aircraftOnlyFV = FieldValue(fieldDefinition: fixture.aircraftDef, fieldType: .text)
-        aircraftOnlyFV.textValue = "737 MAX"
-        aircraftOnlyFV.item = noAirlineItem
-        fixture.context.insert(aircraftOnlyFV)
-        aircraftOnlyFV.sortKey = SortKeyEncoder.sortKey(for: aircraftOnlyFV)
-        aircraftOnlyFV.tiebreakKey = SortKeyEncoder.tiebreakKey(
-            for: aircraftOnlyFV,
-            allFieldValuesOnItem: [aircraftOnlyFV],
-            fieldDefinitionsByPriority: [fixture.airlineDef, fixture.aircraftDef],
-            itemCreatedDate: noAirlineItem.createdDate
-        )
+        let noAirlineItem = makeAircraftOnlyItem(in: fixture, aircraft: "737 MAX")
         try fixture.context.save()
 
-        let actual = fetchAllViaController(fixture: fixture, direction: .ascending)
+        let controller = exhaustedController(fixture: fixture, direction: direction)
+        let actual = controller.items
 
-        #expect(actual.count == 4, "The item lacking an Airline value should not appear when sorting by Airline")
-        #expect(!actual.contains(where: { $0.persistentModelID == noAirlineItem.persistentModelID }))
+        // The list's count must agree with the Catalogues-screen card.
+        let cardCount = CatalogueSummary.itemCount(for: fixture.catalogue, in: fixture.context)
+        #expect(cardCount == 5)
+        #expect(controller.totalCount == cardCount)
+
+        // Sorted items first, in the same order as before; the rowless item last either way.
+        let sorted = CatalogueItemSort.sorted(
+            [fixture.itemA, fixture.itemB, fixture.itemC, fixture.itemD],
+            primaryField: .field(fixture.airlineDef.fieldID),
+            direction: direction,
+            catalogue: fixture.catalogue
+        )
+        #expect(actual.map(\.persistentModelID) == sorted.map(\.persistentModelID) + [noAirlineItem.persistentModelID])
+    }
+
+    @Test("The tail is paged: more rowless items than one page all surface, in createdDate order")
+    func rowlessItemsSpanPages() throws {
+        let fixture = try makeFixture()
+        let rowless = (0..<(ItemPaginationController.pageSize + 10)).map { i in
+            makeAircraftOnlyItem(in: fixture, aircraft: "A\(i)", createdDate: Date(timeIntervalSince1970: 10_000 + Double(i)))
+        }
+        try fixture.context.save()
+
+        let controller = exhaustedController(fixture: fixture, direction: .ascending)
+
+        #expect(controller.totalCount == 4 + rowless.count)
+        #expect(controller.items.count == 4 + rowless.count)
+        #expect(controller.hasMore == false)
+        #expect(Array(controller.items.dropFirst(4)).map(\.persistentModelID) == rowless.map(\.persistentModelID))
+    }
+
+    @Test("Without rowless items the stream ends the list")
+    func noTailWhenEveryItemHasAValue() throws {
+        let fixture = try makeFixture()
+        let controller = exhaustedController(fixture: fixture, direction: .ascending)
+
+        #expect(controller.totalCount == 4)
+        #expect(controller.items.count == 4)
+        #expect(controller.hasMore == false)
+    }
+
+    @Test("A rowless item obeys the status tab, search and flag filters like any other")
+    func rowlessItemRespectsFilters() throws {
+        let fixture = try makeFixture()
+        let matching = makeAircraftOnlyItem(in: fixture, aircraft: "737 MAX", createdDate: Date(timeIntervalSince1970: 10_000))
+        let other = makeAircraftOnlyItem(in: fixture, aircraft: "A320", createdDate: Date(timeIntervalSince1970: 10_001))
+        let flagID = UUID()
+        matching.statusValue = "owned"
+        matching.searchText = "737 max"
+        matching.flagKeys = ItemFacetBuilder.flagToken(for: flagID)
+        other.statusValue = "wishlist"
+        other.searchText = "a320"
+        try fixture.context.save()
+
+        let byTab = exhaustedController(fixture: fixture, direction: .ascending, statusTab: .option("owned"))
+        #expect(byTab.items.map(\.persistentModelID) == [matching.persistentModelID])
+        #expect(byTab.totalCount == 1)
+
+        let bySearch = exhaustedController(fixture: fixture, direction: .ascending, searchText: "737")
+        #expect(bySearch.items.map(\.persistentModelID) == [matching.persistentModelID])
+        #expect(bySearch.totalCount == 1)
+
+        let byFlag = exhaustedController(fixture: fixture, direction: .ascending, activeFlagIDs: [flagID])
+        #expect(byFlag.items.map(\.persistentModelID) == [matching.persistentModelID])
+        #expect(byFlag.totalCount == 1)
+    }
+
+    @Test("A duplicate FieldValue for the sort field surfaces its item once")
+    func duplicateSortFieldValueSurfacesOnce() throws {
+        let fixture = try makeFixture()
+        // A merge artefact: a second Airline value on itemA.
+        let duplicate = FieldValue(fieldDefinition: fixture.airlineDef, fieldType: .text)
+        duplicate.textValue = "Air New Zealand"
+        duplicate.item = fixture.itemA
+        fixture.context.insert(duplicate)
+        duplicate.sortKey = SortKeyEncoder.sortKey(for: duplicate)
+        duplicate.tiebreakKey = ""
+        try fixture.context.save()
+
+        let controller = exhaustedController(fixture: fixture, direction: .ascending)
+
+        #expect(controller.totalCount == 4)
+        #expect(controller.items.count == 4)
+        #expect(controller.items.count(where: { $0.persistentModelID == fixture.itemA.persistentModelID }) == 1)
     }
 }

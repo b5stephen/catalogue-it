@@ -94,6 +94,8 @@ struct SchemaMigrationTests {
         #expect(catalogues.count == 1)
         #expect(catalogues.first?.name == "Films")
         #expect(catalogues.first?.fieldDefinitions.count == 1)
+        #expect(catalogues.first?.layoutOptions == CatalogueLayoutOptions(),
+                "a catalogue from before the layout column is at every default")
 
         let items = try context.fetch(FetchDescriptor<CatalogueItem>())
         #expect(items.count == createdDates.count)
@@ -180,14 +182,16 @@ struct SchemaMigrationTests {
 
     @Test func schemaVersionsAreOrderedAndTheCurrentOneIsLast() {
         let versions = CatalogueMigrationPlan.schemas.map { $0.versionIdentifier }
-        #expect(versions == [Schema.Version(1, 0, 0), Schema.Version(2, 0, 0)])
+        #expect(versions == [Schema.Version(1, 0, 0), Schema.Version(2, 0, 0), Schema.Version(3, 0, 0)])
         #expect(CatalogueSchemaCurrent.versionIdentifier == versions.last)
         #expect(CatalogueMigrationPlan.stages.count == versions.count - 1)
     }
 
-    @Test func frozenV1AndCurrentSchemaShareEntityNames() {
+    @Test func frozenSchemasAndCurrentSchemaShareEntityNames() {
         let v1 = Set(CatalogueSchemaV1.models.map { String(describing: $0) })
+        let v2 = Set(CatalogueSchemaV2.models.map { String(describing: $0) })
         let current = Set(CatalogueSchemaCurrent.models.map { String(describing: $0) })
         #expect(v1 == current, "a migration stage can only map entities that exist on both sides")
+        #expect(v2 == current, "a migration stage can only map entities that exist on both sides")
     }
 }

@@ -77,7 +77,7 @@ struct ItemDetailView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     if !displayFields.isEmpty {
                         CatalogueSectionCard(title: "Details", catalogue: catalogue) {
-                            ItemFieldsSection(fields: displayFields)
+                            ItemFieldsSection(fields: displayFields, layout: catalogue.layoutOptions.detailLabelLayout)
                         }
                     }
 

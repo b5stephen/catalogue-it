@@ -36,6 +36,10 @@ final class Catalogue {
     /// one state at a time; the catch-all tab is opt-in.
     var showAllTab: Bool = false
 
+    /// `CatalogueLayoutOptions`, JSON-encoded; read through `layoutOptions`. Nil means every
+    /// option is at its default, which is also what a catalogue from before the column has.
+    var layoutOptionsData: Data?
+
     var itemLayoutRaw_mac: String = ItemLayout.list.rawValue
     var itemLayoutRaw_ios: String = ItemLayout.list.rawValue
     var gridCardSize_mac: Double = Double(AppConstants.GridCardSize.defaultSize)
@@ -57,6 +61,26 @@ final class Catalogue {
         self.iconName = iconName
         self.colorHex = colorHex
         self.priority = priority
+    }
+}
+
+// MARK: - Layout Options
+
+extension Catalogue {
+    var layoutOptions: CatalogueLayoutOptions {
+        get {
+            guard let layoutOptionsData,
+                  let options = try? JSONDecoder().decode(CatalogueLayoutOptions.self, from: layoutOptionsData) else {
+                return CatalogueLayoutOptions()
+            }
+            return options
+        }
+        set {
+            // Compare before assign: a synced column rewritten with an equal value still
+            // exports, and a merge that bounces between devices is the failure mode to avoid.
+            guard newValue != layoutOptions else { return }
+            layoutOptionsData = try? JSONEncoder().encode(newValue)
+        }
     }
 }
 

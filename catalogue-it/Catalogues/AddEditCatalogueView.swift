@@ -24,6 +24,7 @@ struct AddEditCatalogueView: View {
     // Off by default; configured in the Options section alongside the status field that
     // gives it meaning.
     @State private var showAllTab: Bool = false
+    @State private var layoutOptions = CatalogueLayoutOptions()
     @State private var showingIconPicker = false
     @State private var showingAddField = false
     /// The form as loaded, so a swipe-down or tap outside can tell an untouched sheet from
@@ -35,6 +36,7 @@ struct AddEditCatalogueView: View {
         var iconName: String
         var color: Color
         var showAllTab: Bool
+        var layoutOptions: CatalogueLayoutOptions
         var fieldDefinitions: [FieldDefinitionDraft]
     }
 
@@ -44,6 +46,7 @@ struct AddEditCatalogueView: View {
             || selectedIcon != baseline.iconName
             || selectedColor != baseline.color
             || showAllTab != baseline.showAllTab
+            || layoutOptions != baseline.layoutOptions
             || !fieldDefinitions.hasSameContent(as: baseline.fieldDefinitions)
     }
     /// Drives the Custom Fields list into edit mode, where rows gain drag handles and give
@@ -154,6 +157,21 @@ struct AddEditCatalogueView: View {
                     }
                 }
 
+                // MARK: - Layout Section
+                // How the catalogue's screens are laid out. One row today; the section is
+                // where any future per-catalogue display option goes (see CatalogueLayoutOptions).
+                Section {
+                    Picker("Item Details", selection: $layoutOptions.detailLabelLayout) {
+                        ForEach(DetailLabelLayout.allCases) { layout in
+                            Text(layout.title).tag(layout)
+                        }
+                    }
+                } header: {
+                    Text("Layout")
+                } footer: {
+                    Text("How each item's fields are shown on its detail screen.")
+                }
+
                 // MARK: - Options Section
                 // Which fields drive the tab bar and the filter toggles — a catalogue-level
                 // decision, so it lives here rather than being set field by field.
@@ -242,6 +260,7 @@ struct AddEditCatalogueView: View {
                 iconName: selectedIcon,
                 color: selectedColor,
                 showAllTab: showAllTab,
+                layoutOptions: layoutOptions,
                 fieldDefinitions: fieldDefinitions
             )
         }
@@ -259,6 +278,7 @@ struct AddEditCatalogueView: View {
         selectedIcon = catalogue.iconName
         selectedColor = catalogue.color
         showAllTab = catalogue.showAllTab
+        layoutOptions = catalogue.layoutOptions
         fieldDefinitions = catalogue.sortedFieldDefinitions
             .map {
                 FieldDefinitionDraft(
@@ -293,6 +313,7 @@ struct AddEditCatalogueView: View {
             existingCatalogue.iconName = selectedIcon
             existingCatalogue.colorHex = selectedColor.toHex()
             existingCatalogue.showAllTab = showAllTab
+            existingCatalogue.layoutOptions = layoutOptions
 
             // Captured before any mutation so we can detect an add/remove/reorder below —
             // any such change invalidates every FieldValue's tiebreakKey across the whole
@@ -375,6 +396,7 @@ struct AddEditCatalogueView: View {
             // Create new
             let newCatalogue = Catalogue(name: name.trimmingCharacters(in: .whitespacesAndNewlines), iconName: selectedIcon, colorHex: selectedColor.toHex(), priority: nextPriority)
             newCatalogue.showAllTab = showAllTab
+            newCatalogue.layoutOptions = layoutOptions
             modelContext.insert(newCatalogue)
 
             for (index, draft) in fieldDefinitions.enumerated() {

@@ -48,6 +48,8 @@ struct ItemListView<Header: View, PinnedHeader: View>: View {
     }
 
     var body: some View {
+        // Decoded once here rather than in each of up to 2000+ rows.
+        let showPhotos = catalogue.layoutOptions.showPhotosInList
 #if !os(macOS)
         // Never `List(selection:)` on iOS. This list sits in the split view's leading column,
         // where a selectable list takes the sidebar's selection treatment — a filled tint
@@ -59,7 +61,7 @@ struct ItemListView<Header: View, PinnedHeader: View>: View {
             headerRow
             Section {
                 ForEach(items) { item in
-                    ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip)
+                    ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip, showPhoto: showPhotos)
                         .itemCard(in: catalogue, isSelected: hasDetailColumn && selectedItem == item)
                         .onTapGesture { selectedItem = item }
                         .tag(item)
@@ -77,17 +79,17 @@ struct ItemListView<Header: View, PinnedHeader: View>: View {
         .scrollContentBackground(.hidden)
         .scrollPosition($scrollPosition, anchor: .top)
 #else
-        regularList
+        regularList(showPhotos: showPhotos)
 #endif
     }
 
     /// macOS only: selection is the split view's, with keyboard navigation for free.
-    private var regularList: some View {
+    private func regularList(showPhotos: Bool) -> some View {
         List(selection: $selectedItem) {
             headerRow
             Section {
                 ForEach(items) { item in
-                    ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip)
+                    ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip, showPhoto: showPhotos)
                         .itemCard(in: catalogue, isSelected: selectedItem == item)
                         .tag(item)
                         .cardRow()

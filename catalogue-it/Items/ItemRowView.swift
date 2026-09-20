@@ -16,6 +16,9 @@ struct ItemRowView: View {
     /// Whether to show the status chip. Suppressed when the list is already filtered to a
     /// single status — every row would carry the same chip, which is noise.
     var showStatusChip: Bool = false
+    /// `catalogue.layoutOptions.showPhotosInList`, decoded once by the list rather than once
+    /// per row.
+    var showPhoto: Bool = true
 
     private var sortedFields: [FieldDefinition] {
         catalogue.sortedFieldDefinitions
@@ -61,9 +64,11 @@ struct ItemRowView: View {
         HStack(spacing: 12) {
             // Thumbnail — radius derived from the card's, so its corners run parallel to the
             // card's corners (see `AppConstants.ItemCard.thumbnailCornerRadius`).
-            ItemThumbnailView(key: ThumbnailKey(item: item))
-                .frame(width: AppConstants.ThumbnailSize.list, height: AppConstants.ThumbnailSize.list)
-                .clipShape(.rect(cornerRadius: AppConstants.ItemCard.thumbnailCornerRadius, style: .continuous))
+            if showPhoto {
+                ItemThumbnailView(key: ThumbnailKey(item: item))
+                    .frame(width: AppConstants.ThumbnailSize.list, height: AppConstants.ThumbnailSize.list)
+                    .clipShape(.rect(cornerRadius: AppConstants.ItemCard.thumbnailCornerRadius, style: .continuous))
+            }
 
             // Text content
             VStack(alignment: .leading, spacing: 4) {
@@ -78,6 +83,12 @@ struct ItemRowView: View {
                         .lineLimit(1)
                 }
             }
+            // The thumbnail is what gives the row its floor — an item with one summary line
+            // is as tall as one with three. Keep that floor when the photo is off, so the
+            // rows stay one height whichever way the catalogue is set, and pin the text to
+            // the top so the title sits on the same line in every row, however many summary
+            // lines follow it.
+            .frame(minHeight: AppConstants.ThumbnailSize.list, alignment: .topLeading)
 
             Spacer(minLength: 0)
 

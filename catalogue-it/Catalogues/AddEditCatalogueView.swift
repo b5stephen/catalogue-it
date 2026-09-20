@@ -158,18 +158,16 @@ struct AddEditCatalogueView: View {
                 }
 
                 // MARK: - Layout Section
-                // How the catalogue's screens are laid out. One row today; the section is
-                // where any future per-catalogue display option goes (see CatalogueLayoutOptions).
-                Section {
+                // How the catalogue's screens are laid out — the home for any per-catalogue
+                // display option (see CatalogueLayoutOptions). No footer: each row names the
+                // screen it affects, and one footer can't explain several rows.
+                Section("Layout") {
                     Picker("Item Details", selection: $layoutOptions.detailLabelLayout) {
                         ForEach(DetailLabelLayout.allCases) { layout in
                             Text(layout.title).tag(layout)
                         }
                     }
-                } header: {
-                    Text("Layout")
-                } footer: {
-                    Text("How each item's fields are shown on its detail screen.")
+                    Toggle("Photos in Item List", isOn: $layoutOptions.showPhotosInList)
                 }
 
                 // MARK: - Options Section

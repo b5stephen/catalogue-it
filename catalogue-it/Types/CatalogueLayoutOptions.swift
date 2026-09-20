@@ -18,20 +18,26 @@ import Foundation
 nonisolated struct CatalogueLayoutOptions: Equatable, Sendable {
     /// Where a field's label sits against its value on the item detail screen.
     var detailLabelLayout: DetailLabelLayout = .beside
+    /// Whether list rows carry a photo thumbnail. Off gives a collection that rarely has
+    /// photos a cleaner, denser list.
+    var showPhotosInList: Bool = true
 
-    init(detailLabelLayout: DetailLabelLayout = .beside) {
+    init(detailLabelLayout: DetailLabelLayout = .beside, showPhotosInList: Bool = true) {
         self.detailLabelLayout = detailLabelLayout
+        self.showPhotosInList = showPhotosInList
     }
 }
 
 nonisolated extension CatalogueLayoutOptions: Codable {
     private enum CodingKeys: String, CodingKey {
         case detailLabelLayout
+        case showPhotosInList
     }
 
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         detailLabelLayout = try container.decodeIfPresent(DetailLabelLayout.self, forKey: .detailLabelLayout) ?? .beside
+        showPhotosInList = try container.decodeIfPresent(Bool.self, forKey: .showPhotosInList) ?? true
     }
 }
 

@@ -10,31 +10,43 @@ import SwiftUI
 // MARK: - Field Row
 
 /// Label on the left, value on the right, on one line — the same shape as the status row, so
-/// a card of mixed fields reads as one table. A value too long to share the line (a paragraph
-/// of text, a URL) drops beneath the label instead of being squashed into a trailing column.
+/// a card of mixed fields reads as one table. A value too long for the remaining width wraps
+/// beneath itself, trailing-aligned, rather than flipping the row into a different layout
+/// from its neighbours; the label keeps its width so it is never the thing that gets squashed.
+/// Only a genuine block of text (a paragraph, several lines) drops below the label, and then
+/// with the same label styling so the row still reads as part of the same table.
 private struct FieldRowView: View {
     let label: String
     let value: String
     /// The rows sit inside a card, so the last one draws no divider against the card's edge.
     var isLast: Bool = false
 
+    /// A value that would take several lines even at full width has no business in a trailing
+    /// column; it reads as prose, so it is laid out as prose.
+    private var isBlockOfText: Bool {
+        value.contains("\n") || value.count > 80
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text(label)
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 0)
-                    Text(value)
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(label)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(value)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if isBlockOfText {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(label)
+                            .foregroundStyle(.secondary)
+                        Text(value)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                } else {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(label)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: true, vertical: false)
+                        Spacer(minLength: 0)
+                        Text(value)
+                            .multilineTextAlignment(.trailing)
+                            .lineLimit(3)
+                    }
                 }
             }
             .padding(.vertical, 10)

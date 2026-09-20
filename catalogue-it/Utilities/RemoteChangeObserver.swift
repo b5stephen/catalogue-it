@@ -46,8 +46,14 @@ enum RemoteChangeObserver {
     /// The last history transaction examined. `nil` until the first pass, which reads from
     /// launch instead: anything merged while the app was not running is imported again
     /// after launch, so it lands after that point.
-    private static var lastHistoryToken: DefaultHistoryToken?
+    private static var lastHistoryToken: NSPersistentHistoryToken?
     private static var launchDate = Date.now
+
+    /// The coordinator behind the store, taken from the notification that announces a remote
+    /// change (its `object`). History is read through it with Core Data, never through
+    /// `ModelContext.fetchHistory` — see `PersistentHistoryReader` for why that call is banned.
+    private static var coordinator: NSPersistentStoreCoordinator?
+    private static var loggedMissingCoordinator = false
 
     /// Stamped on the main context so its own transactions can be told apart from the
     /// mirroring's in persistent history.
@@ -72,8 +78,15 @@ enum RemoteChangeObserver {
             forName: .NSPersistentStoreRemoteChange,
             object: nil,
             queue: nil
-        ) { _ in
-            Task { @MainActor in schedulePass() }
+        ) { notification in
+            // The coordinator is not Sendable; it is only ever touched on the main actor.
+            nonisolated(unsafe) let object = notification.object
+            Task { @MainActor in
+                if let coordinator = object as? NSPersistentStoreCoordinator {
+                    self.coordinator = coordinator
+                }
+                schedulePass()
+            }
         }
     }
 
@@ -131,27 +144,27 @@ enum RemoteChangeObserver {
     /// `CatalogueItem` row, or a `FieldValue` whose only changed attributes are derived ones,
     /// starts nothing.
     ///
-    /// Which rows merged comes from SwiftData history: the transactions since the last pass
+    /// Which rows merged comes from persistent history: the transactions since the last pass
     /// not authored by the main context (the only context that writes field values; the
     /// others only delete, which is ignored here). Undo registration is off for the write —
     /// this is upkeep, not the user's edit — and `modifiedDate` is never touched.
     private static func recomputeDerivedColumnsForMergedValues(in context: ModelContext) async {
-        let mergedValueIDs: Set<PersistentIdentifier>
+        let itemDates: Set<Date>
         do {
-            mergedValueIDs = try mergedFieldContent(in: context)
+            itemDates = try mergedFieldContent()
         } catch {
             logger.error("History fetch failed: \(error, privacy: .public)")
             return
         }
-        guard !mergedValueIDs.isEmpty else { return }
+        guard !itemDates.isEmpty else { return }
 
         // The item behind each value; skip anything on its way out.
+        let dates = Array(itemDates)
+        let candidates = (try? context.fetch(FetchDescriptor<CatalogueItem>(
+            predicate: #Predicate { dates.contains($0.createdDate) && $0.deletedDate == nil }))) ?? []
         var items: [PersistentIdentifier: CatalogueItem] = [:]
-        for id in mergedValueIDs {
-            guard let value = context.model(for: id) as? FieldValue,
-                  let item = value.item, item.deletedDate == nil,
-                  let catalogue = item.catalogue, !catalogue.pendingDeletion
-            else { continue }
+        for item in candidates {
+            guard let catalogue = item.catalogue, !catalogue.pendingDeletion else { continue }
             items[item.persistentModelID] = item
         }
         logger.notice("Recomputing derived columns for \(items.count, privacy: .public) items with merged field values")
@@ -179,43 +192,24 @@ enum RemoteChangeObserver {
         }
     }
 
-    /// `FieldValue` attributes that are content; a change to any of these is an edit, a
-    /// change to the rest is another device's recompute. `item` and `fieldDefinition` are
-    /// included because a value can arrive before its parent and be related in a later pass.
-    private static let fieldContentAttributes: Set<PartialKeyPath<FieldValue>> = [
-        \.fieldType, \.textValue, \.numberValue, \.dateValue, \.boolValue, \.item, \.fieldDefinition,
-    ]
-
-    /// Identifiers of every `FieldValue` inserted or content-updated by someone other than
-    /// the main context since the last pass, advancing the token.
-    private static func mergedFieldContent(in context: ModelContext) throws -> Set<PersistentIdentifier> {
-        var descriptor = HistoryDescriptor<DefaultHistoryTransaction>()
-        if let token = lastHistoryToken {
-            descriptor.predicate = #Predicate { $0.token > token }
-        } else {
-            let since = launchDate
-            descriptor.predicate = #Predicate { $0.timestamp > since }
-        }
-        let transactions = try context.fetchHistory(descriptor)
-        guard let newest = transactions.last else { return [] }
-        lastHistoryToken = newest.token
-
-        var ids: Set<PersistentIdentifier> = []
-        for transaction in transactions where transaction.author != mainContextAuthor {
-            for change in transaction.changes {
-                switch change {
-                case .insert(let insert as DefaultHistoryInsert<FieldValue>):
-                    ids.insert(insert.changedPersistentIdentifier)
-                case .update(let update as DefaultHistoryUpdate<FieldValue>):
-                    if update.updatedAttributes.contains(where: fieldContentAttributes.contains) {
-                        ids.insert(update.changedPersistentIdentifier)
-                    }
-                default:
-                    continue
-                }
+    /// `createdDate` of every item with a `FieldValue` inserted or content-updated by someone
+    /// other than the main context since the last pass, advancing the token. Nothing to read
+    /// until a notification has handed over the coordinator.
+    private static func mergedFieldContent() throws -> Set<Date> {
+        guard let coordinator else {
+            if !loggedMissingCoordinator {
+                loggedMissingCoordinator = true
+                logger.notice("Remote-change pass ran before any notification carried the coordinator; history not read")
             }
+            return []
         }
-        return ids
+        let start: PersistentHistoryReader.Start = lastHistoryToken.map { .token($0) } ?? .date(launchDate)
+        let merged = try PersistentHistoryReader.mergedFieldContent(
+            coordinator: coordinator, since: start, excludingAuthor: mainContextAuthor)
+        // Advances on a successful read, not on a successful recompute: if the recompute's
+        // save fails, these transactions are not revisited.
+        if let newest = merged.newestToken { lastHistoryToken = newest }
+        return merged.itemCreatedDates
     }
 
     // MARK: - Facet mirrors

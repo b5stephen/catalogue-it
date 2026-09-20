@@ -83,10 +83,17 @@ Backed by CloudKit through SwiftData's built-in mirroring.
 - Never use `@Attribute(.unique)` or `#Unique`.
 - Every `Codable` type stored on a model — `FieldOptions` and everything it wraps,
   `CatalogueLayoutOptions` — must be declared `nonisolated`. The project defaults to main-actor
-  isolation, and an isolated `Codable` conformance is invisible to the executor SwiftData
-  encodes on, so the column is silently saved as NULL (Sept 2026: this wiped every field's
-  options on save). `FieldOptionsPersistenceTests` checks each type from off the main actor;
-  add new ones there.
+  isolation, and an isolated `Codable` conformance is invisible (`as? any Encodable` is nil)
+  from off the main actor, where SwiftData may encode. `FieldOptionsPersistenceTests` checks
+  each type from off the main actor; add new ones there. (The Sept 2026 wipe of every field's
+  options was ultimately `fetchHistory`, below — this rule stays because the check is real.)
+- **Never call `ModelContext.fetchHistory`.** On iOS 26.5 and 27.0 one call — any context,
+  any descriptor, result unused — leaves the container writing every composite column
+  (`fieldOptions`, `layoutOptions`) of a dirty row as NULL from the second save on. That is
+  what wiped option lists and flag icons in Sept 2026. Read persistent history through
+  `PersistentHistoryReader` (Core Data, via the coordinator the remote-change notification
+  carries). `FieldOptionsPersistenceTests.fetchHistoryStillWipesComposites` is a known-issue
+  test that will start failing when Apple fixes it.
 - `#Index`, `@Attribute(.externalStorage)` (maps to CKAsset) and `Codable` enums with associated
   values are all fine.
 - Key paths handed to SwiftData — `#Predicate`, `relationshipKeyPathsForPrefetching`,
@@ -100,7 +107,9 @@ Local writes keep derived state in step; a change merged from another device doe
 `RemoteChangeObserver` observes `NSPersistentStoreRemoteChange` (debounced) and rebuilds what
 sync bypasses: facet mirrors for catalogues whose field configuration changed, the thumbnail
 caches, and the pending-deletion sweep, then posts `.remoteChangesMerged`. Add to it whenever
-new derived state is introduced.
+new derived state is introduced. It also keeps the coordinator that notification carries as
+its `object` — the only handle on the Core Data stack SwiftData gives us, and what
+`PersistentHistoryReader` reads history through.
 
 - A value merged in by CloudKit bypasses the model setters, so SwiftData observation does not
   fire for it, and SwiftUI will not re-run a row whose only input is the same model instance.
@@ -120,10 +129,11 @@ new derived state is introduced.
 `FieldValue.sortKey`/`tiebreakKey`, `CatalogueItem.searchText`, `statusValue` and `flagKeys`
 are computed from an item's *whole* set of values, and they sync. A field edited on another
 device arrives alone, so everything derived from it here is stale until
-`RemoteChangeObserver` recomputes the affected items (found through SwiftData history:
+`RemoteChangeObserver` recomputes the affected items (found through persistent history:
 `FieldValue` inserts/content updates not authored by the main context, whose `author` is set
-for that purpose). That recompute is itself exported, which is only safe because of three
-rules every write path must keep:
+for that purpose; items are matched back by `createdDate`, since a Core Data object ID cannot
+become a `PersistentIdentifier`). That recompute is itself exported, which is only safe
+because of three rules every write path must keep:
 
 - **Deterministic across devices.** Anything locale-, language-, clock- or *order*-dependent
   in a synced derived column makes two devices rewrite each other forever. So:

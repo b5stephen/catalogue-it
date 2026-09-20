@@ -346,9 +346,17 @@ struct AddEditCatalogueView: View {
                     existing.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)  // rename applied here — no cascade needed
                     existing.priority = index
                     existing.displayRole = draft.displayRole
-                    existing.numberOptions = draft.numberOptions
-                    existing.optionListOptions = draft.optionListOptions
-                    existing.booleanOptions = draft.booleanOptions
+                    // Compare before assign: `fieldOptions` syncs, and rewriting an equal
+                    // value on every field of the catalogue exports every one of them.
+                    if existing.numberOptions != draft.numberOptions {
+                        existing.numberOptions = draft.numberOptions
+                    }
+                    if existing.optionListOptions != draft.optionListOptions {
+                        existing.optionListOptions = draft.optionListOptions
+                    }
+                    if existing.booleanOptions != draft.booleanOptions {
+                        existing.booleanOptions = draft.booleanOptions
+                    }
                     for (original, current) in draft.pendingOptionRenames where current != original {
                         guard draft.optionListOptions.options.contains(current) else { continue }
                         for fv in existing.fieldValues where fv.fieldType == .optionList && fv.textValue == original {

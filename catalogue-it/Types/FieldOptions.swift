@@ -17,7 +17,13 @@ import Foundation
 /// ⚠️ IMPORTANT: Do NOT rename any case. Case names are the on-disk
 /// Codable keys (Swift synthesizes them from the case label). Renaming
 /// without a SchemaMigrationPlan will silently break stored data.
-enum FieldOptions: Codable, Equatable {
+///
+/// ⚠️ `nonisolated` is load-bearing, here and on every type this wraps. The project
+/// defaults to main-actor isolation, and an isolated `Codable` conformance is invisible
+/// (`as? any Encodable` is nil) on the executor SwiftData encodes on, so every save wrote
+/// this column as NULL — wiping icons, labels, option lists and number formats.
+/// `FieldOptionsPersistenceTests` guards it.
+nonisolated enum FieldOptions: Codable, Equatable {
     case number(NumberOptions)
     // ⚠️ Do NOT rename this case — "optionList" is the permanent on-disk Codable key.
     case optionList(OptionListOptions)

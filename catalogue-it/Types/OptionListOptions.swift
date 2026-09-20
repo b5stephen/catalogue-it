@@ -17,7 +17,11 @@ import Foundation
 ///
 /// ⚠️ Do NOT add explicit CodingKeys — synthesised Codable is required.
 /// SwiftData encodes this as a blob; explicit keys crash the SwiftData encoder.
-struct OptionListOptions: Codable, Equatable {
+///
+/// `nonisolated` is load-bearing: the project defaults to main-actor isolation, and an
+/// isolated `Codable` conformance is invisible (`as? any Encodable` is nil) on the executor
+/// SwiftData encodes on, so the value is silently saved as NULL.
+nonisolated struct OptionListOptions: Codable, Equatable {
     var options: [String] = []
     var defaultValue: String? = nil
 }

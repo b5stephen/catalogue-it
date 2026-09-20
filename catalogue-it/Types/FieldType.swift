@@ -10,7 +10,7 @@ import Foundation
 // MARK: - Field Type
 
 /// The types of custom fields a user can add to a catalogue
-enum FieldType: String, Codable, CaseIterable {
+nonisolated enum FieldType: String, Codable, CaseIterable {
     case text = "Text"
     case number = "Number"
     case date = "Date"

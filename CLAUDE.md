@@ -81,6 +81,12 @@ Backed by CloudKit through SwiftData's built-in mirroring.
   stay in extensions — the `@Model` macro rewrites every `var` in a class body into a persisted
   accessor, computed properties included, which crashes at runtime on first access.
 - Never use `@Attribute(.unique)` or `#Unique`.
+- Every `Codable` type stored on a model — `FieldOptions` and everything it wraps,
+  `CatalogueLayoutOptions` — must be declared `nonisolated`. The project defaults to main-actor
+  isolation, and an isolated `Codable` conformance is invisible to the executor SwiftData
+  encodes on, so the column is silently saved as NULL (Sept 2026: this wiped every field's
+  options on save). `FieldOptionsPersistenceTests` checks each type from off the main actor;
+  add new ones there.
 - `#Index`, `@Attribute(.externalStorage)` (maps to CKAsset) and `Codable` enums with associated
   values are all fine.
 - Key paths handed to SwiftData — `#Predicate`, `relationshipKeyPathsForPrefetching`,

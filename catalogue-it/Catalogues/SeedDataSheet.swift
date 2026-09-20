@@ -58,10 +58,10 @@ struct SeedDataSheet: View {
 #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel", systemImage: "xmark") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Generate") {
+                    Button("Generate", systemImage: "checkmark") {
                         onGenerate(Int(itemCount), includesPhotos, catalogueName)
                         dismiss()
                     }

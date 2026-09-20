@@ -168,12 +168,12 @@ struct AddEditCatalogueView: View {
 #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel", systemImage: "xmark") { dismiss() }
                         .disabled(isSavingCatalogue)
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(isEditing ? "Save" : "Create") {
+                    Button(isEditing ? "Save" : "Create", systemImage: "checkmark") {
                         Task { await saveCatalogue() }
                     }
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || fieldDefinitions.isEmpty || hasDuplicateFieldNames || isSavingCatalogue)

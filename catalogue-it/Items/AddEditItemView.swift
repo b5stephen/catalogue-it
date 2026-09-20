@@ -136,10 +136,10 @@ struct AddEditItemView: View {
 #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel", systemImage: "xmark") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(isEditing ? "Save" : "Add") {
+                    Button(isEditing ? "Save" : "Add", systemImage: "checkmark") {
                         Task { await saveItem() }
                     }
                     .disabled(hasNoContent || isSaving)

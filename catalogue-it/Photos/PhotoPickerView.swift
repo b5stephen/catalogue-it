@@ -257,6 +257,9 @@ struct PhotoEditDetailSheet: View {
     let onDelete: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    // The caption is edited through the binding as it is typed, so Cancel has to
+    // put back what was there when the sheet opened.
+    @State private var originalCaption = ""
 
     var body: some View {
         NavigationStack {
@@ -276,23 +279,30 @@ struct PhotoEditDetailSheet: View {
                 }
                 .padding()
             }
+            .safeAreaInset(edge: .bottom) {
+                Button("Remove Photo", role: .destructive) {
+                    dismiss()
+                    onDelete()
+                }
+                .buttonStyle(.glass)
+                .padding()
+            }
             .navigationTitle(totalCount > 1 ? "Photo \(position) of \(totalCount)" : "Photo")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
-                // Delete leads and Done trails: the destructive action sits away
-                // from the thumb's resting position on the confirming side.
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Delete", role: .destructive) {
+                    Button("Cancel", systemImage: "xmark") {
+                        draft.caption = originalCaption
                         dismiss()
-                        onDelete()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button("Done", systemImage: "checkmark") { dismiss() }
                 }
             }
+            .onAppear { originalCaption = draft.caption }
         }
     }
 }

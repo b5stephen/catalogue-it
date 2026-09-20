@@ -223,11 +223,11 @@ struct FieldEditorView: View {
 #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel", systemImage: "xmark") { dismiss() }
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(isEditing ? "Done" : "Add") {
+                    Button(isEditing ? "Done" : "Add", systemImage: "checkmark") {
                         var edited = draft
                         edited.name = trimmedFieldName
                         // Dropping below the two-option minimum makes a tab bar impossible;

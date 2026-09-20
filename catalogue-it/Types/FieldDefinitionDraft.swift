@@ -28,6 +28,29 @@ struct FieldDefinitionDraft: Identifiable {
     var pendingOptionRenames: [String: String] = [:]
     /// Option names that were deleted, for cascading to FieldValue records on save.
     var pendingOptionDeletions: Set<String> = []
+
+    /// Whether two drafts describe the same field. `id` is SwiftUI identity only and differs
+    /// between any two instances, so this is what "unchanged since loading" means. `priority`
+    /// is left out too: the catalogue editor renumbers it on every drag, and the save derives
+    /// it from array position, so position (see the array overload) is what matters.
+    func hasSameContent(as other: FieldDefinitionDraft) -> Bool {
+        existingDefinition === other.existingDefinition
+            && name == other.name
+            && fieldType == other.fieldType
+            && displayRole == other.displayRole
+            && numberOptions == other.numberOptions
+            && optionListOptions == other.optionListOptions
+            && booleanOptions == other.booleanOptions
+            && pendingOptionRenames == other.pendingOptionRenames
+            && pendingOptionDeletions == other.pendingOptionDeletions
+    }
+}
+
+extension Array where Element == FieldDefinitionDraft {
+    /// Element-wise `hasSameContent(as:)`, so a reorder reads as a change.
+    func hasSameContent(as other: [FieldDefinitionDraft]) -> Bool {
+        count == other.count && zip(self, other).allSatisfy { $0.hasSameContent(as: $1) }
+    }
 }
 
 // MARK: - Field Value Draft

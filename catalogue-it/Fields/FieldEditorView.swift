@@ -24,6 +24,9 @@ struct FieldEditorView: View {
     let onSave: (FieldDefinitionDraft) -> Void
 
     @State private var draft: FieldDefinitionDraft
+    /// The draft as the sheet opened, so a swipe-down or tap outside can tell an untouched
+    /// sheet from one with edits pending.
+    private let initialDraft: FieldDefinitionDraft
     @State private var newOptionText: String = ""
     @State private var renamingOption: String? = nil
     @State private var renameText: String = ""
@@ -33,7 +36,9 @@ struct FieldEditorView: View {
         self.existingNames = existingNames
         self.isEditing = false
         self.onSave = onAdd
-        _draft = State(initialValue: FieldDefinitionDraft(name: "", fieldType: .text, priority: 0))
+        let empty = FieldDefinitionDraft(name: "", fieldType: .text, priority: 0)
+        self.initialDraft = empty
+        _draft = State(initialValue: empty)
     }
 
     /// Editing: starts from the field as it stands, and hands back the edited draft.
@@ -41,7 +46,13 @@ struct FieldEditorView: View {
         self.existingNames = existingNames
         self.isEditing = true
         self.onSave = onSave
+        self.initialDraft = field
         _draft = State(initialValue: field)
+    }
+
+    /// An option typed but not yet added counts too — it would be lost just the same.
+    private var hasChanges: Bool {
+        !draft.hasSameContent(as: initialDraft) || !trimmedNew.isEmpty
     }
 
     // Trimmed candidate for the new option being typed
@@ -234,6 +245,9 @@ struct FieldEditorView: View {
                 }
             }
         }
+        // A swipe-down, or a tap outside the sheet on iPad, would silently drop the edits;
+        // once there are any, dismissal has to go through Cancel.
+        .interactiveDismissDisabled(hasChanges)
     }
 
     // MARK: - Option Edits

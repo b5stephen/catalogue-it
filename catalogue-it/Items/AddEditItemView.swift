@@ -34,8 +34,13 @@ struct AddEditItemView: View {
     @State private var saveError: Error?
     /// Guards the Save button against a second tap while the first save is in flight.
     @State private var isSaving = false
-    /// The photos as loaded, so the save can tell whether the thumbnail needs invalidating.
+    /// The form as loaded, in every mode. The photos tell the save whether the thumbnail
+    /// needs invalidating; all three tell `hasChanges` whether dismissing would lose an edit.
+    /// Distinct from `baseline`, which must stay nil when duplicating so the save writes
+    /// every pre-filled value to the new item.
     @State private var loadedPhotoDrafts: [PhotoDraft] = []
+    @State private var loadedFieldDrafts: [FieldValueDraft] = []
+    @State private var loadedNotes: String = ""
     /// Everything as loaded when editing, so the save writes only what the user changed
     /// and not a stale copy of what another device edited meanwhile — see `EditBaseline`.
     @State private var baseline: EditBaseline?
@@ -47,6 +52,17 @@ struct AddEditItemView: View {
     // MARK: - Computed
 
     private var isEditing: Bool { existingItem != nil }
+
+    /// Whether dismissing without saving would lose something: anything that differs from
+    /// what the sheet opened with. A duplicate's pre-filled values and a new item's default
+    /// status are what it opened with, so they don't count until the user touches them.
+    private var hasChanges: Bool {
+        guard hasLoaded else { return false }
+        return notes != loadedNotes
+            || photoDrafts != loadedPhotoDrafts
+            || fieldDrafts.count != loadedFieldDrafts.count
+            || !zip(fieldDrafts, loadedFieldDrafts).allSatisfy { $0.hasSameValue(as: $1) }
+    }
 
     // Boolean fields always have a value (true/false), so they don't count toward "has content" —
     // otherwise every item would trivially pass validation regardless of user input.
@@ -129,11 +145,16 @@ struct AddEditItemView: View {
                     .disabled(hasNoContent || isSaving)
                 }
             }
+            // A swipe-down, or a tap outside the sheet on iPad, would silently drop the
+            // edits; once there are any, dismissal has to go through Cancel.
+            .interactiveDismissDisabled(hasChanges)
             .onAppear {
                 guard !hasLoaded else { return }
                 hasLoaded = true
                 loadItemData()
                 loadedPhotoDrafts = photoDrafts
+                loadedFieldDrafts = fieldDrafts
+                loadedNotes = notes
                 if isEditing {
                     baseline = EditBaseline(fieldDrafts: fieldDrafts, photoDrafts: photoDrafts, notes: notes)
                 }

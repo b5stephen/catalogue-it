@@ -26,6 +26,26 @@ struct AddEditCatalogueView: View {
     @State private var showAllTab: Bool = false
     @State private var showingIconPicker = false
     @State private var showingAddField = false
+    /// The form as loaded, so a swipe-down or tap outside can tell an untouched sheet from
+    /// one with edits pending. For a new catalogue this is the default starting form.
+    @State private var baseline: Baseline?
+
+    private struct Baseline {
+        var name: String
+        var iconName: String
+        var color: Color
+        var showAllTab: Bool
+        var fieldDefinitions: [FieldDefinitionDraft]
+    }
+
+    private var hasChanges: Bool {
+        guard let baseline else { return false }
+        return name != baseline.name
+            || selectedIcon != baseline.iconName
+            || selectedColor != baseline.color
+            || showAllTab != baseline.showAllTab
+            || !fieldDefinitions.hasSameContent(as: baseline.fieldDefinitions)
+    }
     /// Drives the Custom Fields list into edit mode, where rows gain drag handles and give
     /// up their swipe actions.
     @State private var isReorderingFields = false
@@ -196,6 +216,9 @@ struct AddEditCatalogueView: View {
             .onAppear {
                 loadCatalogueData()
             }
+            // A swipe-down, or a tap outside the sheet on iPad, would silently drop the
+            // edits; once there are any, dismissal has to go through Cancel.
+            .interactiveDismissDisabled(hasChanges)
             .overlay {
                 if showSortKeyRecomputeOverlay, let progress = sortKeyRecomputeProgress {
                     ProgressOverlay(
@@ -212,6 +235,17 @@ struct AddEditCatalogueView: View {
     // MARK: - Actions
 
     private func loadCatalogueData() {
+        guard baseline == nil else { return }
+        defer {
+            baseline = Baseline(
+                name: name,
+                iconName: selectedIcon,
+                color: selectedColor,
+                showAllTab: showAllTab,
+                fieldDefinitions: fieldDefinitions
+            )
+        }
+
         guard let catalogue else {
             // Start with some common default fields for new catalogues
             fieldDefinitions = [

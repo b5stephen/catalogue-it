@@ -85,10 +85,9 @@ struct ItemRowView: View {
             }
             // The thumbnail is what gives the row its floor — an item with one summary line
             // is as tall as one with three. Keep that floor when the photo is off, so the
-            // rows stay one height whichever way the catalogue is set, and pin the text to
-            // the top so the title sits on the same line in every row, however many summary
-            // lines follow it.
-            .frame(minHeight: AppConstants.ThumbnailSize.list, alignment: .topLeading)
+            // rows stay one height whichever way the catalogue is set. The text stays
+            // vertically centred, as it is beside a thumbnail.
+            .frame(minHeight: AppConstants.ThumbnailSize.list, alignment: .leading)
 
             Spacer(minLength: 0)
 

@@ -43,7 +43,10 @@ struct CatalogueWash: View {
     var body: some View {
         Group {
             if colorScheme == .dark {
-                Rectangle().fill(.background)
+                // Not `.background`: in dark that resolves by interface level, and on iPad
+                // the split view's leading column is elevated, so the item list came out
+                // grey beside a black detail column.
+                Color.black
             } else {
                 catalogue.palette(for: .light).tint
                     .opacity(0.07)

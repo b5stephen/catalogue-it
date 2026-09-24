@@ -16,7 +16,8 @@ import SwiftData
 ///   container writing every composite of a dirty row as NULL from the second save on. History
 ///   is now read through `PersistentHistoryReader` instead;
 ///   `compositesSurviveSavesAfterACoreDataHistoryFetch` is the regression test and
-///   `fetchHistoryStillWipesComposites` pins the bug as a known issue.
+///   `fetchHistoryStillWipesComposites` pins the bug as a known issue (opt-in: it poisons the
+///   whole test process).
 /// - A stored Codable type that is not `nonisolated`: under the project's main-actor default
 ///   isolation its conformance is invisible from off the main actor, where SwiftData may
 ///   encode. `storedCodableTypesConformOffTheMainActor` checks the conformance itself, since
@@ -192,7 +193,21 @@ struct FieldOptionsPersistenceTests {
     /// noticed: one `ModelContext.fetchHistory` call — result unused — and the composite
     /// written by the second save after it is NULL. Until then, `fetchHistory` stays banned
     /// (see `PersistentHistoryReader`).
-    @Test @MainActor func fetchHistoryStillWipesComposites() throws {
+    ///
+    /// Off by default, because the damage is not confined to this test's container: every
+    /// container in the process then NULLs composites from its second save on, which failed
+    /// unrelated suites (`ItemSaveServiceTests`' `statusValue` checks) whenever they ran after
+    /// it. Swift Testing's exit tests would isolate it, but they are unavailable on iOS. Run it
+    /// on its own, after an Xcode or OS update:
+    ///
+    ///     TEST_RUNNER_FETCHHISTORY_CANARY=1 xcodebuild test -project catalogue-it.xcodeproj \
+    ///       -scheme catalogue-it -destination 'platform=iOS Simulator,name=<device>' \
+    ///       -only-testing:"UnitTests/FieldOptionsPersistenceTests/fetchHistoryStillWipesComposites()"
+    @Test(.enabled(
+        if: ProcessInfo.processInfo.environment["FETCHHISTORY_CANARY"] == "1",
+        "Poisons every container in the process; run it alone with FETCHHISTORY_CANARY=1"
+    ))
+    @MainActor func fetchHistoryStillWipesComposites() throws {
         let url = makeStoreURL()
         defer { removeStore(at: url) }
 

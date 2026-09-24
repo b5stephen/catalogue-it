@@ -88,12 +88,14 @@ Backed by CloudKit through SwiftData's built-in mirroring.
   each type from off the main actor; add new ones there. (The Sept 2026 wipe of every field's
   options was ultimately `fetchHistory`, below — this rule stays because the check is real.)
 - **Never call `ModelContext.fetchHistory`.** On iOS 26.5 and 27.0 one call — any context,
-  any descriptor, result unused — leaves the container writing every composite column
-  (`fieldOptions`, `layoutOptions`) of a dirty row as NULL from the second save on. That is
-  what wiped option lists and flag icons in Sept 2026. Read persistent history through
-  `PersistentHistoryReader` (Core Data, via the coordinator the remote-change notification
-  carries). `FieldOptionsPersistenceTests.fetchHistoryStillWipesComposites` is a known-issue
-  test that will start failing when Apple fixes it.
+  any descriptor, result unused — leaves every container *in the process* (not just the
+  caller's) writing every composite column (`fieldOptions`, `layoutOptions`) of a dirty row as
+  NULL from the second save on. That is what wiped option lists and flag icons in Sept 2026.
+  Read persistent history through `PersistentHistoryReader` (Core Data, via the coordinator the
+  remote-change notification carries). `FieldOptionsPersistenceTests.fetchHistoryStillWipesComposites`
+  is a known-issue test that will start failing when Apple fixes it. Because it poisons the
+  whole test process it is opt-in: run it alone with `TEST_RUNNER_FETCHHISTORY_CANARY=1`
+  (command in the test's doc comment) after an Xcode or OS update.
 - `#Index`, `@Attribute(.externalStorage)` (maps to CKAsset) and `Codable` enums with associated
   values are all fine.
 - Key paths handed to SwiftData — `#Predicate`, `relationshipKeyPathsForPrefetching`,

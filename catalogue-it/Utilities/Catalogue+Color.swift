@@ -61,6 +61,12 @@ nonisolated struct CataloguePalette {
     let tint: Color
     /// The card's fill.
     let fill: LinearGradient
+    /// The fill's deep stop on its own — for the catalogue's colour as text on a light pill
+    /// sitting over the fill, where the plain tint would be too pale to read.
+    let fillDeepStop: Color
+    /// Whether the labels over the fill went dark. Anything the system draws over the fill —
+    /// a navigation bar's title — needs the matching colour scheme.
+    let prefersDarkForeground: Bool
     /// Label colours that clear the fill, whichever direction it went.
     let primaryText: Color
     let secondaryText: Color
@@ -125,6 +131,8 @@ nonisolated struct CataloguePalette {
             brightness: brightness * (increasedContrast ? 0.55 : 0.62)
         )
         fill = LinearGradient(colors: [start, end], startPoint: .topLeading, endPoint: .bottomTrailing)
+        fillDeepStop = end
+        prefersDarkForeground = wantsDarkText
 
         // At increased contrast the labels go pure, rather than the tinted near-black that
         // otherwise keeps the card feeling like one colour.

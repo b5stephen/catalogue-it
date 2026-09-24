@@ -38,9 +38,12 @@ struct CatalogueDetailView: View {
     @State private var searchText: String = ""
     @State private var appliedSearchText: String = ""
     @State private var displayedCount: Int = 0
-    /// Whether the band has scrolled under the navigation bar, at which point the bar shows
-    /// the name and count itself.
+    /// Whether the band's title row has collapsed, at which point the bar shows the name and
+    /// count itself.
     @State private var isBandScrolledAway = false
+    @State private var bandScroll = BandScrollState()
+    /// The band's full height, which the list reserves at its top.
+    @State private var bandHeight: CGFloat = 0
     /// Cached result of a cheap fetchCount — avoids faulting catalogue.items on every render.
     @State private var hasRecentlyDeletedItems = false
 
@@ -83,6 +86,18 @@ struct CatalogueDetailView: View {
         GridItem(.adaptive(minimum: 160), spacing: 16)
     ]
 
+    /// Whether the catalogue's colour arrives as the band — only where the list is pushed on
+    /// its own. Beside a detail column the colour is the wash's glow instead, drawn the same in
+    /// both columns and fixed to the screen: a band scrolling away in one column while the
+    /// other stayed still left their top edges disagreeing at almost every scroll position.
+    private var usesBand: Bool {
+#if os(macOS)
+        false
+#else
+        !hasDetailColumn
+#endif
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -95,48 +110,76 @@ struct CatalogueDetailView: View {
             sortDirection: $catalogue.sortDirection,
             selectedItem: $selectedItem,
             displayedCount: $displayedCount,
-            isHeaderScrolledAway: $isBandScrolledAway,
+            scrollState: bandScroll,
+            trackedScrollRange: usesBand ? bandHeight : 0,
             header: {
-                // The band scrolls away with the items: it is the moment of arriving in the
-                // catalogue, not something to keep paying for once the user is reading the
-                // list. It stands in for the navigation title on load — the name and count
-                // are on it, and the bar's title is empty so the controls float over the
-                // colour instead of repeating the name above it — and once it has passed
-                // under the bar the title and subtitle take over, so the name is never off
-                // screen. Without tabs the band takes a little extra bottom clearance: its
-                // edge is a harder line than the pills and the cards otherwise sit too close.
-                CatalogueBand(catalogue: catalogue, itemCount: displayedCount)
-                    .padding(.bottom, statusTabs.isEmpty ? 20 : 0)
-            },
-            pinnedHeader: {
-                // The tabs follow the band up and then stay under the bar: the filter is
-                // wanted while scrolling, and it is short. They exist only when the catalogue
-                // defines a status field. No background of their own: a fill drew a hard
-                // slab across the list as it scrolled. Every tab is a glass capsule, which is
-                // what keeps them legible over the cards passing beneath.
-                if !statusTabs.isEmpty {
-                    StatusTabBar(tabs: statusTabs, catalogue: catalogue, selection: $selectedTab)
-                        .padding(.horizontal)
-                        .padding(.top, 8)
-                        .padding(.bottom, 16)
-                }
+                // Room for the band floating over the list, plus the gap above the first
+                // card; beside a detail column, just the gap below the bar or the tabs.
+                Color.clear
+                    .frame(height: usesBand ? bandHeight + 12 : 8)
+                    .accessibilityHidden(true)
             }
         )
-        // A soft edge fades and blurs the band and cards progressively as they pass under the
-        // navigation bar, rather than a hard line.
+        .overlay(alignment: .top) {
+            if usesBand {
+                CatalogueBand(
+                    catalogue: catalogue,
+                    itemCount: displayedCount,
+                    scrollState: bandScroll,
+                    height: $bandHeight,
+                    isTitleCollapsed: $isBandScrolledAway
+                ) {
+                    // The tabs ride up with the band and then stay on its strip: the filter is
+                    // wanted while scrolling, and it is short. They exist only when the
+                    // catalogue defines a status field; without them the strip is just the
+                    // colour under the bar.
+                    if !statusTabs.isEmpty {
+                        StatusTabBar(tabs: statusTabs, catalogue: catalogue, selection: $selectedTab, onFill: true)
+                            .padding(.horizontal)
+                            .padding(.bottom, 12)
+                    }
+                }
+            }
+        }
+        .safeAreaBar(edge: .top) {
+            // Beside a detail column there is no band to carry the tabs. As a bar they sit on
+            // the glow and inside the soft scroll edge, so the cards blur out before they
+            // reach them rather than passing sharply beneath.
+            if !usesBand && !statusTabs.isEmpty {
+                StatusTabBar(tabs: statusTabs, catalogue: catalogue, selection: $selectedTab)
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+            }
+        }
+        // A soft edge fades and blurs the cards progressively as they pass under the bar,
+        // rather than a hard line.
         .scrollEdgeEffectStyle(.soft, for: .top)
-        .background(CatalogueWash(catalogue: catalogue))
+        .background(CatalogueWash(catalogue: catalogue, glow: !usesBand))
         .tint(catalogue.palette(for: colorScheme).tint)
 #if os(macOS)
         // The window title has nowhere else to come from.
         .navigationTitle(catalogue.name)
-#else
-        .navigationTitle(isBandScrolledAway ? catalogue.name : "")
-        .toolbarTitleDisplayMode(.inline)
-#endif
-        .navigationSubtitle(isBandScrolledAway ? itemCountLabel : "")
-#if os(macOS)
+        .navigationSubtitle(itemCountLabel)
         .navigationSplitViewColumnWidth(min: 280, ideal: 360)
+#else
+        .navigationTitle(catalogue.name)
+        .navigationSubtitle(usesBand ? "" : itemCountLabel)
+        .toolbarTitleDisplayMode(.inline)
+        .toolbar {
+            // Over the band the bar sits on the catalogue's fill, which may have gone either
+            // way, so the title is drawn here in the band's own label colours. Not
+            // `toolbarColorScheme`: that flips the whole bar's scheme, and the glass buttons
+            // came out looking foreign on the fill. The band stands in for the title on
+            // arrival, so this only fades in once the band's title row has collapsed.
+            if usesBand {
+                ToolbarItem(placement: .principal) {
+                    BandBarTitle(catalogue: catalogue, countLabel: itemCountLabel)
+                        .opacity(isBandScrolledAway ? 1 : 0)
+                        .accessibilityHidden(!isBandScrolledAway)
+                }
+                .sharedBackgroundVisibility(.hidden)
+            }
+        }
 #endif
         .searchable(text: $searchText)
         .onChange(of: searchText) { _, newValue in

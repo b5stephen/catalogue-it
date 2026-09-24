@@ -10,7 +10,7 @@ import SwiftData
 
 // MARK: - Item Grid View
 
-struct ItemGridView<Header: View, PinnedHeader: View>: View {
+struct ItemGridView<Header: View>: View {
     let items: [CatalogueItem]
     let showStatusChip: Bool
     @Bindable var catalogue: Catalogue
@@ -21,8 +21,6 @@ struct ItemGridView<Header: View, PinnedHeader: View>: View {
     let onLoadMore: () -> Void
     /// Scrolls with the grid, above it, full-bleed.
     @ViewBuilder let header: Header
-    /// Below `header`; sticks to the top once it gets there.
-    @ViewBuilder let pinnedHeader: PinnedHeader
 
     // Without a detail column, selecting an item pushes ItemDetailView via the same
     // `selectedItem` binding, so the border would flash for a frame before the push
@@ -40,13 +38,9 @@ struct ItemGridView<Header: View, PinnedHeader: View>: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
+            VStack(spacing: 0) {
                 header
-                Section {
-                    grid
-                } header: {
-                    pinnedHeader
-                }
+                grid
             }
         }
         .scrollPosition($scrollPosition, anchor: .top)
@@ -147,8 +141,7 @@ struct ItemGridView<Header: View, PinnedHeader: View>: View {
         hasMore: false,
         isLoadingMore: false,
         onLoadMore: {},
-        header: { Text("Model Planes").font(.title2.bold()).padding() },
-        pinnedHeader: { Text("Tabs").padding() }
+        header: { Text("Model Planes").font(.title2.bold()).padding() }
     )
     .modelContainer(container)
 }

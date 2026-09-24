@@ -9,10 +9,10 @@ import SwiftUI
 
 /// The ground every screen inside a catalogue sits on.
 ///
-/// The catalogue's colour is carried past the Catalogues screen in two layers. The card's
-/// duotone fill becomes a header band on the item list — the moment of stepping into the
-/// catalogue — and beneath it the screen keeps the colour in one of two places depending on
-/// the appearance.
+/// The catalogue's colour is carried past the Catalogues screen in two layers. At the top of
+/// the screen it is strong: the band on a pushed item list, or the glow wherever list and
+/// detail sit side by side. Beneath that the ground keeps the colour in one of two places
+/// depending on the appearance.
 ///
 /// In light appearance the ground is this faint wash of the tint over the system background —
 /// light enough that photos and label text sit on it comfortably, and no further from the
@@ -30,6 +30,19 @@ struct CatalogueWash: View {
     /// Which safe-area edges the wash runs under. Pushed on a compact stack it fills the
     /// screen; in a split view pass `detailColumnEdges` while the leading column is showing.
     var edges: Edge.Set = .all
+    /// Whether the colour pools at the top of the screen, fading into the wash.
+    ///
+    /// The glow is fixed to the screen rather than the content, so it never moves when the
+    /// content scrolls. That is the point of it beside a split view: a band scrolling away in
+    /// one column while the other stayed put made the two columns disagree about their top
+    /// edge at almost any scroll position. Every column that shows it draws it identically
+    /// from the top of the screen, so the tops line up across the divider. Strong enough in
+    /// light to carry the catalogue's colour the way the band does, but still light enough at
+    /// its strongest that the bar's standard title colour reads over it.
+    var glow = false
+
+    /// The distance from the top of the screen over which the glow fades out.
+    private static let glowHeight: CGFloat = 340
 
     /// The edges for the detail column of a split view while the leading column is showing.
     /// The detail column spans the full width with the leading column floating over it as a
@@ -41,39 +54,100 @@ struct CatalogueWash: View {
     static let detailColumnEdges: Edge.Set = [.vertical, .trailing]
 
     var body: some View {
-        Group {
-            if colorScheme == .dark {
-                // Not `.background`: in dark that resolves by interface level, and on iPad
-                // the split view's leading column is elevated, so the item list came out
-                // grey beside a black detail column.
-                Color.black
-            } else {
-                catalogue.palette(for: .light).tint
-                    .opacity(0.07)
-                    .background(.background)
+        ZStack(alignment: .top) {
+            ground
+            if glow {
+                LinearGradient(
+                    stops: [
+                        .init(color: glowColor.opacity(glowStrength), location: 0),
+                        .init(color: glowColor.opacity(glowStrength * 0.5), location: 0.5),
+                        .init(color: glowColor.opacity(0), location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: Self.glowHeight)
             }
         }
         .ignoresSafeArea(edges: edges)
     }
+
+    @ViewBuilder
+    private var ground: some View {
+        if colorScheme == .dark {
+            // Not `.background`: in dark that resolves by interface level, and on iPad
+            // the split view's leading column is elevated, so the item list came out
+            // grey beside a black detail column.
+            Color.black
+        } else {
+            catalogue.palette(for: .light).tint
+                .opacity(0.07)
+                .background(.background)
+        }
+    }
+
+    /// In dark, the same deep, restrained shade of the hue the cards are filled with (see
+    /// `CardFill`), a little brighter since it fades out: a vivid colour over black would be
+    /// the Catalogues screen's accent strength again, across the top of every column.
+    private var glowColor: Color {
+        if colorScheme == .dark {
+            let base = HSBComponents(hex: catalogue.colorHex)
+            let isNeutral = base.saturation < 0.08
+            return Color(
+                hue: base.hue,
+                saturation: isNeutral ? base.saturation : 0.5,
+                brightness: isNeutral ? 0.22 : 0.3
+            )
+        } else {
+            return catalogue.palette(for: .light).tint
+        }
+    }
+
+    private var glowStrength: Double { colorScheme == .dark ? 1 : 0.42 }
 }
 
 // MARK: - Catalogue Band
 
-/// The item list's header: the same duotone fill as the catalogue's card, so opening a
-/// catalogue feels like stepping into the card you tapped rather than leaving it behind. It
-/// stands in for the navigation title on arrival, which is why it carries the name and the
-/// count; it scrolls away with the items, and the bar's title takes over once it has gone.
+/// How far the item list has scrolled past its top, for the band to collapse by.
+///
+/// A class rather than state on the catalogue screen, because it changes on every frame of a
+/// scroll: only views that read `offset` are invalidated by a write, so the band re-renders
+/// and the screen that owns it — toolbar, list and all — does not.
+@Observable
+final class BandScrollState {
+    var offset: CGFloat = 0
+}
+
+/// The item list's header where the list is pushed on its own (compact width): the same
+/// duotone fill as the catalogue's card, so opening a catalogue feels like stepping into the
+/// card you tapped rather than leaving it behind. It stands in for the navigation title on
+/// arrival, which is why it carries the name and the count.
+///
+/// It floats over the list rather than scrolling in it, so it can collapse instead of
+/// leaving. As the items scroll, the title row slides up under the bar and fades, and what is
+/// left is a strip of the fill holding `accessory` (the status tabs), with the cards passing
+/// behind it. Without tabs the strip is nothing but the colour under the bar — the colour
+/// stays at the top of every catalogue either way. Cards passed under the tabs when they were
+/// scroll content, and no glass made them readable over a photo; a solid fill does.
 ///
 /// The fill runs up under the navigation bar so the colour reaches the top of the screen and
-/// the bar's controls float on it, rather than the band starting as a stripe below them.
+/// the bar's controls float on it. The bar's title appears on it once the title row has
+/// mostly gone (`isTitleCollapsed`), so the name is never off screen.
 ///
-/// The band is translucent, and deliberately not backed by a material: it scrolls under the
-/// bar's soft scroll edge effect like the cards do, and a material would flatten that.
-struct CatalogueBand: View {
+/// The list reserves `height` at its top with a spacer, so the first card starts below the
+/// band; `scrollState` is what the list reports its scroll through.
+struct CatalogueBand<Accessory: View>: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     let catalogue: Catalogue
     let itemCount: Int
+    let scrollState: BandScrollState
+    /// The band's full height, before any collapse.
+    @Binding var height: CGFloat
+    @Binding var isTitleCollapsed: Bool
+    @ViewBuilder let accessory: Accessory
+
+    @State private var titleHeight: CGFloat = 0
 
     private var countLabel: String {
         itemCount == 1 ? "1 item" : "\(itemCount) items"
@@ -84,7 +158,43 @@ struct CatalogueBand: View {
             for: colorScheme,
             increasedContrast: colorSchemeContrast == .increased
         )
+        let collapse = min(max(scrollState.offset, 0), titleHeight)
+        // Faded out over the first part of the collapse, so the text is gone before it reaches
+        // the bar rather than sliding under the bar's own title.
+        let titleOpacity = titleHeight > 0 ? 1 - min(collapse / (titleHeight * 0.6), 1) : 1
 
+        VStack(spacing: 0) {
+            titleRow(palette)
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) { titleHeight = $0 }
+                .opacity(titleOpacity)
+                .accessibilityHidden(titleOpacity == 0)
+            accessory
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGFloat.self, of: \.size.height) { height = $0 }
+        // Slid up by the collapse inside a frame shortened by the same amount, so the bottom
+        // edge — and the tabs on it — rise with the list until the title row has gone, then
+        // stay put.
+        .offset(y: -collapse)
+        .frame(height: height > 0 ? height - collapse : nil, alignment: .top)
+        .clipped()
+        .background(alignment: .bottom) {
+            // Fixed to the band's full height and pinned to its bottom edge, so the gradient
+            // moves rigidly with the collapse instead of re-stretching every frame. Extended
+            // far enough up to cover the bar and sideways past the horizontal safe area (the
+            // notch and home-indicator sides in landscape) so it reaches the screen edges.
+            palette.fill
+                .frame(height: height + 600)
+                .padding(.horizontal, -600)
+                .allowsHitTesting(false)
+        }
+        .onChange(of: titleHeight > 0 && collapse > titleHeight / 2) { _, collapsed in
+            guard collapsed != isTitleCollapsed else { return }
+            withAnimation(.easeInOut(duration: 0.2)) { isTitleCollapsed = collapsed }
+        }
+    }
+
+    private func titleRow(_ palette: CataloguePalette) -> some View {
         HStack(spacing: 12) {
             CatalogueIconView(iconName: catalogue.iconName, color: palette.iconGlyph, size: 24)
                 .frame(width: 44, height: 44)
@@ -110,15 +220,34 @@ struct CatalogueBand: View {
         .padding(.horizontal)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            // As scroll content the band has no safe area to ignore, so the fill is simply
-            // extended past its bounds — upwards far enough to cover the bar and a
-            // rubber-band pull, and sideways past the horizontal safe area (the notch and
-            // home-indicator sides in landscape) so it reaches the screen edges.
-            palette.fill.opacity(0.85)
-                .padding(.top, -600)
-                .padding(.horizontal, -600)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// The navigation bar's title while the band is under it: the name and count in the band's
+/// label colours, so it reads on the fill whichever way the fill went.
+struct BandBarTitle: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    let catalogue: Catalogue
+    let countLabel: String
+
+    var body: some View {
+        let palette = catalogue.palette(
+            for: colorScheme,
+            increasedContrast: colorSchemeContrast == .increased
+        )
+        VStack(spacing: 0) {
+            Text(catalogue.name)
+                .font(.headline)
+                .foregroundStyle(palette.primaryText)
+            Text(countLabel)
+                .font(.caption)
+                .foregroundStyle(palette.secondaryText)
+                .contentTransition(.numericText())
         }
+        .lineLimit(1)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }

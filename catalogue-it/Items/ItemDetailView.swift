@@ -95,7 +95,7 @@ struct ItemDetailView: View {
         // screen has its own.
         // Beside a showing leading column the wash stays out of the leading safe area, which
         // is where that column floats; otherwise it fills the screen.
-        .background(CatalogueWash(catalogue: catalogue, edges: washEdges))
+        .background(CatalogueWash(catalogue: catalogue, edges: washEdges, glow: true))
         .tint(catalogue.palette(for: colorScheme).tint)
         // Deliberately no `.navigationBarTitleDisplayMode(.inline)`. This is a pushed screen
         // in the main navigation chain, like the catalogue list and the item list, so it uses

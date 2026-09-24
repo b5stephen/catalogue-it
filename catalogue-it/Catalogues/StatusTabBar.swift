@@ -16,16 +16,24 @@ import SwiftUI
 /// capsule takes its natural width, and the row scrolls once they overflow, with the current
 /// tab kept in view.
 ///
-/// Every tab is a glass capsule — the bar floats over cards blurring out beneath it, and bare
-/// text was unreadable the moment a photo passed under. The current tab's glass is tinted with
-/// the catalogue colour; the text on it comes from the palette rather than being white, since
-/// a pale pick (a yellow, say) needs dark text to clear its own fill.
+/// Where the bar sits decides how the capsules are drawn:
+///
+/// - Over the ground (`onFill == false`, beside a detail column), every tab is a glass
+///   capsule — the bar floats over cards blurring out beneath it, and bare text was unreadable
+///   the moment a photo passed under. The current tab's glass is tinted with the catalogue
+///   colour; the text on it comes from the palette rather than being white, since a pale pick
+///   (a yellow, say) needs dark text to clear its own fill.
+/// - On the catalogue band's fill, glass tinted with the catalogue colour disappears into a
+///   fill of that same colour. There the tabs take the band's own language instead, the way a
+///   segmented control sits on a coloured bar: the icon tile's translucent pane for the rest,
+///   and a light pill for the current one, lettered in the fill's deep stop.
 struct StatusTabBar: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     let tabs: [StatusTabDescriptor]
     let catalogue: Catalogue
     @Binding var selection: StatusTab
+    var onFill = false
 
     var body: some View {
         let palette = catalogue.palette(
@@ -47,13 +55,17 @@ struct StatusTabBar: View {
                                 Text(descriptor.label)
                                     .font(.subheadline.weight(isOn ? .semibold : .regular))
                                     .lineLimit(1)
-                                    .foregroundStyle(isOn ? palette.primaryText : palette.tint)
+                                    .foregroundStyle(labelColor(isOn: isOn, palette: palette))
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
                                     .contentShape(Capsule())
                             }
                             .buttonStyle(.plain)
-                            .glassEffect(isOn ? selectedGlass(palette) : unselectedGlass, in: .capsule)
+                            .capsuleBackground(
+                                onFill: onFill,
+                                fill: isOn ? Color.white.opacity(0.95) : palette.iconTint,
+                                glass: isOn ? selectedGlass(palette) : unselectedGlass
+                            )
                             .id(descriptor.tab)
                             .accessibilityAddTraits(isOn ? [.isSelected] : [])
                         }
@@ -73,6 +85,16 @@ struct StatusTabBar: View {
         .accessibilityLabel("Status")
     }
 
+    private func labelColor(isOn: Bool, palette: CataloguePalette) -> Color {
+        if onFill {
+            guard isOn else { return palette.primaryText }
+            // On the white pill: the fill's own deep stop, unless the fill is pale enough that
+            // its labels went dark — then the deep stop is pale too, and the dark label reads.
+            return palette.prefersDarkForeground ? palette.primaryText : palette.fillDeepStop
+        }
+        return isOn ? palette.primaryText : palette.tint
+    }
+
     /// The current tab's tint is applied at partial opacity so it stays as glassy as its
     /// neighbours — a full-strength tint reads as a solid pill, since colour is mixed into
     /// everything showing through.
@@ -85,6 +107,17 @@ struct StatusTabBar: View {
     /// button. In light appearance the wash itself provides that, so the glass is left clear.
     private var unselectedGlass: Glass {
         colorScheme == .dark ? .regular.tint(.white.opacity(0.14)) : .regular
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func capsuleBackground(onFill: Bool, fill: Color, glass: Glass) -> some View {
+        if onFill {
+            background(fill, in: .capsule)
+        } else {
+            glassEffect(glass, in: .capsule)
+        }
     }
 }
 

@@ -200,7 +200,7 @@ struct ContentView: View {
     private var selectAnItemPlaceholder: some View {
         let placeholder = ContentUnavailableView("Select an item", systemImage: "cube")
         if let catalogue = selectedCatalogue {
-            placeholder.background(CatalogueWash(catalogue: catalogue, edges: detailWashEdges))
+            placeholder.background(CatalogueWash(catalogue: catalogue, edges: detailWashEdges, glow: true))
         } else {
             placeholder
         }

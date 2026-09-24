@@ -15,9 +15,8 @@ import SwiftUI
 /// is drawn by `CatalogueDetailView`, which is why the list's own background is hidden here.
 ///
 /// `header` is the first row: full-bleed, and spaced from the first card by the same gap
-/// the cards keep between themselves. `pinnedHeader` sits between it and the cards, and
-/// stays put once it reaches the top — a plain list's section headers do that on their own.
-struct ItemListView<Header: View, PinnedHeader: View>: View {
+/// the cards keep between themselves.
+struct ItemListView<Header: View>: View {
     let items: [CatalogueItem]
     let catalogue: Catalogue
     let showStatusChip: Bool
@@ -27,7 +26,6 @@ struct ItemListView<Header: View, PinnedHeader: View>: View {
     let isLoadingMore: Bool
     let onLoadMore: () -> Void
     @ViewBuilder let header: Header
-    @ViewBuilder let pinnedHeader: PinnedHeader
 
 #if !os(macOS)
     @Environment(\.hasDetailColumn) private var hasDetailColumn
@@ -39,12 +37,6 @@ struct ItemListView<Header: View, PinnedHeader: View>: View {
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets())
             .selectionDisabled()
-    }
-
-    private var pinnedHeaderRow: some View {
-        pinnedHeader
-            .listRowInsets(EdgeInsets())
-            .listSectionSeparator(.hidden)
     }
 
     var body: some View {
@@ -59,21 +51,18 @@ struct ItemListView<Header: View, PinnedHeader: View>: View {
         // flash for a frame before the transition covers it.
         List {
             headerRow
-            Section {
-                ForEach(items) { item in
-                    ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip, showPhoto: showPhotos)
-                        .itemCard(in: catalogue, isSelected: hasDetailColumn && selectedItem == item)
-                        .onTapGesture { selectedItem = item }
-                        .tag(item)
-                        .cardRow()
-                }
-                scrollSentinel
-            } header: {
-                pinnedHeaderRow
+            ForEach(items) { item in
+                ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip, showPhoto: showPhotos)
+                    .itemCard(in: catalogue, isSelected: hasDetailColumn && selectedItem == item)
+                    .onTapGesture { selectedItem = item }
+                    .tag(item)
+                    .cardRow()
             }
+            scrollSentinel
         }
         .listStyle(.plain)
-        .listSectionSpacing(0)
+        // The header can be a short spacer; the default minimum would pad it out to a row.
+        .environment(\.defaultMinListRowHeight, 0)
         .listRowSpacing(AppConstants.ItemCard.rowSpacing)
         .contentMargins(.bottom, AppConstants.ItemCard.rowSpacing, for: .scrollContent)
         .scrollContentBackground(.hidden)
@@ -87,20 +76,17 @@ struct ItemListView<Header: View, PinnedHeader: View>: View {
     private func regularList(showPhotos: Bool) -> some View {
         List(selection: $selectedItem) {
             headerRow
-            Section {
-                ForEach(items) { item in
-                    ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip, showPhoto: showPhotos)
-                        .itemCard(in: catalogue, isSelected: selectedItem == item)
-                        .tag(item)
-                        .cardRow()
-                }
-                scrollSentinel
-            } header: {
-                pinnedHeaderRow
+            ForEach(items) { item in
+                ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip, showPhoto: showPhotos)
+                    .itemCard(in: catalogue, isSelected: selectedItem == item)
+                    .tag(item)
+                    .cardRow()
             }
+            scrollSentinel
         }
         .listStyle(.plain)
-        .listSectionSpacing(0)
+        // The header can be a short spacer; the default minimum would pad it out to a row.
+        .environment(\.defaultMinListRowHeight, 0)
         .listRowSpacing(AppConstants.ItemCard.rowSpacing)
         .contentMargins(.bottom, AppConstants.ItemCard.rowSpacing, for: .scrollContent)
         .scrollContentBackground(.hidden)

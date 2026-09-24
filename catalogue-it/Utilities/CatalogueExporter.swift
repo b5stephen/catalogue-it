@@ -93,6 +93,53 @@ enum CatalogueExporter {
     }
 }
 
+// MARK: - Export Format
+
+/// The entries of a catalogue's Export menu.
+enum CatalogueExportFormat: CaseIterable, Identifiable {
+    case csv
+    case jsonWithPhotos
+    case jsonWithoutPhotos
+
+    var id: Self { self }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .csv: "Export as CSV"
+        case .jsonWithPhotos: "Export as JSON (with Photos)"
+        case .jsonWithoutPhotos: "Export as JSON (no Photos)"
+        }
+    }
+
+    var systemImage: String {
+        self == .csv ? "tablecells" : "doc.text"
+    }
+
+    func filename(for catalogue: Catalogue) -> String {
+        self == .csv ? "\(catalogue.name).csv" : "\(catalogue.name).json"
+    }
+
+    /// A provider that builds the file only when a share destination asks for it, exactly as
+    /// `ShareLink` would.
+    func itemProvider(for catalogue: Catalogue) -> NSItemProvider {
+        let provider = NSItemProvider()
+        let filename = filename(for: catalogue)
+        // Built outside `register`, whose `@Sendable` autoclosure can't capture the model.
+        switch self {
+        case .csv:
+            let file = CatalogueCSVFile(catalogue: catalogue, filename: filename)
+            provider.register(file)
+        case .jsonWithPhotos:
+            let file = CatalogueJSONFile(catalogue: catalogue, includePhotos: true, filename: filename)
+            provider.register(file)
+        case .jsonWithoutPhotos:
+            let file = CatalogueJSONFile(catalogue: catalogue, includePhotos: false, filename: filename)
+            provider.register(file)
+        }
+        return provider
+    }
+}
+
 // MARK: - Catalogue CSV File (Transferable)
 
 // @unchecked Sendable: Catalogue is main-actor bound; DataRepresentation calls the

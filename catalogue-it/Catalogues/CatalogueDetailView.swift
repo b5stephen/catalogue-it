@@ -46,6 +46,10 @@ struct CatalogueDetailView: View {
     @State private var bandHeight: CGFloat = 0
     /// Cached result of a cheap fetchCount — avoids faulting catalogue.items on every render.
     @State private var hasRecentlyDeletedItems = false
+#if os(iOS)
+    /// An export chosen from the toolbar, waiting for `ShareSheetAnchor` to present it.
+    @State private var pendingExport: NSItemProvider?
+#endif
 
     /// Updates `hasRecentlyDeletedItems` via a single fetchLimit-1 count — no object
     /// materialisation, O(1) via the deletedDate index.
@@ -120,6 +124,16 @@ struct CatalogueDetailView: View {
                     .accessibilityHidden(true)
             }
         )
+#if os(iOS)
+        // Under the trailing end of the bar, where the Export menu (or the overflow holding
+        // it) sits, so the share popover points back at what the user tapped.
+        .overlay(alignment: .topTrailing) {
+            ShareSheetAnchor(itemProvider: $pendingExport)
+                .frame(width: 1, height: 1)
+                .padding(.trailing, 28)
+                .accessibilityHidden(true)
+        }
+#endif
         .overlay(alignment: .top) {
             if usesBand {
                 CatalogueBand(
@@ -250,7 +264,9 @@ struct CatalogueDetailView: View {
                 SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
             }
             ToolbarItem(placement: .secondaryAction) {
-                ExportMenuItems(catalogue: catalogue)
+                ExportMenuItems(catalogue: catalogue) { format in
+                    pendingExport = format.itemProvider(for: catalogue)
+                }
             }
             ToolbarItem(placement: .secondaryAction) {
                 CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
@@ -310,25 +326,41 @@ struct CatalogueDetailView: View {
 /// SwiftUI only re-renders this view when `catalogue` properties it accessed actually change.
 private struct ExportMenuItems: View {
     let catalogue: Catalogue
+#if os(iOS)
+    /// Not `ShareLink`: this menu can end up in the bar's overflow, which leaves the share
+    /// sheet nothing to anchor on and crashes. See `ShareSheetAnchor`.
+    let onExport: (CatalogueExportFormat) -> Void
+#endif
 
     var body: some View {
         Menu("Export", systemImage: "square.and.arrow.up") {
-            ShareLink(
-                item: CatalogueCSVFile(catalogue: catalogue, filename: "\(catalogue.name).csv"),
-                preview: SharePreview("\(catalogue.name).csv", image: Image(systemName: "tablecells"))
-            )
-            ShareLink(
-                "Export as JSON (with Photos)",
-                item: CatalogueJSONFile(catalogue: catalogue, includePhotos: true, filename: "\(catalogue.name).json"),
-                preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text"))
-            )
-            ShareLink(
-                "Export as JSON (no Photos)",
-                item: CatalogueJSONFile(catalogue: catalogue, includePhotos: false, filename: "\(catalogue.name).json"),
-                preview: SharePreview("\(catalogue.name).json", image: Image(systemName: "doc.text"))
-            )
+            ForEach(CatalogueExportFormat.allCases) { format in
+#if os(iOS)
+                Button(format.title, systemImage: format.systemImage) {
+                    onExport(format)
+                }
+#else
+                exportLink(for: format)
+#endif
+            }
         }
     }
+
+#if !os(iOS)
+    @ViewBuilder
+    private func exportLink(for format: CatalogueExportFormat) -> some View {
+        let filename = format.filename(for: catalogue)
+        let preview = SharePreview(filename, image: Image(systemName: format.systemImage))
+        switch format {
+        case .csv:
+            ShareLink(format.title, item: CatalogueCSVFile(catalogue: catalogue, filename: filename), preview: preview)
+        case .jsonWithPhotos:
+            ShareLink(format.title, item: CatalogueJSONFile(catalogue: catalogue, includePhotos: true, filename: filename), preview: preview)
+        case .jsonWithoutPhotos:
+            ShareLink(format.title, item: CatalogueJSONFile(catalogue: catalogue, includePhotos: false, filename: filename), preview: preview)
+        }
+    }
+#endif
 }
 
 // MARK: - Preview

@@ -68,9 +68,13 @@ final class CloudKitSyncMonitor {
     /// indicator is held briefly past the last one. Without this it strobes between batches.
     private static let quietPeriod = Duration.seconds(2)
 
-    /// Routine launch and foreground checks come back empty in well under this, so holding the
-    /// indicator back keeps them from flashing it. Anything longer is a sync worth showing.
-    private static let showDelay = Duration.seconds(1)
+    /// How long a run must be in flight before the indicator appears. Routine launch and
+    /// foreground checks come back empty in well under a second, so holding it back keeps them
+    /// from flashing it. With catalogues already here the wait is longer: a sync is then almost
+    /// always a small catch-up the user doesn't need narrated, whereas on an empty store (a new
+    /// device pulling everything down) the indicator is the only sign anything is happening.
+    private static let showDelayWhenEmpty = Duration.seconds(1)
+    private static let showDelayWithCatalogues = Duration.seconds(3)
 
     private var container: ModelContainer?
     private var observer: NSObjectProtocol?
@@ -235,8 +239,9 @@ final class CloudKitSyncMonitor {
 
     private func scheduleShow() {
         guard showTask == nil else { return }
+        let delay = hasCatalogues() ? Self.showDelayWithCatalogues : Self.showDelayWhenEmpty
         showTask = Task { @MainActor in
-            try? await Task.sleep(for: Self.showDelay)
+            try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
             showTask = nil
             // A no-op if the run already finished — the common case on launch.
@@ -249,6 +254,13 @@ final class CloudKitSyncMonitor {
         showTask?.cancel()
         showTask = nil
         runBaseline = nil
+    }
+
+    private func hasCatalogues() -> Bool {
+        guard let context = container?.mainContext else { return false }
+        var descriptor = FetchDescriptor<Catalogue>(predicate: #Predicate { !$0.pendingDeletion })
+        descriptor.fetchLimit = 1
+        return ((try? context.fetchCount(descriptor)) ?? 0) > 0
     }
 
     private func currentItemCount() -> Int {

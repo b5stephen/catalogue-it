@@ -174,8 +174,9 @@ preserving:
 - Both directions are shown: `.import`/`.setup` as "Syncing from iCloud", plus "· N new items"
   once any have arrived; `.export` as "Syncing to iCloud" with no count (the local total says
   nothing about what is still queued).
-- Nothing shows until a run has been in flight for a second. Routine launch and foreground
-  checks finish well inside that, so they no longer flash the bar.
+- Nothing shows until a run has been in flight for a while: 1s on an empty store (a new device
+  pulling everything down, where the bar is the only sign of life), 3s once catalogues exist.
+  Routine launch and foreground checks finish well inside that, so they don't flash the bar.
 - The bar lives on the catalogue list only. An inset on the `NavigationSplitView` doesn't reach
   columns pushed onto their own stack in compact width, and on the item screen iOS 26 renders
   `.searchable` as a bottom bar occupying the same edge.

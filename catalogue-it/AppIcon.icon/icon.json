@@ -47,11 +47,15 @@
           "name" : "8-front-glow",
           "opacity-specializations" : [
             {
-              "value" : 0.75
+              "value" : 0.5
             },
             {
               "appearance" : "dark",
               "value" : 0.5
+            },
+            {
+              "appearance" : "tinted",
+              "value" : 0.75
             }
           ]
         },
@@ -79,7 +83,15 @@
         "kind" : "neutral",
         "opacity" : 0.3
       },
-      "specular" : true,
+      "specular-specializations" : [
+        {
+          "value" : true
+        },
+        {
+          "appearance" : "tinted",
+          "value" : "inside"
+        }
+      ],
       "translucency" : {
         "enabled" : false,
         "value" : 0.3
@@ -103,11 +115,27 @@
       ],
       "layers" : [
         {
+          "fill-specializations" : [
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
+              }
+            }
+          ],
           "glass" : true,
           "image-name" : "6-card-blue.svg",
           "name" : "6-card-blue"
         },
         {
+          "fill-specializations" : [
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "display-p3:0.96783,0.53137,0.19961,1.00000"
+              }
+            }
+          ],
           "image-name" : "5-card-green.svg",
           "name" : "5-card-green"
         },
@@ -124,7 +152,15 @@
           "name" : "2-card-red"
         }
       ],
-      "lighting" : "combined",
+      "lighting-specializations" : [
+        {
+          "value" : "combined"
+        },
+        {
+          "appearance" : "tinted",
+          "value" : "combined"
+        }
+      ],
       "name" : "2 - Dividers",
       "opacity-specializations" : [
         {
@@ -170,7 +206,7 @@
         },
         {
           "appearance" : "tinted",
-          "value" : true
+          "value" : false
         }
       ],
       "translucency-specializations" : [

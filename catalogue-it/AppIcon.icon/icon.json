@@ -1,0 +1,227 @@
+{
+  "features" : [
+    "specular-location"
+  ],
+  "fill-specializations" : [
+    {
+      "value" : {
+        "linear-gradient" : [
+          "display-p3:0.16863,0.22745,0.33333,1.00000",
+          "srgb:0.09020,0.13333,0.21961,1.00000"
+        ]
+      }
+    },
+    {
+      "appearance" : "dark",
+      "value" : {
+        "linear-gradient" : [
+          "display-p3:0.16471,0.16471,0.18039,1.00000",
+          "srgb:0.06275,0.06275,0.07059,1.00000"
+        ]
+      }
+    }
+  ],
+  "groups" : [
+    {
+      "blur-material" : null,
+      "layers" : [
+
+      ],
+      "name" : "Blur",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.3
+      }
+    },
+    {
+      "blur-material" : null,
+      "layers" : [
+        {
+          "glass" : false,
+          "image-name" : "8-front-glow.png",
+          "name" : "8-front-glow",
+          "opacity-specializations" : [
+            {
+              "value" : 0.75
+            },
+            {
+              "appearance" : "dark",
+              "value" : 0.5
+            }
+          ]
+        },
+        {
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "display-p3:0.80392,0.64314,0.38431,1.00000"
+              }
+            }
+          ],
+          "glass" : true,
+          "image-name" : "7-folder-front.svg",
+          "name" : "7-folder-front"
+        }
+      ],
+      "lighting" : "individual",
+      "refractivity" : {
+        "depth" : 0,
+        "enabled" : false,
+        "strength" : 0.5
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.3
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.3
+      }
+    },
+    {
+      "blend-mode-specializations" : [
+        {
+          "appearance" : "tinted",
+          "value" : "normal"
+        }
+      ],
+      "blur-material-specializations" : [
+        {
+          "value" : null
+        },
+        {
+          "appearance" : "tinted",
+          "value" : null
+        }
+      ],
+      "layers" : [
+        {
+          "glass" : true,
+          "image-name" : "6-card-blue.svg",
+          "name" : "6-card-blue"
+        },
+        {
+          "image-name" : "5-card-green.svg",
+          "name" : "5-card-green"
+        },
+        {
+          "image-name" : "4-card-yellow.svg",
+          "name" : "4-card-yellow"
+        },
+        {
+          "image-name" : "3-card-orange.svg",
+          "name" : "3-card-orange"
+        },
+        {
+          "image-name" : "2-card-red.svg",
+          "name" : "2-card-red"
+        }
+      ],
+      "lighting" : "combined",
+      "name" : "2 - Dividers",
+      "opacity-specializations" : [
+        {
+          "appearance" : "tinted",
+          "value" : 1
+        }
+      ],
+      "refractivity-specializations" : [
+        {
+          "value" : {
+            "depth" : 0,
+            "enabled" : false,
+            "strength" : 0.5
+          }
+        },
+        {
+          "appearance" : "tinted",
+          "value" : {
+            "depth" : 0,
+            "enabled" : false,
+            "strength" : 0.651953125
+          }
+        }
+      ],
+      "shadow-specializations" : [
+        {
+          "value" : {
+            "kind" : "layer-color",
+            "opacity" : 0.3
+          }
+        },
+        {
+          "appearance" : "tinted",
+          "value" : {
+            "kind" : "layer-color",
+            "opacity" : 0.3
+          }
+        }
+      ],
+      "specular-specializations" : [
+        {
+          "value" : true
+        },
+        {
+          "appearance" : "tinted",
+          "value" : true
+        }
+      ],
+      "translucency-specializations" : [
+        {
+          "value" : {
+            "enabled" : false,
+            "value" : 0.3
+          }
+        },
+        {
+          "appearance" : "tinted",
+          "value" : {
+            "enabled" : false,
+            "value" : 0.3
+          }
+        }
+      ]
+    },
+    {
+      "blur-material" : null,
+      "layers" : [
+        {
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "srgb:0.61961,0.46667,0.22745,1.00000"
+              }
+            }
+          ],
+          "glass" : true,
+          "image-name" : "1-folder-back.svg",
+          "name" : "1-folder-back"
+        }
+      ],
+      "name" : "1 - Folder back",
+      "shadow" : {
+        "kind" : "none",
+        "opacity" : 0.3
+      },
+      "specular" : "inside",
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.3
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

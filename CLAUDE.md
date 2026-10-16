@@ -163,14 +163,19 @@ otherwise a stale draft writes over a value that merged in while the sheet was o
 `CloudKitSyncMonitor` reads `NSPersistentCloudKitContainer.eventChangedNotification` (again with
 `object: nil`, since SwiftData doesn't expose the container). Events carry only a type, start/end
 dates, a success flag and an error — **no record counts and no percentage**, so progress is
-necessarily indeterminate; the item count in `SyncStatusBar` is counted from our own store as rows
-land. Two behaviours worth preserving:
+necessarily indeterminate; the count in `SyncStatusBar` is how many items have landed in our own
+store since the run began (a delta against a baseline taken at the first event — never the total,
+since every launch runs an incremental import that usually fetches nothing). Behaviours worth
+preserving:
 
 - Signed out of iCloud, CloudKit posts an import event that *starts and never finishes*. The
   monitor gates on `CKContainer.default().accountStatus()` so the indicator doesn't sit on
   "Syncing…" forever for anyone not using iCloud.
-- Both directions are shown: `.import`/`.setup` as "Syncing from iCloud · N items", `.export`
-  as "Syncing to iCloud" with no count (the local total says nothing about what is still queued).
+- Both directions are shown: `.import`/`.setup` as "Syncing from iCloud", plus "· N new items"
+  once any have arrived; `.export` as "Syncing to iCloud" with no count (the local total says
+  nothing about what is still queued).
+- Nothing shows until a run has been in flight for a second. Routine launch and foreground
+  checks finish well inside that, so they no longer flash the bar.
 - The bar lives on the catalogue list only. An inset on the `NavigationSplitView` doesn't reach
   columns pushed onto their own stack in compact width, and on the item screen iOS 26 renders
   `.searchable` as a bottom bar occupying the same edge.

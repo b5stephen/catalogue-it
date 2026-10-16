@@ -21,15 +21,17 @@ import os
 ///
 /// What the events can and cannot tell us: an `Event` carries only a type, start/end dates,
 /// a success flag and an error. There is no record count and no percentage, so progress here
-/// is necessarily indeterminate. The item count shown alongside it is counted from our own
-/// store as rows land — honest about what has arrived, silent about what is still coming.
+/// is necessarily indeterminate. The count shown alongside it is how many items have landed in
+/// our own store since the run began — honest about what has arrived, silent about what is still
+/// coming. It is a delta, not the total: every launch runs an incremental import that usually
+/// fetches nothing, and showing the whole collection then read as though it were all re-syncing.
 @MainActor
 @Observable
 final class CloudKitSyncMonitor {
     static let shared = CloudKitSyncMonitor()
 
     enum Direction: Equatable {
-        /// Remote changes coming down. `itemCount` is meaningful here — rows are landing.
+        /// Remote changes coming down. `newItemCount` is meaningful here — rows are landing.
         case download
         /// Local changes going up. The local item count says nothing about how much is still
         /// queued, so it isn't shown for this direction.
@@ -39,8 +41,9 @@ final class CloudKitSyncMonitor {
     enum Status: Equatable {
         /// Nothing in flight, or CloudKit is simply not in use. Shows no UI.
         case idle
-        /// A sync is running. `itemCount` is how many items exist locally so far.
-        case syncing(direction: Direction, itemCount: Int)
+        /// A sync is running. `newItemCount` is how many items have arrived locally since the
+        /// run began — zero for the routine incremental import every launch performs.
+        case syncing(direction: Direction, newItemCount: Int)
         /// A failure the user may be able to resolve (storage full, throttling, schema).
         case failed(message: String)
     }
@@ -65,6 +68,10 @@ final class CloudKitSyncMonitor {
     /// indicator is held briefly past the last one. Without this it strobes between batches.
     private static let quietPeriod = Duration.seconds(2)
 
+    /// Routine launch and foreground checks come back empty in well under this, so holding the
+    /// indicator back keeps them from flashing it. Anything longer is a sync worth showing.
+    private static let showDelay = Duration.seconds(1)
+
     private var container: ModelContainer?
     private var observer: NSObjectProtocol?
     private var accountObserver: NSObjectProtocol?
@@ -73,6 +80,11 @@ final class CloudKitSyncMonitor {
     private var inFlightDownloads = Set<UUID>()
     private var inFlightUploads = Set<UUID>()
     private var settleTask: Task<Void, Never>?
+    private var showTask: Task<Void, Never>?
+    /// Local item count when the current run began, so the bar can show what has arrived rather
+    /// than the whole collection. A run spans from idle to idle, quiet-period gaps included;
+    /// `nil` between runs.
+    private var runBaseline: Int?
 
     /// Whether the device is signed into iCloud at all.
     ///
@@ -153,7 +165,7 @@ final class CloudKitSyncMonitor {
         if !accountAvailable {
             inFlightDownloads.removeAll()
             inFlightUploads.removeAll()
-            settleTask?.cancel()
+            endRun()
             status.map { Self.logger.debug("iCloud account unavailable (status \($0.rawValue))") }
             self.status = .idle
         }
@@ -166,7 +178,7 @@ final class CloudKitSyncMonitor {
             // A real failure outranks any in-flight indicator — it needs to stay on screen.
             inFlightDownloads.removeAll()
             inFlightUploads.removeAll()
-            settleTask?.cancel()
+            endRun()
             status = .failed(message: failure)
             Self.logger.error("CloudKit sync failed: \(failure, privacy: .public)")
             return
@@ -181,8 +193,13 @@ final class CloudKitSyncMonitor {
             case .download: inFlightDownloads.insert(id)
             case .upload: inFlightUploads.insert(id)
             }
+            if runBaseline == nil { runBaseline = currentItemCount() }
             settleTask?.cancel()
-            updateSyncingStatus()
+            if case .syncing = status {
+                updateSyncingStatus()
+            } else {
+                scheduleShow()
+            }
         }
     }
 
@@ -192,11 +209,14 @@ final class CloudKitSyncMonitor {
             : !inFlightUploads.isEmpty ? .upload
             : nil
         guard let direction else { return }
-        status = .syncing(direction: direction, itemCount: currentItemCount())
+        let current = currentItemCount()
+        // Clamped: deletions merging in during the run would otherwise read as a negative.
+        let arrived = max(0, current - (runBaseline ?? current))
+        status = .syncing(direction: direction, newItemCount: arrived)
     }
 
-    /// Refreshes the count, then drops the indicator once nothing has been in flight for
-    /// `quietPeriod`. Called by `RemoteChangeObserver` too, so the number climbs while rows land.
+    /// Refreshes the count while the indicator is up. Called by `RemoteChangeObserver`, so the
+    /// number climbs while rows land.
     func refreshCount() {
         guard case .syncing = status else { return }
         updateSyncingStatus()
@@ -207,9 +227,28 @@ final class CloudKitSyncMonitor {
         settleTask = Task { @MainActor in
             try? await Task.sleep(for: Self.quietPeriod)
             guard !Task.isCancelled, inFlightDownloads.isEmpty, inFlightUploads.isEmpty else { return }
+            endRun()
             if case .failed = status { return }
             status = .idle
         }
+    }
+
+    private func scheduleShow() {
+        guard showTask == nil else { return }
+        showTask = Task { @MainActor in
+            try? await Task.sleep(for: Self.showDelay)
+            guard !Task.isCancelled else { return }
+            showTask = nil
+            // A no-op if the run already finished — the common case on launch.
+            updateSyncingStatus()
+        }
+    }
+
+    private func endRun() {
+        settleTask?.cancel()
+        showTask?.cancel()
+        showTask = nil
+        runBaseline = nil
     }
 
     private func currentItemCount() -> Int {

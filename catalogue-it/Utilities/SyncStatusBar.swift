@@ -7,13 +7,15 @@ import SwiftUI
 
 // MARK: - Sync Status Bar
 
-/// Slim status strip pinned below the catalogue list, in the manner of Mail's
-/// "Updated Just Now" line.
+/// Slim status line pinned below the catalogue list, in the manner of Mail's
+/// "Updated Just Now" line. Text only, no bar material: a full-width strip read fine on iPhone
+/// but sat oddly across the narrow sidebar column on iPad.
 ///
 /// It renders nothing at all when idle — including when the user isn't signed into iCloud,
 /// which is a deliberate choice rather than a fault. Progress is indeterminate because
-/// CloudKit reports no record counts; the number shown is what has actually landed locally,
-/// which is true without implying a total we can't know.
+/// CloudKit reports no record counts; the number shown is how many items have landed locally
+/// during this run, and only once there are some, which is true without implying a total we
+/// can't know.
 struct SyncStatusBar: View {
     let status: CloudKitSyncMonitor.Status
     var onShowError: () -> Void
@@ -23,11 +25,15 @@ struct SyncStatusBar: View {
         case .idle:
             EmptyView()
 
-        case .syncing(.download, let itemCount):
+        case .syncing(.download, let newItemCount):
             row {
                 ProgressView()
                     .controlSize(.mini)
-                Text("Syncing from iCloud · ^[\(itemCount) item](inflect: true)")
+                if newItemCount > 0 {
+                    Text("Syncing from iCloud · ^[\(newItemCount) new item](inflect: true)")
+                } else {
+                    Text("Syncing from iCloud")
+                }
             }
 
         case .syncing(.upload, _):
@@ -61,18 +67,21 @@ struct SyncStatusBar: View {
         .font(.footnote)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-        .background(.bar)
     }
 }
 
 // MARK: - Preview
 
 #Preview("Downloading") {
-    SyncStatusBar(status: .syncing(direction: .download, itemCount: 1455), onShowError: {})
+    SyncStatusBar(status: .syncing(direction: .download, newItemCount: 0), onShowError: {})
+}
+
+#Preview("Downloading new items") {
+    SyncStatusBar(status: .syncing(direction: .download, newItemCount: 1455), onShowError: {})
 }
 
 #Preview("Uploading") {
-    SyncStatusBar(status: .syncing(direction: .upload, itemCount: 0), onShowError: {})
+    SyncStatusBar(status: .syncing(direction: .upload, newItemCount: 0), onShowError: {})
 }
 
 #Preview("Failed") {

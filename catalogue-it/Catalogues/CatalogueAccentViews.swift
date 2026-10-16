@@ -106,6 +106,65 @@ struct CatalogueWash: View {
     private var glowStrength: Double { colorScheme == .dark ? 1 : 0.42 }
 }
 
+// MARK: - Wash Fade Edge
+
+/// Fades scrolling content out as it passes under the bar, so the wash shows through,
+/// instead of the system scroll edge effect.
+///
+/// For the columns of a split view. The system effect blurs whatever is scrolling
+/// underneath, so each column's top took on its own content (a photo in the detail
+/// column, cards in the list) and the shared glow stopped matching across the divider
+/// as soon as either one scrolled. Fading the content to transparent leaves only the
+/// wash under each bar, and the wash is fixed to the screen, so the column tops agree at
+/// any scroll position. The glow is already tuned for the bar's title to read on it,
+/// which is the job the edge effect was doing.
+///
+/// The fade covers the whole top safe area, including any `safeAreaBar` applied outside
+/// this modifier (the status tabs), and ends where it does, so content at rest is never
+/// faded.
+///
+/// Disabled, it leaves the system effect in place and the mask fully opaque. It stays
+/// applied either way rather than switching branches, so a size-class change doesn't
+/// rebuild the scroll view and lose its position.
+private struct WashFadeEdge: ViewModifier {
+    let isEnabled: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .scrollEdgeEffectHidden(isEnabled, for: .top)
+            .mask {
+                // The reader stays inside the safe area so it can report the top inset; only
+                // the shape it draws extends under the bar.
+                GeometryReader { proxy in
+                    VStack(spacing: 0) {
+                        // Clear under the upper part of the bar, where the title and
+                        // buttons sit, then dissolving into the content below it.
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 0),
+                                .init(color: .clear, location: 0.6),
+                                .init(color: .black.opacity(0.4), location: 0.85),
+                                .init(color: .black, location: 1),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: isEnabled ? proxy.safeAreaInsets.top : 0)
+                        Color.black
+                    }
+                    .ignoresSafeArea()
+                }
+            }
+    }
+}
+
+extension View {
+    /// Fades content into the wash under the bar when `isEnabled` (see `WashFadeEdge`).
+    func washFadeEdge(_ isEnabled: Bool) -> some View {
+        modifier(WashFadeEdge(isEnabled: isEnabled))
+    }
+}
+
 // MARK: - Catalogue Band
 
 /// How far the item list has scrolled past its top, for the band to collapse by.

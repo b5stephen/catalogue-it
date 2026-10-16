@@ -102,6 +102,16 @@ struct CatalogueDetailView: View {
 #endif
     }
 
+    /// Whether the list shares the glow with a detail column beside it, on iOS. macOS keeps
+    /// its own window chrome and the system edge effect.
+    private var sharesGlowWithDetail: Bool {
+#if os(iOS)
+        hasDetailColumn
+#else
+        false
+#endif
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -124,6 +134,11 @@ struct CatalogueDetailView: View {
                     .accessibilityHidden(true)
             }
         )
+        // Beside a detail column the cards fade into the glow under the bar rather than
+        // blurring, so the top matches the detail column's at any scroll position. Inside
+        // the tabs' `safeAreaBar`, so the fade runs under them too. Pushed on its own the
+        // band covers that edge, and the soft effect below stays.
+        .washFadeEdge(sharesGlowWithDetail)
 #if os(iOS)
         // Under the trailing end of the bar, where the Export menu (or the overflow holding
         // it) sits, so the share popover points back at what the user tapped.
@@ -157,16 +172,16 @@ struct CatalogueDetailView: View {
         }
         .safeAreaBar(edge: .top) {
             // Beside a detail column there is no band to carry the tabs. As a bar they sit on
-            // the glow and inside the soft scroll edge, so the cards blur out before they
-            // reach them rather than passing sharply beneath.
+            // the glow and inside the wash fade edge, so the cards fade out before they reach
+            // them rather than passing sharply beneath.
             if !usesBand && !statusTabs.isEmpty {
                 StatusTabBar(tabs: statusTabs, catalogue: catalogue, selection: $selectedTab)
                     .padding(.horizontal)
                     .padding(.vertical, 8)
             }
         }
-        // A soft edge fades and blurs the cards progressively as they pass under the bar,
-        // rather than a hard line.
+        // Where the fade edge is off (pushed under the band, and macOS), a soft edge fades
+        // and blurs the cards progressively as they pass under the bar, rather than a hard line.
         .scrollEdgeEffectStyle(.soft, for: .top)
         .background(CatalogueWash(catalogue: catalogue, glow: !usesBand))
         .tint(catalogue.palette(for: colorScheme).tint)

@@ -14,6 +14,7 @@ struct ItemDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.catalogueWashEdges) private var washEdges
+    @Environment(\.hasDetailColumn) private var hasDetailColumn
 
     let catalogue: Catalogue
     let item: CatalogueItem
@@ -61,6 +62,16 @@ struct ItemDetailView: View {
         return lines.joined(separator: "\n")
     }
 
+    /// Whether this is the detail column beside the item list, on iOS. Pushed in compact
+    /// width the environment says there is no detail column; macOS keeps its own chrome.
+    private var isBesideList: Bool {
+#if os(iOS)
+        hasDetailColumn
+#else
+        false
+#endif
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -90,6 +101,9 @@ struct ItemDetailView: View {
                 .padding()
             }
         }
+        // Beside the item list, the photos and cards fade into the glow under the bar the
+        // same way the list's cards do, so the two column tops match while either scrolls.
+        .washFadeEdge(isBesideList)
         // The same ground as the item list, so pushing an item changes the content and nothing
         // about the room it sits in. No band here: the band is the list's title, and this
         // screen has its own.
@@ -97,12 +111,14 @@ struct ItemDetailView: View {
         // is where that column floats; otherwise it fills the screen.
         .background(CatalogueWash(catalogue: catalogue, edges: washEdges, glow: true))
         .tint(catalogue.palette(for: colorScheme).tint)
-        // Deliberately no `.navigationBarTitleDisplayMode(.inline)`. This is a pushed screen
-        // in the main navigation chain, like the catalogue list and the item list, so it uses
-        // the same large title that collapses into the bar as the content scrolls. Inline is
-        // reserved for the sheets, where there is nothing to collapse into.
-        //
-        // No subtitle either: the catalogue is the screen the user just came from, so naming
+#if os(iOS)
+        // Pushed, this is a screen in the main navigation chain like the catalogue list, so
+        // it uses the large title that collapses into the bar as the content scrolls. Beside
+        // the item list it is inline instead, matching that column's bar, so the two bars are
+        // the same height and the fade starts at the same line in both.
+        .toolbarTitleDisplayMode(isBesideList ? .inline : .automatic)
+#endif
+        // No subtitle: the catalogue is the screen the user just came from, so naming
         // it again here is repetition. The subtitle slot earns its place on the item list,
         // where the count says something the title doesn't.
         .navigationTitle(primaryValue)

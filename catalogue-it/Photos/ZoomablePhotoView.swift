@@ -97,6 +97,11 @@ struct ZoomablePhotoView: View {
             .onChange(of: currentlyZoomed) { _, zoomed in
                 isZoomed = zoomed
             }
+            // Pan is only clamped by gestures, so a resize while zoomed (rotation, a foldable
+            // opening, a window resized) could leave an image edge past the view's edge.
+            .onChange(of: geometry.size) { _, newSize in
+                panOffset = clampedOffset(panOffset, zoom: zoomScale, in: newSize)
+            }
         }
         .task(id: imageData) {
             let data = imageData

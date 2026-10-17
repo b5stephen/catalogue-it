@@ -85,6 +85,7 @@ struct PhotoPickerView: View {
                         Label("Take Photo", systemImage: "camera")
                     }
                     .disabled(isLoadingPhotos)
+                    .background(CameraPresentationAnchor(coordinator: cameraCoordinator))
                 }
                 #endif
             }
@@ -121,8 +122,8 @@ struct PhotoPickerView: View {
                 onCapture: { image in appendCapturedPhoto(image) },
                 onDismiss: { isCameraPresented = false; cameraCoordinator = nil }
             )
+            // Presented by the CameraPresentationAnchor on the button, from its window.
             cameraCoordinator = coordinator
-            coordinator.present()
         }
         #endif
     }

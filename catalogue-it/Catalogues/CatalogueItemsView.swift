@@ -50,14 +50,26 @@ struct CatalogueItemsView<Header: View>: View {
     var body: some View {
         Group {
             if pagination.items.isEmpty && !pagination.isLoadingMore {
-                VStack(spacing: 0) {
-                    header
-                    CatalogueEmptyStateView(
-                        catalogue: catalogue,
-                        statusTab: statusTab,
-                        hasActiveFlags: !activeFlagIDs.isEmpty,
-                        isFiltered: !searchText.isEmpty && pagination.hasAnyItems
-                    )
+                // In a scroll view, like the lists it stands in for. Bare, a landscape iPhone
+                // (compact height) spun forever laying out the push: with no scroll view to
+                // tie the search bar and bar edge to, UIKit kept re-resolving the bars against
+                // the band's spacer and never settled. At least the visible height, so the
+                // message centres in what the header leaves; taller where that is too short
+                // for it, so it scrolls rather than being squeezed under the band.
+                GeometryReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            header
+                            CatalogueEmptyStateView(
+                                catalogue: catalogue,
+                                statusTab: statusTab,
+                                hasActiveFlags: !activeFlagIDs.isEmpty,
+                                isFiltered: !searchText.isEmpty && pagination.hasAnyItems
+                            )
+                        }
+                        .frame(minHeight: proxy.size.height)
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
                 }
             } else {
                 switch catalogue.itemLayout {

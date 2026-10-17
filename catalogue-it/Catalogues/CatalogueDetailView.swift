@@ -19,6 +19,11 @@ struct CatalogueDetailView: View {
 #if !os(macOS)
     @Environment(\.hasDetailColumn) private var hasDetailColumn
 #endif
+#if os(iOS)
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    /// Drives the search field when `drawsOwnSearchButton` stands in for the system's.
+    @State private var isSearchPresented = false
+#endif
 
     @State private var selectedTab: StatusTab = .all
     /// The catalogue `selectedTab` was seeded for. `.task` is cancelled and re-run whenever
@@ -111,6 +116,22 @@ struct CatalogueDetailView: View {
         false
 #endif
     }
+
+#if os(iOS)
+    /// Beside a detail column in a compact-height window — a large iPhone in landscape —
+    /// the system's minimised search lands in the bottom bar, floating across both columns
+    /// over their content. Toolbar search only sits in the top bar on iPad, and that
+    /// placement can't be requested, so here the column's top bar carries a search button
+    /// of our own, which opens the field in that bar. A compact-height window never occurs
+    /// on iPad, which keeps the system button.
+    private var drawsOwnSearchButton: Bool {
+        hasDetailColumn && verticalSizeClass == .compact
+    }
+
+    private var searchPlacement: SearchFieldPlacement {
+        drawsOwnSearchButton ? .navigationBarDrawer(displayMode: .automatic) : .automatic
+    }
+#endif
 
     // MARK: - Body
 
@@ -223,7 +244,11 @@ struct CatalogueDetailView: View {
             }
         }
 #endif
+#if os(iOS)
+        .searchable(text: $searchText, isPresented: $isSearchPresented, placement: searchPlacement)
+#else
         .searchable(text: $searchText)
+#endif
 #if os(iOS)
         // Beside a detail column iOS draws the field as a full-width row at the top of the
         // list, above the status tabs. Minimised it is a toolbar button instead. Pushed on its
@@ -285,6 +310,15 @@ struct CatalogueDetailView: View {
             // rest, rather than a hand-rolled menu sitting beside it and crowding the bar.
             ToolbarItem(placement: .primaryAction) {
                 AddItemButton(showingAddItem: $showingAddItem)
+            }
+            // Stands in for the system's search button; see `drawsOwnSearchButton`. iPad puts
+            // its own after the overflow menu, which an app's items can't follow.
+            if drawsOwnSearchButton {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Search", systemImage: "magnifyingglass") {
+                        isSearchPresented = true
+                    }
+                }
             }
             if !flagFields.isEmpty {
                 ToolbarItem(placement: .secondaryAction) {

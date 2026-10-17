@@ -20,6 +20,19 @@ struct EditItemNotesSheet: View {
 
     @State private var notes: String
     @FocusState private var isEditorFocused: Bool
+    @State private var detent: PresentationDetent = .medium
+    @State private var hasSizedToNotes = false
+
+    private static let sheetInset: CGFloat = 16
+    private static let textInset: CGFloat = 8
+    private static let editorCornerRadius = AppConstants.CornerRadius.medium
+
+    /// Matches a `Form` row, so the field reads like the fields in the other edit sheets.
+#if os(iOS)
+    private static let fieldBackground = Color(uiColor: .secondarySystemGroupedBackground)
+#else
+    private static let fieldBackground = Color(nsColor: .controlBackgroundColor)
+#endif
 
     init(item: CatalogueItem) {
         self.item = item
@@ -42,18 +55,24 @@ struct EditItemNotesSheet: View {
         NavigationStack {
             TextEditor(text: $notes)
                 .focused($isEditorFocused)
-                .padding(.horizontal, 12)
+                .scrollContentBackground(.hidden)
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
+                    expandIfNotesOverflow(editorSize: size)
+                }
+                .padding(Self.textInset)
                 .overlay(alignment: .topLeading) {
                     // `TextEditor` has no placeholder. Inert, so the tap still lands in the editor.
                     if notes.isEmpty {
                         Text("Add notes…")
                             .foregroundStyle(.tertiary)
-                            .padding(.horizontal, 17)
-                            .padding(.top, 8)
+                            .padding(.horizontal, Self.textInset + 5)
+                            .padding(.top, Self.textInset + 8)
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
                     }
                 }
+                .background(Self.fieldBackground, in: .rect(cornerRadius: Self.editorCornerRadius, style: .continuous))
+                .padding(Self.sheetInset)
                 .navigationTitle("Notes")
 #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
@@ -70,14 +89,41 @@ struct EditItemNotesSheet: View {
 #if os(macOS)
         .frame(minWidth: 420, minHeight: 320)
 #endif
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
         // A swipe-down would silently drop edits.
         .interactiveDismissDisabled(hasChanges)
-        .onAppear { isEditorFocused = true }
+        // On iPhone the keyboard leaves no room for the medium detent, so focusing on open pushes
+        // the sheet to full height. Only jump straight into typing when there's nothing to read.
+        .onAppear { isEditorFocused = notes.isEmpty }
     }
 
     // MARK: - Actions
+
+    /// Decided once, from the first layout at the medium detent; after that the height is the user's.
+    private func expandIfNotesOverflow(editorSize: CGSize) {
+        guard !hasSizedToNotes, editorSize.width > 0, editorSize.height > 0 else { return }
+        hasSizedToNotes = true
+#if os(iOS)
+        if !notes.isEmpty && Self.textHeight(of: notes, width: editorSize.width) > editorSize.height {
+            detent = .large
+        }
+#endif
+    }
+
+#if os(iOS)
+    /// Measured with TextKit rather than a hidden `Text`, whose first layout pass can be at zero width.
+    /// The insets are `UITextView`'s defaults: 5pt line-fragment padding, 8pt top and bottom.
+    private static func textHeight(of text: String, width: CGFloat) -> CGFloat {
+        let bounds = (text as NSString).boundingRect(
+            with: CGSize(width: width - 10, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: UIFont.preferredFont(forTextStyle: .body)],
+            context: nil
+        )
+        return bounds.height.rounded(.up) + 16
+    }
+#endif
 
     private func cancel() {
         dismiss()

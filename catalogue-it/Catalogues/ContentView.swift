@@ -49,11 +49,6 @@ struct ContentView: View {
     /// Read here, outside the split view, so it reflects the window and not a column.
     private var hasDetailColumn: Bool { horizontalSizeClass != .compact }
     @State private var columnVisibility: NavigationSplitViewVisibility = .doubleColumn
-    /// The catalogue whose wash sits behind the split view: the open item's, which outlives
-    /// the pop back to the catalogue list, or else the catalogue being browsed.
-    private var washCatalogue: Catalogue? {
-        selectedItem?.catalogue ?? selectedCatalogue
-    }
 #endif
 
     var body: some View {
@@ -181,16 +176,6 @@ struct ContentView: View {
                     }
             }
             .navigationSplitViewColumnWidth(min: 280, ideal: 420, max: 560)
-            // The same wash behind the whole split view, under the columns' own (see
-            // `catalogueGround`), so nothing plain shows between or around them — the margin
-            // round the leading column where it floats as a panel on iOS 26, or that column
-            // while it shows the catalogue list. Fine there: it is the colour of the catalogue
-            // still open beside it.
-            .containerBackground(for: .navigationSplitView) {
-                if hasDetailColumn, let catalogue = washCatalogue {
-                    CatalogueWash(catalogue: catalogue, glow: true)
-                }
-            }
         } detail: {
             // The item's own catalogue, not the selected one: the item outlives the pop back
             // to the catalogue list, where nothing is selected.

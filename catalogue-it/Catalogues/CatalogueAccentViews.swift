@@ -32,8 +32,9 @@ struct CatalogueWash: View {
     /// The glow is fixed to the screen rather than the content, so it never moves when the
     /// content scrolls. That is the point of it beside a split view: a band scrolling away in
     /// one column while the other stayed put made the two columns disagree about their top
-    /// edge at almost any scroll position. There one wash sits behind the whole split view
-    /// (see `ContentView`), so both column tops share the same glow. Strong enough in light
+    /// edge at almost any scroll position. Every column there draws it identically from the
+    /// top of the screen (see `catalogueGround`), so the tops line up across the divider.
+    /// Strong enough in light
     /// to carry the catalogue's colour the way the band does, but still light enough at its
     /// strongest that the bar's standard title colour reads over it.
     var glow = false

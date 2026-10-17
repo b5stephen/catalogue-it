@@ -87,6 +87,13 @@ struct ContentView: View {
                 selectedItem = nil
             }
         }
+        // In one column a selected item is pushed the moment its catalogue opens, so one kept for
+        // the detail column would jump straight past the catalogue.
+        .onChange(of: hasDetailColumn) { _, hasDetailColumn in
+            if !hasDetailColumn && cataloguePath.isEmpty {
+                selectedItem = nil
+            }
+        }
 #endif
         .alert(
             "Import Failed",

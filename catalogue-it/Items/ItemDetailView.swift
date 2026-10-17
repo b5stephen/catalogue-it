@@ -77,7 +77,10 @@ struct ItemDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 if !sortedPhotos.isEmpty {
+                    // The split view's detail column keeps this view across selections; keying
+                    // the carousel to the item starts each item on its first photo.
                     PhotoCarouselView(photos: sortedPhotos)
+                        .id(item.persistentModelID)
                 }
 
                 VStack(alignment: .leading, spacing: 18) {

@@ -198,8 +198,7 @@ struct AddEditCatalogueView: View {
 #if os(iOS)
                 ToolbarItem(placement: .principal) {
                     // Show a preview of icon + color
-                    Image(systemName: selectedIcon)
-                        .foregroundStyle(selectedColor)
+                    CatalogueIconView(iconName: selectedIcon, color: selectedColor, size: 17)
                 }
 #endif
             }

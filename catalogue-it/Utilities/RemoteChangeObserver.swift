@@ -11,62 +11,48 @@ import os
 // MARK: - Notification
 
 extension Notification.Name {
-    /// Posted on the main queue once `RemoteChangeObserver` has finished a pass, i.e. after
-    /// the merged rows are on disk *and* the derived state that depends on them (facet
-    /// mirrors, thumbnail caches) has been brought back in step. `ItemPaginationController`
-    /// reloads on this without its count guard, since an edit merged from another device
-    /// changes no count. Expect it after local saves too: once an export completes, the
-    /// mirroring context writes CloudKit system fields back into the store, and that write
-    /// is a remote change as far as the coordinator is concerned.
+    /// After a pass, once merged rows *and* their derived state are in step. Also follows local
+    /// saves: after an export the mirroring context writes CloudKit system fields back, which
+    /// the coordinator reports as a remote change.
     static let remoteChangesMerged = Notification.Name("catalogue-it.remoteChangesMerged")
 }
 
 // MARK: - Remote Change Observer
 
-/// Reacts to changes merged into the store by CloudKit sync.
-///
-/// Local writes go through code that keeps derived state in step — facet mirrors, thumbnail
-/// caches, background deletion. A change arriving from another device bypasses all of it: the
-/// row simply appears in the store. This observer is the equivalent hook for that path.
-///
-/// `NSPersistentStoreRemoteChange` fires once per merged batch, so a first sync of a large
-/// catalogue posts it repeatedly; everything here is debounced into a single pass.
+/// Local writes keep derived state in step; a change merged from another device bypasses all
+/// of that, and this is its hook. `NSPersistentStoreRemoteChange` fires per merged batch, so
+/// passes are debounced.
 @MainActor
 enum RemoteChangeObserver {
     private static let logger = Logger(subsystem: "catalogue-it", category: "RemoteChangeObserver")
 
-    /// Long enough to collapse a burst of merges into one pass, short enough that the UI
-    /// corrects itself while the user is still looking at it.
     private static let debounce = Duration.seconds(1.5)
 
     private static var container: ModelContainer?
     private static var observer: NSObjectProtocol?
     private static var pendingWork: Task<Void, Never>?
 
-    /// The last history transaction examined. `nil` until the first pass, which reads from
-    /// launch instead: anything merged while the app was not running is imported again
-    /// after launch, so it lands after that point.
+    /// `nil` until the first pass, which reads from launch: anything merged while the app wasn't
+    /// running is imported again after launch.
     private static var lastHistoryToken: NSPersistentHistoryToken?
     private static var launchDate = Date.now
 
-    /// The coordinator behind the store, taken from the notification that announces a remote
-    /// change (its `object`). History is read through it with Core Data, never through
-    /// `ModelContext.fetchHistory` — see `PersistentHistoryReader` for why that call is banned.
+    /// From the remote-change notification's `object`: the only handle SwiftData gives on the
+    /// Core Data stack, and what history is read through (never `ModelContext.fetchHistory` —
+    /// see `PersistentHistoryReader`).
     private static var coordinator: NSPersistentStoreCoordinator?
     private static var loggedMissingCoordinator = false
 
-    /// Stamped on the main context so its own transactions can be told apart from the
-    /// mirroring's in persistent history.
+    /// Stamped on the main context to tell its transactions from the mirroring's.
     static let mainContextAuthor = "catalogue-it.main"
 
-    /// Fingerprint of each catalogue's field configuration as of the last pass. Facet mirrors
-    /// are only rebuilt for catalogues whose fingerprint actually moved — a full rebuild walks
-    /// every item, and catalogues can hold 2000+.
+    /// Facet mirrors are rebuilt only for catalogues whose fingerprint moved: a rebuild walks
+    /// every item.
     private static var fieldFingerprints: [PersistentIdentifier: String] = [:]
 
     // MARK: - Lifecycle
 
-    /// Call once at app startup, after `container` is built.
+    /// Call once at startup, after `container` is built.
     static func start(container: ModelContainer) {
         guard observer == nil else { return }
         self.container = container
@@ -79,7 +65,7 @@ enum RemoteChangeObserver {
             object: nil,
             queue: nil
         ) { notification in
-            // The coordinator is not Sendable; it is only ever touched on the main actor.
+            // Not Sendable; only touched on the main actor.
             nonisolated(unsafe) let object = notification.object
             Task { @MainActor in
                 if let coordinator = object as? NSPersistentStoreCoordinator {
@@ -104,22 +90,17 @@ enum RemoteChangeObserver {
     private static func runPass() async {
         guard let container else { return }
 
-        // Deletions flagged on another device. `resumePendingDeletions` is otherwise only
-        // called at launch, so without this a catalogue deleted elsewhere stays on disk
-        // (hidden from the UI) for the rest of the session.
+        // Otherwise only resumed at launch, so a catalogue deleted elsewhere would stay on disk for
+        // the session.
         BackgroundDeletionActor.resumePendingDeletions()
 
-        // A photo replaced on another device arrives under the same local identifier, so both
-        // thumbnail caches would keep serving the old image with nothing to invalidate them.
-        // Clearing wholesale rather than diffing is deliberate: regeneration is lazy and
-        // per-row (see ItemRowView/ItemCardView), so only the handful of rows actually on
-        // screen pay for it, and thumbnails are always regenerable from the source photos.
-        // Rows have landed; let the sync indicator's count catch up.
+        // A photo replaced elsewhere arrives under the same local identifier, so both caches would
+        // keep the old image. Cleared wholesale: regeneration is lazy and per visible row.
         CloudKitSyncMonitor.shared.refreshCount()
 
         await ImageCache.shared.removeAll()
         ThumbnailLoader.clearDiskCache()
-        // Mounted rows still hold their decoded image; this is what makes them look again.
+        // Mounted rows still hold their decoded image; this makes them look again.
         ThumbnailCacheState.shared.invalidateAll()
 
         await recomputeFacetsForChangedCatalogues(in: container.mainContext)
@@ -131,23 +112,14 @@ enum RemoteChangeObserver {
 
     // MARK: - Derived columns of merged items
 
-    /// A field value edited on another device arrives on its own: CloudKit merges per record,
-    /// so the `FieldValue` row is right but everything derived from the item's full set of
-    /// values — the search blob, the facet mirrors, and the tiebreak key on every sibling —
-    /// was computed on that device from *its* view of the item, which may not have had this
-    /// device's edits yet. Recomputing here brings them back in step.
+    /// A field value edited elsewhere arrives alone, so everything derived from the item's whole
+    /// set of values (search text, facets, sibling tiebreak keys) is stale here.
     ///
-    /// The write this makes is itself exported, which is safe only because the recompute is
-    /// deterministic and compare-before-assign (see `ItemDerivedColumns`): the other device
-    /// imports it, recomputes, gets the same values and writes nothing. To keep even that
-    /// round trip from being a trigger, only merged **field content** counts — a merged
-    /// `CatalogueItem` row, or a `FieldValue` whose only changed attributes are derived ones,
-    /// starts nothing.
-    ///
-    /// Which rows merged comes from persistent history: the transactions since the last pass
-    /// not authored by the main context (the only context that writes field values; the
-    /// others only delete, which is ignored here). Undo registration is off for the write —
-    /// this is upkeep, not the user's edit — and `modifiedDate` is never touched.
+    /// The recompute is exported too, which is safe only because it is deterministic and
+    /// compare-before-assign (`ItemDerivedColumns`). Only merged field *content* triggers it, not
+    /// a merged item row or derived-only change. Merged rows come from persistent history:
+    /// transactions not authored by the main context, the only one that writes field values.
+    /// Undo registration is off and `modifiedDate` is never touched.
     private static func recomputeDerivedColumnsForMergedValues(in context: ModelContext) async {
         let itemDates: Set<Date>
         do {
@@ -158,7 +130,6 @@ enum RemoteChangeObserver {
         }
         guard !itemDates.isEmpty else { return }
 
-        // The item behind each value; skip anything on its way out.
         let dates = Array(itemDates)
         let candidates = (try? context.fetch(FetchDescriptor<CatalogueItem>(
             predicate: #Predicate { dates.contains($0.createdDate) && $0.deletedDate == nil }))) ?? []
@@ -185,16 +156,15 @@ enum RemoteChangeObserver {
             do {
                 try context.save()
             } catch {
-                // Leaving the changes pending would make the user's next save fail too.
+                // Pending changes would make the user's next save fail too.
                 context.rollback()
                 logger.error("Derived-column recompute failed to save: \(error, privacy: .public)")
             }
         }
     }
 
-    /// `createdDate` of every item with a `FieldValue` inserted or content-updated by someone
-    /// other than the main context since the last pass, advancing the token. Nothing to read
-    /// until a notification has handed over the coordinator.
+    /// `createdDate` of every item whose `FieldValue`s another context inserted or changed since the
+    /// last pass. Empty until a notification has handed over the coordinator.
     private static func mergedFieldContent() throws -> Set<Date> {
         guard let coordinator else {
             if !loggedMissingCoordinator {
@@ -206,18 +176,15 @@ enum RemoteChangeObserver {
         let start: PersistentHistoryReader.Start = lastHistoryToken.map { .token($0) } ?? .date(launchDate)
         let merged = try PersistentHistoryReader.mergedFieldContent(
             coordinator: coordinator, since: start, excludingAuthor: mainContextAuthor)
-        // Advances on a successful read, not on a successful recompute: if the recompute's
-        // save fails, these transactions are not revisited.
+        // Advances on a read, not a recompute: a failed save doesn't revisit these.
         if let newest = merged.newestToken { lastHistoryToken = newest }
         return merged.itemCreatedDates
     }
 
     // MARK: - Facet mirrors
 
-    /// `CatalogueItem.statusValue` / `.flagKeys` mirror field values *interpreted through the
-    /// field's configuration*, so a `FieldDefinition` edited on another device invalidates
-    /// them even though no item changed — items would filter into the wrong tab. Only
-    /// catalogues whose field configuration actually moved are swept.
+    /// The mirrors interpret values through field configuration, so a `FieldDefinition` edited
+    /// elsewhere invalidates them though no item changed.
     private static func recomputeFacetsForChangedCatalogues(in context: ModelContext) async {
         let catalogues = (try? context.fetch(FetchDescriptor<Catalogue>(
             predicate: #Predicate { !$0.pendingDeletion }))) ?? []
@@ -233,8 +200,7 @@ enum RemoteChangeObserver {
         }
     }
 
-    /// Seeds the fingerprint cache at launch so the first remote change doesn't rebuild every
-    /// catalogue just because nothing was recorded yet.
+    /// So the first remote change doesn't rebuild every catalogue.
     private static func seedFingerprints() {
         guard let context = container?.mainContext else { return }
         let catalogues = (try? context.fetch(FetchDescriptor<Catalogue>())) ?? []
@@ -243,8 +209,7 @@ enum RemoteChangeObserver {
         }
     }
 
-    /// Everything a facet mirror is derived from: which fields carry a display role, and the
-    /// option set each one is interpreted against.
+    /// Which fields carry a display role, and the option set each is read against.
     private static func fingerprint(for catalogue: Catalogue) -> String {
         catalogue.sortedFieldDefinitions
             .map { definition in

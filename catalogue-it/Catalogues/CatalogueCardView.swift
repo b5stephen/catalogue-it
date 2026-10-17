@@ -8,26 +8,16 @@ import SwiftData
 
 // MARK: - Catalogue Card View
 
-/// A catalogue as a standalone card on the Catalogues screen.
-///
-/// Still rendered as a `List` row rather than in a `LazyVStack`: `swipeActions` is a
-/// `List`-only modifier, and staying in a list also keeps `onMove` reordering and the
-/// VoiceOver action rotor for free. The card look comes from a clear `listRowBackground` plus
-/// `listRowSpacing` — see `CatalogueSidebar`. Using `listRowSpacing` for the gaps rather than
-/// vertical `listRowInsets` matters: insets would inflate the row rect and leave the swipe
-/// buttons standing taller than the card.
-///
-/// Because the row background is clear, the system selection highlight no longer draws. The
-/// card can't signal selection by becoming coloured either — it already is — so selection is an
-/// inset ring in the card's own foreground colour, which reads on any fill. The app no longer
-/// keeps a catalogue selected while its list is on screen (the items are pushed over it), so
-/// `isSelected` is unused there; it stays for the preview and any future use.
+/// A `List` row, not a `LazyVStack` child, for `swipeActions`, `onMove` and the VoiceOver
+/// rotor. Gaps come from `listRowSpacing`, not insets, which would leave the swipe buttons
+/// taller than the card. The clear row background hides the system highlight, and the card is
+/// already coloured, so selection is an inset ring in its foreground colour. Nothing keeps a
+/// catalogue selected in the app today; `isSelected` serves the preview.
 struct CatalogueCardView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     let catalogue: Catalogue
-    /// Drives the selected appearance.
     var isSelected: Bool = false
 
     private var shape: RoundedRectangle {
@@ -64,16 +54,14 @@ struct CatalogueCardView: View {
         }
         .padding(AppConstants.CatalogueCard.contentPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // The accent is the card, as a duotone gradient — see `CataloguePalette`. The neutral
-        // base underneath still matters: the fill is opaque, but a near-grey catalogue leans on
-        // it, and it keeps the corners from showing through during the row's insert animation.
+        // Duotone — see `CataloguePalette`. The neutral base matters for near-grey catalogues and
+        // keeps the corners from showing through during the insert animation.
         .background {
             shape
                 .fill(.background.secondary)
                 .overlay { shape.fill(palette.fill) }
                 .overlay {
-                    // Inset so the ring sits *inside* the card rather than fattening its edge,
-                    // which would make a selected row look a different size from its neighbours.
+                    // Inset, so a selected card isn't a different size from its neighbours.
                     shape
                         .inset(by: palette.isSelected ? 2 : 0)
                         .strokeBorder(palette.border, lineWidth: palette.borderWidth)
@@ -87,8 +75,7 @@ struct CatalogueCardView: View {
         .accessibilityIdentifier("catalogue-\(catalogue.name)")
     }
 
-    /// A translucent pane over the gradient rather than a colour of its own, so it reads
-    /// consistently wherever on the ramp it sits and doesn't compete with the fill.
+    /// Translucent rather than a colour, so it reads anywhere on the ramp.
     private func iconTile(_ palette: CataloguePalette) -> some View {
         CatalogueIconView(iconName: catalogue.iconName, color: palette.iconGlyph, size: 28)
             .frame(
@@ -105,9 +92,8 @@ struct CatalogueCardView: View {
 
 // MARK: - Preview
 
-/// A spread of picks that each used to fail in one appearance or the other: a mid blue, a dark
-/// navy and a deep maroon (invisible in dark mode), a pale yellow (invisible in light mode) and
-/// a near-neutral grey, which must stay grey rather than being forced into a colour.
+/// Picks that each failed in one appearance: mid blue, navy and maroon (dark), pale yellow
+/// (light), and a near-grey that must stay grey.
 private struct CatalogueCardGallery: View {
     let catalogues: [Catalogue]
 
@@ -154,8 +140,6 @@ private func previewCatalogues() -> (ModelContainer, [Catalogue]) {
     return (container, catalogues)
 }
 
-// Xcode's preview variants cover light and dark from this one definition, so there is no
-// second scheme-pinned copy to keep in step.
 #Preview("Catalogue cards") {
     let (container, catalogues) = previewCatalogues()
     CatalogueCardGallery(catalogues: catalogues)

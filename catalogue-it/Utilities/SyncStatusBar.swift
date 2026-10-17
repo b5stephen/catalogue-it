@@ -7,15 +7,9 @@ import SwiftUI
 
 // MARK: - Sync Status Bar
 
-/// Slim status line pinned below the catalogue list, in the manner of Mail's
-/// "Updated Just Now" line. Text only, no bar material: a full-width strip read fine on iPhone
-/// but sat oddly across the narrow sidebar column on iPad.
-///
-/// It renders nothing at all when idle — including when the user isn't signed into iCloud,
-/// which is a deliberate choice rather than a fault. Progress is indeterminate because
-/// CloudKit reports no record counts; the number shown is how many items have landed locally
-/// during this run, and only once there are some, which is true without implying a total we
-/// can't know.
+/// Text only, like Mail's "Updated Just Now": a full-width strip sat oddly in the iPad sidebar.
+/// Renders nothing when idle or signed out of iCloud. The count is items landed during this
+/// run, shown once there are some, which implies no total we can't know.
 struct SyncStatusBar: View {
     let status: CloudKitSyncMonitor.Status
     var onShowError: () -> Void
@@ -37,8 +31,7 @@ struct SyncStatusBar: View {
             }
 
         case .syncing(.upload, _):
-            // No count going up: the local item total says nothing about how much is still
-            // queued for upload, and showing it would imply progress we can't measure.
+            // The local total says nothing about what is still queued.
             row {
                 ProgressView()
                     .controlSize(.mini)

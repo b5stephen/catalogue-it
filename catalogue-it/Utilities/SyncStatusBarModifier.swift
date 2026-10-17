@@ -7,13 +7,8 @@ import SwiftUI
 
 // MARK: - Sync Status Bar Modifier
 
-/// Pins `SyncStatusBar` below the content and wires up its error alert.
-///
-/// Applied to the catalogue list only. Two attempts to put it elsewhere were dropped: an
-/// inset on the `NavigationSplitView` doesn't reach columns pushed onto their own stack in
-/// compact width, and on the item screen iOS 26 renders `.searchable` as a bottom bar that
-/// occupies the same edge. The catalogue list is also where a user waits on a sync, so it is
-/// the screen that needs it.
+/// On the catalogue list only: a split-view inset doesn't reach columns pushed onto their own
+/// stack in compact width, and on the item screen iOS 26 puts `.searchable` on the same edge.
 private struct SyncStatusBarModifier: ViewModifier {
     @State private var showingError = false
 
@@ -26,8 +21,7 @@ private struct SyncStatusBarModifier: ViewModifier {
                     .animation(.default, value: status)
             }
             .sheet(isPresented: $showingError) {
-                // A sheet rather than an alert: an alert can only carry the one-line message,
-                // and the per-record detail behind it is the whole reason this exists.
+                // A sheet: an alert can't carry the per-record detail.
                 SyncDiagnosticsView(headline: {
                     if case .failed(let message) = status { return message }
                     return nil
@@ -37,7 +31,7 @@ private struct SyncStatusBarModifier: ViewModifier {
 }
 
 extension View {
-    /// Shows the CloudKit sync indicator below this view. Renders nothing while idle.
+    /// Renders nothing while idle.
     func cloudSyncStatusBar() -> some View {
         modifier(SyncStatusBarModifier())
     }

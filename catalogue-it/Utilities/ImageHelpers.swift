@@ -10,7 +10,6 @@ import SwiftUI
 // MARK: - Data + Image
 
 extension Data {
-    /// Creates a SwiftUI Image from raw image data, or nil if the data is not a valid image.
     func asImage() -> Image? {
 #if os(iOS)
         guard let uiImage = UIImage(data: self) else { return nil }
@@ -23,8 +22,7 @@ extension Data {
 #endif
     }
 
-    /// Scales image data to fit within a square of `maxDimension` pts, encoded as JPEG at 0.7 quality.
-    /// Never upscales. Returns nil if the data is not a valid image.
+    /// JPEG at 0.7 within a `maxDimension` square. Never upscales.
     func makeThumbnail(maxDimension: CGFloat = 300) -> Data? {
 #if os(iOS)
         guard let source = UIImage(data: self) else { return nil }
@@ -52,7 +50,6 @@ extension Data {
 #endif
     }
 
-    /// Compresses image data to JPEG at the given quality (0–1), cross-platform.
     func compressedAsJPEG(quality: CGFloat = 0.8) -> Data? {
 #if os(iOS)
         UIImage(data: self)?.jpegData(compressionQuality: quality)

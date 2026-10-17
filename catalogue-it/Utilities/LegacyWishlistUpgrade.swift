@@ -7,30 +7,21 @@ import Foundation
 
 // MARK: - Legacy Wishlist Upgrade
 
-/// Converts pre-v2 export files, where wishlist membership was a hardcoded `isWishlist`
-/// boolean on every item, into the current model where it is an ordinary `.statusTabs` field.
-///
-/// Export format v1 had no concept of display roles. Rather than dropping that data on
-/// import, a "Status" option-list field is synthesised for the catalogue and each item gets
-/// a field value derived from its old flag — producing exactly the configuration a user
-/// would build by hand, with no data loss.
+/// v1 export files carried wishlist as an `isWishlist` boolean on every item. Import
+/// synthesises the "Status" option-list field a user would build by hand, with a value per item.
 enum LegacyWishlistUpgrade {
 
     static let statusFieldName = "Status"
     static let ownedOption = "Owned"
     static let wishlistOption = "Wishlist"
 
-    /// The status field to synthesise for a legacy catalogue, or `nil` when no upgrade
-    /// is needed — either the file already defines a status field (v2+), or no item
-    /// carries a legacy flag.
+    /// `nil` when the file already has a status field or no item carries the legacy flag.
     ///
-    /// - Parameter fieldIDProvider: Supplies the new field's `fieldID`. Injectable so
-    ///   tests can pin it; defaults to a fresh UUID.
+    /// - Parameter fieldIDProvider: Injectable so tests can pin it.
     static func synthesisedStatusField(
         for dto: CatalogueDTO,
         fieldID: @autoclosure () -> UUID = UUID()
     ) -> FieldDefinitionDTO? {
-        // A file that already configures a status field is self-describing — leave it alone.
         guard !dto.fieldDefinitions.contains(where: { $0.displayRole == .statusTabs }) else { return nil }
         guard dto.items.contains(where: { $0.isWishlist != nil }) else { return nil }
 
@@ -48,8 +39,7 @@ enum LegacyWishlistUpgrade {
         )
     }
 
-    /// The field value carrying an item's migrated status.
-    /// Items with no legacy flag at all are treated as owned, matching the old default.
+    /// Items with no legacy flag count as owned, the old default.
     static func statusFieldValue(for item: CatalogueItemDTO, fieldID: UUID) -> FieldValueDTO {
         FieldValueDTO(
             fieldDefinitionID: fieldID,
@@ -61,8 +51,7 @@ enum LegacyWishlistUpgrade {
         )
     }
 
-    /// Avoids colliding with a field the user already named "Status", which would trip
-    /// the catalogue editor's unique-name rule on the next edit.
+    /// Avoids clashing with a user's own "Status" field under the editor's unique-name rule.
     private static func uniqueName(among existing: [String]) -> String {
         let taken = Set(existing.map { $0.lowercased() })
         guard taken.contains(statusFieldName.lowercased()) else { return statusFieldName }

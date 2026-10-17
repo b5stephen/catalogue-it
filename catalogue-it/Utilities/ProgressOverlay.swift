@@ -7,10 +7,7 @@ import SwiftUI
 
 // MARK: - Progress Overlay
 
-/// Full-screen dimmed overlay showing indeterminate or determinate progress for a
-/// long-running bulk operation (import, seed data generation, sort-key maintenance).
-/// `total == 0` renders an indeterminate spinner with `preparingText`; otherwise a
-/// linear progress bar with `current`/`total` formatted by `processingText`.
+/// `total == 0` shows an indeterminate spinner with `preparingText`.
 struct ProgressOverlay: View {
     let current: Int
     let total: Int

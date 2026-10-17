@@ -7,24 +7,15 @@ import Foundation
 
 // MARK: - Item Derived Columns
 
-/// The one place that recomputes everything derived from an item's field values: sort and
-/// tiebreak keys on each `FieldValue`, and the search blob and facet mirrors on the item.
-///
-/// Every column is assigned only when it differs from what is stored. That is what keeps
-/// the derived state safe to recompute freely — on save, in a maintenance sweep, and after
-/// a CloudKit merge — without every pass becoming an export: an item whose derived columns
-/// are already right stays clean, and a rebuild on the other device that arrives back here
-/// computes the same values and writes nothing. The encoders are deterministic across
-/// devices for the same reason (see `SearchTextBuilder`).
-///
-/// `modifiedDate` is deliberately never touched here. It records the user's last edit, and
-/// is the key the thumbnail views reload on.
+/// The one place that recomputes what derives from an item's field values. Writes only what
+/// differs, so recomputing on save, in a sweep or after a merge never turns an already-correct
+/// item into an export, and the other device's rebuild comes back as a no-op. Never touches
+/// `modifiedDate`, which records the user's last edit.
 enum ItemDerivedColumns {
 
-    /// Recomputes and, where changed, writes the derived columns for one item.
     /// - Parameters:
-    ///   - fieldValues: Every `FieldValue` belonging to the item, one per definition.
-    ///   - definitions: The catalogue's definitions, sorted by priority.
+    ///   - fieldValues: One per definition.
+    ///   - definitions: Sorted by priority.
     static func refresh(
         on item: CatalogueItem,
         fieldValues: [FieldValue],
@@ -34,7 +25,7 @@ enum ItemDerivedColumns {
             let sortKey = SortKeyEncoder.sortKey(for: value)
             if value.sortKey != sortKey { value.sortKey = sortKey }
         }
-        // Tiebreak keys depend on every field's sortKey, so they follow in a second pass.
+        // Tiebreak keys depend on every field's sortKey, so they come second.
         for value in fieldValues {
             let tiebreakKey = SortKeyEncoder.tiebreakKey(
                 for: value,

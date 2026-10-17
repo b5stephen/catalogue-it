@@ -8,8 +8,7 @@ import ImageIO
 
 // MARK: - Thumbnail Generation
 
-/// Generates JPEG thumbnail data from image data using ImageIO.
-/// Thread-safe — ImageIO has no main-thread requirement.
+/// Thread-safe: ImageIO has no main-thread requirement.
 nonisolated func makeThumbnailData(from data: Data, maxDimension: Int = 300) -> Data? {
     guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
     let thumbOptions: [CFString: Any] = [

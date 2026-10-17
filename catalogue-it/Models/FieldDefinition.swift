@@ -10,22 +10,19 @@ import SwiftData
 
 // MARK: - Field Definition
 
-/// Defines a custom field that exists in a catalogue (e.g., "Year" as a Number field)
 @Model
 final class FieldDefinition {
     // Every stored property below carries a default value: CloudKit rejects
     // non-optional attributes that have none, and the container fails to build.
-    var fieldID: UUID = UUID() // Stable identifier used for AppStorage-persisted sort preferences
+    var fieldID: UUID = UUID()
     var name: String = ""
     var fieldType: FieldType = FieldType.text
-    var priority: Int = 0 // For ordering fields in the UI
-    var fieldOptions: FieldOptions? // Type-specific configuration; only set when the field type has options
-    /// How this field is additionally surfaced in the item list (tab bar / filter toggle).
-    /// `.none` for ordinary fields, which is every field unless the user opts in.
-    // Fully-qualified default is required by the @Model macro — `.none` alone fails to compile.
+    var priority: Int = 0
+    var fieldOptions: FieldOptions? // Only set when the field type has options
+    // Fully qualified: `@Model` fails to compile a bare `.none`.
     var displayRole: DisplayRole = DisplayRole.none
     var catalogue: Catalogue?
-    // Optional for CloudKit; read through the non-optional accessor below. See Catalogue.swift.
+    // Optional for CloudKit; use the accessor below.
     @Relationship(deleteRule: .nullify, inverse: \FieldValue.fieldDefinition)
     var storedFieldValues: [FieldValue]? = []
 
@@ -43,8 +40,6 @@ final class FieldDefinition {
         self.displayRole = displayRole
     }
 
-    /// Convenience accessor for Number field options.
-    /// Returns `nil` for non-number fields; callers should handle the optional explicitly.
     var numberOptions: NumberOptions? {
         get {
             if case .number(let opts) = fieldOptions { return opts }
@@ -56,8 +51,6 @@ final class FieldDefinition {
         }
     }
 
-    /// Convenience accessor for Option List field options.
-    /// Returns `nil` for non-optionList fields; callers should handle the optional explicitly.
     var optionListOptions: OptionListOptions? {
         get {
             if case .optionList(let opts) = fieldOptions { return opts }
@@ -69,8 +62,6 @@ final class FieldDefinition {
         }
     }
 
-    /// Convenience accessor for Yes/No field options.
-    /// Returns `nil` for non-boolean fields; callers should handle the optional explicitly.
     var booleanOptions: BooleanOptions? {
         get {
             if case .boolean(let opts) = fieldOptions { return opts }
@@ -86,21 +77,17 @@ final class FieldDefinition {
 // MARK: - Display Role
 
 extension FieldDefinition {
-    /// True when this field both claims the `.statusTabs` role and satisfies its
-    /// requirements. A field whose type was changed out from under the role reads as
-    /// `false` here, so the UI degrades to "no tab bar" rather than rendering a broken one.
+    /// False for a field whose type changed out from under the role, so the UI shows no tab
+    /// bar rather than a broken one.
     var isStatusField: Bool {
         displayRole == .statusTabs && FieldDefinitionValidation.supportsStatusTabs(self)
     }
 
-    /// True when this field both claims the `.flagFilter` role and satisfies its requirements.
     var isFlagField: Bool {
         displayRole == .flagFilter && fieldType == .boolean
     }
 
-    /// Tab labels for a `.boolean`-backed status field, falling back to "Yes" and "No"
-    /// when the user hasn't named them — the same pair the field editor shows as
-    /// placeholders, so what's promised there is what actually renders.
+    /// Falls back to the same "Yes"/"No" the field editor shows as placeholders.
     var statusTabLabels: (trueLabel: String, falseLabel: String) {
         let opts = booleanOptions
         let trueLabel = opts?.trueLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -114,8 +101,7 @@ extension FieldDefinition {
 
 // MARK: - Relationship Accessors
 
-/// Non-optional view onto the CloudKit-mandated optional relationship.
-/// Must stay in an extension — see the note in Catalogue.swift.
+/// Must stay in an extension — see Catalogue.swift.
 extension FieldDefinition {
     var fieldValues: [FieldValue] {
         get { storedFieldValues ?? [] }
@@ -126,9 +112,8 @@ extension FieldDefinition {
 // MARK: - Ordering
 
 extension FieldDefinition {
-    /// The user's field order, made total: equal priorities (two devices adding a field
-    /// before a merge) fall back to `fieldID`, so every device orders the same set the same
-    /// way. `Catalogue.sortedFieldDefinitions` is the usual entry point.
+    /// Equal priorities (two devices adding a field before a merge) fall back to `fieldID`, so
+    /// every device orders the same set the same way.
     nonisolated static func isOrderedBefore(_ a: FieldDefinition, _ b: FieldDefinition) -> Bool {
         if a.priority != b.priority { return a.priority < b.priority }
         return a.fieldID.uuidString < b.fieldID.uuidString

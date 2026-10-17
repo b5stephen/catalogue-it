@@ -10,8 +10,7 @@ import SwiftData
 
 // MARK: - Catalogue Row
 
-/// The compact catalogue row, used on macOS where the sidebar is only ~200pt wide and cards
-/// would be cramped. iOS and iPadOS use `CatalogueCardView` instead.
+/// macOS only, where the ~200pt sidebar is too narrow for cards.
 struct CatalogueRow: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
@@ -25,8 +24,7 @@ struct CatalogueRow: View {
         let palette = catalogue.palette(for: colorScheme)
 
         HStack(spacing: 12) {
-            // The card's duotone gradient, shrunk to a tile: the sidebar is too narrow for a
-            // full-colour row, but a catalogue should still look like itself on either platform.
+            // The card's duotone as a tile, so a catalogue looks like itself on either platform.
             CatalogueIconView(iconName: catalogue.iconName, color: palette.iconGlyph, size: 22)
                 .frame(width: 40, height: 40)
                 .background(palette.fill)

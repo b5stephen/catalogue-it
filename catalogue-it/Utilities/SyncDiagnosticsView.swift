@@ -8,20 +8,11 @@ import SwiftUI
 
 // MARK: - Sync Diagnostics View
 
-/// What a tester screenshots when sync fails.
-///
-/// TestFlight feedback carries the screenshot to App Store Connect along with device, OS and
-/// build metadata, and there is no API to attach anything else — so the screenshot *is* the
-/// report, and everything here is shaped for it: monospaced, compact, and short enough to stay
-/// legible after the compression a phone screenshot goes through. Per-record errors are
-/// collapsed by (code, record type) for the same reason; a failed 2000-item import must read
-/// as four lines, not four thousand.
-///
-/// Nothing user-authored appears on screen. Record identifiers are UUIDs and the `CD_…` tokens
-/// are schema field names, so the image is safe to send to App Store Connect.
+/// A screenshot is all TestFlight feedback carries, so this is shaped for one: monospaced,
+/// compact, and with per-record errors collapsed by (code, record type). Nothing user-authored
+/// appears — record ids are UUIDs and `CD_…` tokens are schema names — so it's safe to send.
 struct SyncDiagnosticsView: View {
-    /// The status bar's one-line message, when the screen was opened from a live failure.
-    /// `nil` when opened from the beta menu with nothing currently wrong.
+    /// `nil` when opened from the beta menu with nothing wrong.
     var headline: String?
 
     @Environment(\.dismiss) private var dismiss
@@ -56,8 +47,7 @@ struct SyncDiagnosticsView: View {
 
                     section("OVERSIZED FIELDS") {
                         if largestFields.isEmpty {
-                            // A negative result that matters: it rules out the per-record size
-                            // limit as the cause, rather than leaving it an open question.
+                            // A negative result that matters: it rules out the per-record size limit.
                             Text("None ≥ \(SyncDiagnostics.fieldSizeThreshold / 1024) KB observed")
                                 .font(Self.mono)
                                 .foregroundStyle(.secondary)
@@ -138,8 +128,7 @@ struct SyncDiagnosticsView: View {
             }
 
             if report.userFacingMessage == nil {
-                // Recorded but never shown in the status bar. Worth saying so, otherwise the
-                // screen looks like it is reporting failures the app hid on purpose.
+                // Otherwise the screen seems to report failures the app hid on purpose.
                 Text("  (not surfaced to the user — self-resolving or account state)")
                     .font(Self.mono)
                     .foregroundStyle(.secondary)
@@ -191,8 +180,7 @@ struct SyncDiagnosticsView: View {
 
     // MARK: - Copy
 
-    /// The same content as the screen, for pasting into the TestFlight comment box — which
-    /// takes text and nothing else.
+    /// For the TestFlight comment box, which takes only text.
     private func plainText() -> String {
         var out = ["Catalogue-It sync diagnostics"]
         out.append("Version: \(BuildEnvironment.versionString)")

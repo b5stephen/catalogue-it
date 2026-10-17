@@ -8,23 +8,11 @@ import SwiftData
 
 // MARK: - Catalogue Sort Key Maintenance
 
-/// Recomputes every derived column across a whole catalogue — `FieldValue.sortKey` and
-/// `.tiebreakKey`, `CatalogueItem.searchText` and the facet mirrors — through
-/// `ItemDerivedColumns`, which writes only what actually differs.
-///
-/// Needed whenever a catalogue's field list changes structurally (a field is added,
-/// removed, or reordered), since `tiebreakKey` encodes "every other field, in priority
-/// order" for each FieldValue — a change to that order or field set invalidates the
-/// tiebreak key on every field's FieldValue for every item, not just the field that moved.
-/// Equally whenever a field's display role or option set changes, since the facet mirrors
-/// interpret values through that configuration. Also used by `DerivedDataBackfill` when an
-/// encoding changes.
-///
-/// One sweep always refreshes every column: the compare-before-assign inside makes the extra
-/// columns free for an item that doesn't need them, and a catalogue with 2000+ items
-/// shouldn't be walked twice for one save.
-///
-/// Chunked and yielding, modeled on `CatalogueDTO.makeCatalogue`'s import batching.
+/// Recomputes every derived column across a catalogue through `ItemDerivedColumns`. Needed
+/// when fields are added, removed or reordered (every `tiebreakKey` encodes the others in
+/// order), when a role or option set changes (facets read through them), and by
+/// `DerivedDataBackfill`. Always refreshes every column in one sweep: compare-before-assign
+/// makes the extra ones free. Chunked and yielding, like import.
 enum CatalogueSortKeyMaintenance {
 
     @MainActor

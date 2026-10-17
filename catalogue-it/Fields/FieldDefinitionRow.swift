@@ -9,18 +9,11 @@ import SwiftUI
 
 // MARK: - Field Definition Row
 
-/// One field in the catalogue form's Custom Fields list. Everything about the field —
-/// its name, and whatever its type has to configure — is edited in `FieldEditorView`,
-/// reached by tapping the row or by its Edit swipe action. The row itself is display
-/// only, so every field reads the same however it is typed.
-///
-/// While the list is in reorder mode the row goes inert: iOS suppresses swipe actions in
-/// edit mode anyway, and a tap there belongs to the drag handle, not to the editor.
+/// Inert while reordering: a tap then belongs to the drag handle, not the editor.
 struct FieldDefinitionRow: View {
     @Binding var field: FieldDefinitionDraft
-    /// Names of the other fields in the catalogue, for the editor's duplicate check.
     var otherFieldNames: [String] = []
-    /// Routed back to the parent, which owns the "this field holds data" confirmation.
+    /// The parent owns the "this field holds data" confirmation.
     var onDelete: () -> Void
 
 #if os(iOS)
@@ -28,7 +21,6 @@ struct FieldDefinitionRow: View {
 #endif
     @State private var showingEditor = false
 
-    /// macOS has no edit mode, so the list is never in the reordering state there.
     private var isReordering: Bool {
 #if os(iOS)
         editMode?.wrappedValue.isEditing == true
@@ -78,8 +70,7 @@ struct FieldDefinitionRow: View {
             }
         }
 #if os(macOS)
-        // Swiping is a trackpad-only gesture on macOS, so the same two actions get a
-        // context menu — the pattern the catalogue list already uses.
+        // Swiping is trackpad-only on macOS.
         .contextMenu {
             Button {
                 showingEditor = true

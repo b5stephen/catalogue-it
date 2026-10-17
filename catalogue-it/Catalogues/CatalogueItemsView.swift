@@ -8,12 +8,8 @@
 import SwiftUI
 import SwiftData
 
-/// The catalogue's items, with `header` scrolling away above them.
-///
-/// The header is the first thing in the scroll content — in practice a spacer reserving room
-/// for whatever the caller floats over the top of the list. How far the list has scrolled is
-/// reported through `scrollState`, clamped to `trackedScrollRange`, so the caller can collapse
-/// that floating view as the items pass under it.
+/// `header` is the first thing in the scroll content, typically a spacer under whatever the
+/// caller floats over the list; the scroll is reported through `scrollState` so it can collapse.
 struct CatalogueItemsView<Header: View>: View {
     let catalogue: Catalogue
     let statusTab: StatusTab
@@ -24,16 +20,14 @@ struct CatalogueItemsView<Header: View>: View {
     @Binding var selectedItem: CatalogueItem?
     @Binding var displayedCount: Int
     let scrollState: BandScrollState
-    /// The distance past which scrolling further is of no interest to `scrollState`'s reader.
-    /// Zero stops the reports entirely.
+    /// Scrolling past this is of no interest to `scrollState`'s reader; zero stops the reports.
     let trackedScrollRange: CGFloat
     @ViewBuilder let header: Header
 
     @Environment(\.modelContext) private var modelContext
     @State private var pagination = ItemPaginationController()
     @State private var scrollPosition = ScrollPosition()
-    // ID of the item the user tapped most recently. Used to restore scroll position
-    // after a force reset (e.g. when the user edits an item and navigates back).
+    // The most recently tapped item, to restore the scroll position after a force reset.
     @State private var scrollAnchorID: PersistentIdentifier?
 
     private var filterFingerprint: FilterFingerprint {
@@ -50,12 +44,9 @@ struct CatalogueItemsView<Header: View>: View {
     var body: some View {
         Group {
             if pagination.items.isEmpty && !pagination.isLoadingMore {
-                // In a scroll view, like the lists it stands in for. Bare, a landscape iPhone
-                // (compact height) spun forever laying out the push: with no scroll view to
-                // tie the search bar and bar edge to, UIKit kept re-resolving the bars against
-                // the band's spacer and never settled. At least the visible height, so the
-                // message centres in what the header leaves; taller where that is too short
-                // for it, so it scrolls rather than being squeezed under the band.
+                // In a scroll view like the lists it stands in for: bare, a landscape iPhone spun forever
+                // laying out the push, re-resolving the bars against the band's spacer. At least the
+                // visible height, so the message centres in what the header leaves.
                 GeometryReader { proxy in
                     ScrollView {
                         VStack(spacing: 0) {
@@ -100,10 +91,9 @@ struct CatalogueItemsView<Header: View>: View {
                 }
             }
         }
-        // Clamped, so once the list is past the range the action stops firing rather than
-        // writing on every frame of a long scroll. This listens to every scroll view beneath
-        // it, so the cards must not grow a scroll view of their own: a horizontal one would
-        // report an offset of zero and snap the caller's view back open.
+        // Clamped, so the action stops firing past the range. It hears every scroll view beneath,
+        // so the cards mustn't contain one: a horizontal one would report zero and snap the
+        // caller's view back open.
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
             min(max(geometry.contentOffset.y + geometry.contentInsets.top, 0), trackedScrollRange)
         } action: { _, offset in
@@ -115,10 +105,8 @@ struct CatalogueItemsView<Header: View>: View {
         .onAppear {
             let didReset = pagination.startObservingStoreChanges()
             if didReset, let anchorID = scrollAnchorID {
-                // A save happened while we were behind a navigation push. The list was
-                // reloaded from page 1. Load additional pages until the anchor item
-                // (the one the user just edited) is back in the items array, then
-                // scroll to it so the user is returned to roughly the same position.
+                // A save happened behind a push and the list reloaded from page 1: load pages until the
+                // edited item is back, then scroll to it.
                 while !pagination.items.contains(where: { $0.persistentModelID == anchorID }),
                       pagination.hasMore {
                     pagination.loadMore(context: modelContext)
@@ -128,7 +116,6 @@ struct CatalogueItemsView<Header: View>: View {
             }
         }
         .onChange(of: selectedItem) { _, newItem in
-            // Capture the tapped item's ID so we can restore position after an edit.
             if let item = newItem {
                 scrollAnchorID = item.persistentModelID
             }
@@ -136,8 +123,7 @@ struct CatalogueItemsView<Header: View>: View {
         .onChange(of: filterFingerprint) {
             scrollAnchorID = nil
             scrollPosition = ScrollPosition(edge: .top)
-            // The list may be replaced by the empty state, which never scrolls and so would
-            // never report the top back.
+            // The empty state never scrolls, so it would never report the top back.
             scrollState.offset = 0
             pagination.reset(fingerprint: filterFingerprint, context: modelContext)
         }

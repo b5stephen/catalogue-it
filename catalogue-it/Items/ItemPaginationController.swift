@@ -11,14 +11,12 @@ import CoreData
 
 // MARK: - Filter Fingerprint
 
-/// Captures all inputs that determine which items are shown and in what order.
-/// Equality change → full reset of pagination state.
+/// Any change resets pagination.
 struct FilterFingerprint: Equatable {
     let catalogueID: PersistentIdentifier
-    /// Selected status tab. `.all` (or a catalogue with no status field) applies no status filter.
+    /// `.all` (or no status field) applies no status filter.
     let statusTab: StatusTab
-    /// `fieldID`s of the flag filters currently switched on, ANDed together.
-    /// Kept sorted by the initialiser so equality doesn't depend on toggle order.
+    /// ANDed. Sorted by the initialiser so equality ignores toggle order.
     let activeFlagIDs: [UUID]
     let searchText: String
     let sortFieldKey: String
@@ -40,7 +38,6 @@ struct FilterFingerprint: Equatable {
         self.sortDirection = sortDirection
     }
 
-    /// Flag tokens to match against `CatalogueItem.flagKeys`, in stable order.
     var flagTokens: [String] {
         activeFlagIDs.map { ItemFacetBuilder.flagToken(for: $0) }
     }
@@ -48,32 +45,18 @@ struct FilterFingerprint: Equatable {
 
 // MARK: - Item Pagination Controller
 
-/// Manages offset-based pagination for the catalogue item list.
+/// Offset-based pagination with sorting and filtering in the store:
+/// - Date added: a `CatalogueItem` fetch.
+/// - Custom field: a `FieldValue` fetch on the `[fieldDefinition, sortKey, tiebreakKey]` index,
+///   so ties resolve in the fetch too. Items with no value for the field can't be reached that
+///   way, so a tail pass appends them by `createdDate`, whichever the direction.
+/// Status is in the predicate; search (custom sort only) and flags are applied in memory per
+/// batch — see `matchesFlags`.
 ///
-/// Both sort paths (dateAdded and custom field) produce a globally correct sort order
-/// using DB-side sorting and filtering — no full in-memory scan:
-/// - dateAdded: FetchDescriptor with sortBy + fetchLimit/fetchOffset on CatalogueItem.
-/// - Custom field: FetchDescriptor with sortBy + fetchLimit/fetchOffset on FieldValue,
-///   leveraging the #Index([\.fieldDefinition, \.sortKey, \.tiebreakKey]) compound index.
-///   Sorting by both `sortKey` (the selected field's own value) and `tiebreakKey` (every
-///   other field, in priority order, then dateAdded) means ties on the primary field are
-///   still resolved entirely in the DB fetch — no in-memory re-sort. Items with no
-///   FieldValue for the sort field can't be reached that way, so once the FieldValue stream
-///   is exhausted a tail pass fetches them by createdDate and appends them at the bottom,
-///   whichever the direction; the count comes from the item side so it matches the
-///   Catalogues screen. Status-tab filtering is
-///   pushed to the DB predicate (an indexed column comparison on `statusValue`); search and
-///   flag filtering are applied in-memory on each fetched batch (50 rows) to avoid #Predicate
-///   macro compiler timeout on complex optional chains.
-///
-/// Reactivity (replacing @Query): NSManagedObjectContextDidSave fires when the store
-/// is modified. For dateAdded sort, a count-based structural-change guard prevents
-/// benign saves that don't change the matching item count from triggering unnecessary
-/// list rebuilds. Custom-field sort always rebuilds on a store change instead, since an
-/// edit to the active sort field's value can reorder the list without changing the count.
-/// Changes merged from iCloud arrive as `.remoteChangesMerged` (see `RemoteChangeObserver`)
-/// and always rebuild: an edit made elsewhere can move an item between status tabs or
-/// reorder it without touching the count, and the whole batch is already debounced.
+/// Reacts to `NSManagedObjectContextDidSave`, behind a count guard for date-added sort; a
+/// custom sort always rebuilds, since editing the sort field reorders without changing the
+/// count. `.remoteChangesMerged` always rebuilds: a remote edit can move an item between tabs
+/// without changing the count.
 @MainActor
 @Observable
 final class ItemPaginationController {
@@ -84,43 +67,32 @@ final class ItemPaginationController {
     private(set) var isLoadingMore = false
     private(set) var hasMore = false
     private(set) var totalCount = 0
-    /// True when the catalogue contains any items ignoring the current search query.
-    /// Used to distinguish "catalogue is empty" from "search returned no results".
+    /// Tells "catalogue is empty" from "search found nothing".
     private(set) var hasAnyItems = false
 
-    // Custom field sort: explicit DB fetch offset and pre-built FieldValue predicate,
-    // constructed once per reset.
-    // Explicit DB fetch offset for the dateAdded path. Tracked separately from items.count
-    // because in-memory flag filtering (see matchesFlags) can drop fetched rows.
+    // DB rows fetched, not items appended: the in-memory filters can drop rows.
     private var dateAddedOffset = 0
 
     private var customSortOffset = 0
     private var customSortPredicate: Predicate<FieldValue>?
-    // The tail pass for items with no FieldValue for the sort field. `customSortHasTail` is
-    // decided once per reset from the counts, so the common case (every item has a row)
-    // never scans the catalogue for nothing. The surfaced set lets the tail skip items the
-    // stream already produced — and keeps a duplicate FieldValue from showing an item twice.
+    // Decided once per reset from the counts, so the common case never scans for the tail. The
+    // surfaced set skips items the stream produced, including a duplicate FieldValue's.
     private var customSortHasTail = false
     private var customSortInTail = false
     private var customSortTailOffset = 0
     private var customSortSurfacedIDs: Set<PersistentIdentifier> = []
-    // PersistentIdentifier of the resolved FieldDefinition — used in the predicate so
-    // the DB filters on the FK column, hitting the #Index([\.fieldDefinition, \.sortKey]).
     private var customSortFieldDefID: PersistentIdentifier?
 
     private var currentFingerprint: FilterFingerprint?
     private var currentContext: ModelContext?
     private var observers: [NSObjectProtocol] = []
 
-    // Set by the standby observers when a store save or remote merge fires while active
-    // observing is paused (e.g. during navigation to item detail). Triggers a force refresh
-    // on the next appear.
+    // A save or merge arrived while paused behind a push; forces a refresh on the next appear.
     private var pendingStoreChange = false
     private var standbyObservers: [NSObjectProtocol] = []
 
     isolated deinit {
-        // onDisappear doesn't always precede release (see `reset`), so drop the tokens here
-        // too rather than leaving them registered with NotificationCenter.
+        // onDisappear doesn't always precede release.
         (observers + standbyObservers).forEach {
             NotificationCenter.default.removeObserver($0)
         }
@@ -128,25 +100,16 @@ final class ItemPaginationController {
 
     // MARK: - Public API
 
-    /// Clears pagination state, recomputes counts, resolves the sort field (for custom
-    /// sorts), then loads the first page. Call this whenever filter or sort inputs change.
-    ///
-    /// Pass `force: true` when the underlying data has changed (e.g. a store save) so that
-    /// an already-loaded list is refreshed. Without `force`, a call with an identical
-    /// fingerprint and existing items is a no-op — this preserves the scroll position when
-    /// navigating back from a detail view.
+    /// Without `force`, an identical fingerprint with items loaded is a no-op, which keeps the
+    /// scroll position when navigating back.
     func reset(fingerprint: FilterFingerprint, context: ModelContext, force: Bool = false) {
-        // Skip redundant resets caused by the view re-appearing (e.g. navigating back from
-        // item detail). The scroll position is preserved because the items array is unchanged.
         if !force, fingerprint == currentFingerprint, !items.isEmpty {
             return
         }
 
-        // A forced reload reloads to the depth the user had reached. On iPad the list stays
-        // on screen through edits and remote merges, so dropping back to one page would clamp
-        // a reader at row 300 to the end of a 50-row list. Both load paths are offset-based,
-        // so refetching N pages is cheap and stable ids keep the scroll offset. A fingerprint
-        // change is a different list and starts from the top.
+        // Reloads to the depth reached: on iPad the list stays on screen through edits and merges,
+        // and dropping to one page would clamp a reader at row 300. A fingerprint change starts
+        // from the top.
         let previousDepth = (force && fingerprint == currentFingerprint) ? items.count : 0
 
         currentFingerprint = fingerprint
@@ -180,19 +143,14 @@ final class ItemPaginationController {
             loadMore(context: context)
         }
 
-        // A reset means this list is being displayed, so it must hear the saves that follow.
-        // Normally onAppear has already armed the observer, but pushing the content column
-        // in compact width can fire onAppear and onDisappear back to back — and cancel the
-        // view's task — for a view that nonetheless stays on screen. Left in standby, the
-        // catalogue's first saved item would never show. Nothing is pending: the load above
-        // just read the store.
+        // Pushing the content column in compact width can fire onAppear and onDisappear back to back
+        // for a view that stays on screen; left in standby, its first saved item would never show.
         if observers.isEmpty, !standbyObservers.isEmpty {
             pendingStoreChange = false
             startObservingStoreChanges()
         }
     }
 
-    /// Appends the next page of items. Called by the scroll sentinel's onAppear.
     func loadMore(context: ModelContext) {
         guard !isLoadingMore, hasMore else { return }
         guard let fp = currentFingerprint else { return }
@@ -207,30 +165,20 @@ final class ItemPaginationController {
                 try loadMoreDateAdded(fingerprint: fp, context: context)
             }
         } catch {
-            // Leave items unchanged; next scroll attempt will retry.
         }
     }
 
-    /// Starts observing store changes. The controller resets automatically when the
-    /// local context is saved or iCloud delivers remote changes.
-    /// Call on view appear; pair with stopObservingStoreChanges on disappear.
-    /// Returns `true` if a pending store change was detected and a force reset was
-    /// performed — the caller should restore the scroll position in that case.
+    /// Pair with `stopObservingStoreChanges`. Returns `true` when a pending change forced a
+    /// reset, so the caller should restore the scroll position.
     @discardableResult
     func startObservingStoreChanges() -> Bool {
-        // Disarm the standby observers that were watching while we were inactive.
         standbyObservers.forEach { NotificationCenter.default.removeObserver($0) }
         standbyObservers = []
 
-        // NSManagedObjectContextDidSave fires only on explicit context.save() calls —
-        // not during read-only fetch operations. This avoids an infinite loop where
-        // our own fetch() calls (including relationship prefetching) would fire
-        // NSManagedObjectContextObjectsDidChange, triggering another reset().
-        // The CloudKit mirroring context's saves post it too (observed with `object: nil`),
-        // which is how remote inserts already showed up — but a remote edit leaves the count
-        // untouched and slips past the guard below. `.remoteChangesMerged` covers that: it
-        // arrives once per debounced batch, after RemoteChangeObserver has repaired the
-        // derived state a reload depends on, and always reloads.
+        // DidSave fires only on explicit saves, not fetches, so our own fetches can't loop back into
+        // a reset. The mirroring context's saves post it too, but a remote edit leaves the count
+        // unchanged and slips past the guard; `.remoteChangesMerged` covers that, arriving after
+        // RemoteChangeObserver has repaired derived state.
         if observers.isEmpty {
             let saveToken = NotificationCenter.default.addObserver(
                 forName: .NSManagedObjectContextDidSave,
@@ -249,8 +197,6 @@ final class ItemPaginationController {
             observers = [saveToken, remoteToken]
         }
 
-        // A save fired while we were paused (e.g. user edited an item in the detail view).
-        // Force a full refresh so sort order and search index reflect the latest data.
         if pendingStoreChange {
             pendingStoreChange = false
             if let fp = currentFingerprint, let ctx = currentContext {
@@ -265,10 +211,7 @@ final class ItemPaginationController {
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         observers = []
 
-        // Arm lightweight standby observers so we notice saves and remote merges that occur
-        // while the view is behind a navigation push (e.g. the user edits an item in detail
-        // view). The full refresh is deferred until the view reappears via
-        // startObservingStoreChanges.
+        // Standby observers note changes made while behind a push; the refresh waits for the next appear.
         guard standbyObservers.isEmpty else { return }
         standbyObservers = [.NSManagedObjectContextDidSave, .remoteChangesMerged].map { name in
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
@@ -279,9 +222,8 @@ final class ItemPaginationController {
 
     // MARK: - Reactivity
 
-    /// A batch merged from iCloud. No count guard: the edit that prompted it can change an
-    /// item's status tab, flags or sort position without changing how many rows match, and
-    /// the notification is already one per debounced batch.
+    /// No count guard: a remote edit can change an item's tab, flags or position without
+    /// changing the count.
     private func handleRemoteChange() {
         guard let fp = currentFingerprint, let ctx = currentContext else { return }
         reset(fingerprint: fp, context: ctx, force: true)
@@ -290,32 +232,21 @@ final class ItemPaginationController {
     private func handleStoreChange() {
         guard let fp = currentFingerprint, let ctx = currentContext else { return }
 
-        // Custom-field sort order can change from an edit that adds/removes no items
-        // (e.g. editing the value of the active sort field itself) — a count comparison
-        // can't detect that, so always rebuild. dateAdded order is stable across edits,
-        // so the cheap count-guard below remains safe (and valuable) there.
+        // Editing the sort field's value reorders without changing the count.
         if case .field = ItemSortField(rawValue: fp.sortFieldKey) {
             reset(fingerprint: fp, context: ctx, force: true)
             return
         }
 
-        // Guard against benign saves that don't change the matching item count, so a
-        // save unrelated to this list doesn't trigger a needless rebuild.
         guard (try? matchingCount(fingerprint: fp, context: ctx)) != totalCount else { return }
         reset(fingerprint: fp, context: ctx, force: true)
     }
 
     // MARK: - Custom Sort Setup
 
-    /// Resolves the FieldDefinition for the active sort field, pre-computes the FieldValue
-    /// predicate (tab-filtered, DB-sorted), initialises totalCount and hasAnyItems from the
-    /// item side (the same population as the dateAdded path and the Catalogues screen), and
-    /// decides whether a tail pass is needed for items with no FieldValue for the field.
-    ///
-    /// The FieldValue predicate uses the #Index([\.fieldDefinition, \.sortKey, \.tiebreakKey])
-    /// compound index on FieldValue via the fieldID equality constraint. Search filtering is
-    /// deferred to loadMoreCustomSort (in-memory on each 50-row batch) to avoid #Predicate
-    /// compiler timeout on optional-chained .contains expressions.
+    /// Counts come from the item side, the same population as the date-added path and the
+    /// Catalogues screen. Search is applied in memory per batch: `.contains` through an
+    /// optional chain times out the `#Predicate` compiler.
     private func setupCustomSort(fingerprint: FilterFingerprint, fieldID: UUID, context: ModelContext) throws {
         let catalogueID = fingerprint.catalogueID
         var fieldDesc = FetchDescriptor<FieldDefinition>(
@@ -323,7 +254,6 @@ final class ItemPaginationController {
         )
         fieldDesc.fetchLimit = 1
         guard let resolvedField = try context.fetch(fieldDesc).first else {
-            // Sort field no longer exists (e.g. deleted); treat as empty.
             hasMore = false
             hasAnyItems = false
             totalCount = 0
@@ -335,13 +265,12 @@ final class ItemPaginationController {
         let predicate = makeFieldValuePredicate(fieldDefID: fieldDefID, statusTab: fingerprint.statusTab)
         customSortPredicate = predicate
 
-        // An item with no FieldValue for the sort field ("contains(where:)" over the optional
-        // to-many can't be expressed in #Predicate) is invisible to the FieldValue stream, so
-        // the count comes from the item side instead and the tail pass surfaces the rest.
+        // Items with no FieldValue for the field are invisible to the stream (`contains(where:)`
+        // over an optional to-many can't be expressed in #Predicate), so count from the item side.
         try setupDateAddedSort(fingerprint: fingerprint, context: context)
 
-        // The stream count is unfiltered by search and flags, so it only proves the tail
-        // empty when neither is active; a filtered list is short enough to scan regardless.
+        // The stream count ignores search and flags, so it only proves the tail empty when neither
+        // is active.
         let streamCount = try context.fetchCount(FetchDescriptor<FieldValue>(predicate: predicate))
         customSortHasTail = totalCount > streamCount
             || !fingerprint.searchText.isEmpty
@@ -354,14 +283,10 @@ final class ItemPaginationController {
         let ascending = (ItemSortDirection(rawValue: fingerprint.sortDirection) ?? .ascending) == .ascending
         let hasSearch = !fingerprint.searchText.isEmpty
         let query = SearchTextBuilder.queryVariants(fingerprint.searchText)
-        // Flags are applied here rather than in the predicate — see matchesFlags.
         let flagTokens = fingerprint.flagTokens
 
-        // Keep fetching DB pages until at least one item is appended or the FieldValue
-        // stream is exhausted. A single page can match zero search results while more
-        // matches exist further down; without the loop that would append nothing yet
-        // leave hasMore true, and the scroll sentinel (which only re-fires onLoadMore
-        // when the list grows) would stall forever.
+        // Loop until something is appended or the stream ends: the scroll sentinel only re-fires
+        // when the list grows, so a page the filters empty would stall it.
         let countBeforeLoad = items.count
         repeat {
             if customSortInTail {
@@ -377,19 +302,14 @@ final class ItemPaginationController {
                 ]
             )
             desc.fetchLimit = Self.pageSize
-            // customSortOffset tracks DB rows fetched so the offset stays correct even
-            // when the in-memory search filter drops some rows from the appended items.
             desc.fetchOffset = customSortOffset
             desc.relationshipKeyPathsForPrefetching = [\.item]
 
             let fieldValues = try context.fetch(desc)
             customSortOffset += fieldValues.count
 
-            // Access item.fieldValues on each result before appending. Items reached via
-            // relationship traversal (fv.item) may not have their fieldValues fault resolved
-            // yet; touching the property here forces the load before SwiftUI renders the row,
-            // preventing "Untitled Item" placeholders for items whose name field is present
-            // in the store but appears empty until the fault fires.
+            // Touch fieldValues now: an item reached through `fv.item` may still be a fault, and its
+            // row would render as "Untitled Item".
             items += fieldValues.compactMap { fv in
                 guard let item = fv.item else { return nil }
                 guard customSortSurfacedIDs.insert(item.persistentModelID).inserted else { return nil }
@@ -400,22 +320,15 @@ final class ItemPaginationController {
             }
 
             if fieldValues.count < Self.pageSize {
-                // Stream exhausted. Hand over to the tail if there is anything for it to find.
                 customSortInTail = customSortHasTail
                 hasMore = customSortHasTail
             }
         } while hasMore && items.count == countBeforeLoad
     }
 
-    /// The tail of a custom sort: items with no FieldValue for the sort field, in createdDate
-    /// order, appended after the sorted items whichever the direction. Same shape as
-    /// `loadMoreDateAdded`; the DB predicate carries catalogue, soft-delete, status tab and
-    /// search, flags are applied in memory, and items the stream already surfaced are skipped.
-    ///
-    /// No predicate can express "has no FieldValue for this field", so this is a walk over
-    /// every item in the catalogue, almost all of which are skipped. It is only entered when
-    /// the counts say there is something to find, and nothing is prefetched for it: field
-    /// values are faulted for the few survivors, not the pages thrown away.
+    /// Items with no FieldValue for the sort field, in `createdDate` order. No predicate can
+    /// express that, so it walks the catalogue, skipping most rows; it runs only when the counts
+    /// say there is something to find, and prefetches nothing.
     private func loadMoreCustomSortTail(fingerprint: FilterFingerprint, context: ModelContext) throws {
         var descriptor = FetchDescriptor<CatalogueItem>(predicate: makePredicate(fingerprint: fingerprint))
         descriptor.sortBy = [SortDescriptor(\.createdDate, order: .forward)]
@@ -429,7 +342,7 @@ final class ItemPaginationController {
         items += page.compactMap { item in
             guard !customSortSurfacedIDs.contains(item.persistentModelID),
                   matchesFlags(item, tokens: flagTokens) else { return nil }
-            // Same as the stream path: resolve the fault before the row renders.
+            // Resolve the fault before the row renders, as in the stream path.
             _ = item.fieldValues
             return item
         }
@@ -445,7 +358,6 @@ final class ItemPaginationController {
 
         if fingerprint.searchText.isEmpty {
             // No search: hasAnyItems is the same population as totalCount.
-            // Skip the second fetchCount to save a DB round-trip.
             hasAnyItems = totalCount > 0
         } else {
             let anyCount = try matchingCount(fingerprint: fingerprint, context: context, ignoreSearch: true)
@@ -457,20 +369,14 @@ final class ItemPaginationController {
         let ascending = (ItemSortDirection(rawValue: fingerprint.sortDirection) ?? .ascending) == .ascending
         let flagTokens = fingerprint.flagTokens
 
-        // Same shape as loadMoreCustomSort: keep fetching DB pages until at least one item
-        // is appended or the stream is exhausted. Without the loop, a page that the flag
-        // filter empties entirely would append nothing while leaving hasMore true, and the
-        // scroll sentinel (which only re-fires when the list grows) would stall.
+        // Loop for the same reason as loadMoreCustomSort.
         let countBeforeLoad = items.count
         repeat {
             var descriptor = FetchDescriptor<CatalogueItem>(predicate: makePredicate(fingerprint: fingerprint))
             descriptor.sortBy = [SortDescriptor(\.createdDate, order: ascending ? .forward : .reverse)]
             descriptor.fetchLimit = Self.pageSize
-            // dateAddedOffset tracks DB rows fetched rather than items appended, so the
-            // offset stays correct when the in-memory flag filter drops rows.
             descriptor.fetchOffset = dateAddedOffset
-            // Prefetch fieldValues for this page: all fetched items will render soon
-            // (user is at or near the top on first page, near bottom on subsequent pages).
+            // Every fetched item renders soon.
             descriptor.relationshipKeyPathsForPrefetching = [\.storedFieldValues]
 
             let page = try context.fetch(descriptor)
@@ -488,31 +394,20 @@ final class ItemPaginationController {
 
     // MARK: - Predicate Builders
 
-    /// Flag filtering is deliberately kept out of every `#Predicate`.
-    ///
-    /// `#Predicate` is a macro over a fixed expression tree — it can't loop over a
-    /// variable-length array — so each active flag would need its own written-out term.
-    /// Adding even two pushes the macro-expanded predicate past the Swift type-checker's
-    /// time budget and the file stops compiling. Flags are therefore applied in memory to
-    /// each fetched batch, which is why both load paths track an explicit DB offset rather
-    /// than deriving it from `items.count`.
-    ///
-    /// The cost is bounded: flags only filter rows the DB predicate has already narrowed to
-    /// one catalogue, one status tab, and the active search.
     /// The in-memory counterpart of the search clause in `makePredicate`.
     private func matchesSearch(_ item: CatalogueItem, _ query: (raw: String, canonical: String)) -> Bool {
         item.searchText.contains(query.raw) || item.searchText.contains(query.canonical)
     }
 
+    /// Kept out of every `#Predicate`: it can't loop over a variable-length array, and even two
+    /// written-out flag terms push the macro past the type-checker's time budget. Applied in
+    /// memory to rows the predicate has already narrowed, which is why both load paths track an
+    /// explicit DB offset.
     private func matchesFlags(_ item: CatalogueItem, tokens: [String]) -> Bool {
         tokens.allSatisfy { item.flagKeys.contains($0) }
     }
 
-    /// Counts items matching the whole fingerprint, flags included.
-    ///
-    /// Falls back to `fetchCount` when no flag is active. With flags, the count has to come
-    /// from an actual fetch since the predicate can't express them — `propertiesToFetch`
-    /// keeps that to the one column being tested rather than materialising whole rows.
+    /// With flags active the count needs a real fetch; `propertiesToFetch` keeps it to one column.
     private func matchingCount(
         fingerprint: FilterFingerprint,
         context: ModelContext,
@@ -531,8 +426,7 @@ final class ItemPaginationController {
     private func makePredicate(fingerprint: FilterFingerprint, ignoreSearch: Bool = false) -> Predicate<CatalogueItem> {
         let targetID = fingerprint.catalogueID
 
-        // `.all` (and a catalogue with no status field) applies no status filter, so the
-        // fetch falls through to the [catalogue, deletedDate, createdDate] index instead.
+        // No status filter, so the fetch uses the [catalogue, deletedDate, createdDate] index.
         let statusFilter = fingerprint.statusTab.storedValue
         let hasStatus = statusFilter != nil
         let status = statusFilter ?? ""
@@ -548,19 +442,8 @@ final class ItemPaginationController {
         }
     }
 
-    /// Builds the FieldValue predicate for the custom sort path.
-    ///
-    /// Filters on `fv.fieldDefinition?.persistentModelID == fieldDefID` (the FK column)
-    /// rather than a secondary UUID property, so the DB can satisfy the equality constraint
-    /// directly from the FK index and then apply the compound
-    /// #Index([\.fieldDefinition, \.sortKey, \.tiebreakKey]).
-    ///
-    /// The status tab is pushed to the DB — it's a single indexed column comparison and
-    /// the dominant filter. Search and flag filtering are intentionally omitted and applied
-    /// in-memory in loadMoreCustomSort instead: both are `.contains` over an optional-chained
-    /// relationship (`fv.item?.…`), the exact shape that triggers #Predicate compiler
-    /// timeouts here. loadMoreCustomSort already tracks an explicit DB offset, so filtering
-    /// after the fetch keeps pagination correct.
+    /// Filters on the FieldDefinition FK, so the store can use the compound index. Status is in
+    /// the predicate; search and flags are not — see `setupCustomSort`.
     private func makeFieldValuePredicate(fieldDefID: PersistentIdentifier, statusTab: StatusTab) -> Predicate<FieldValue> {
         guard let status = statusTab.storedValue else {
             return #Predicate<FieldValue> { fv in

@@ -11,7 +11,6 @@ import SwiftData
 
 // MARK: - Catalogue
 
-/// Represents a collection (e.g., "Model Planes", "Stamp Collection")
 @Model
 final class Catalogue {
     // Every stored property below carries a default value: CloudKit rejects
@@ -19,25 +18,21 @@ final class Catalogue {
     var name: String = ""
     var createdDate: Date = Date.now
     var iconName: String = "square.grid.2x2" // SF Symbol name
-    var colorHex: String = "#007AFF" // Stored as hex string
+    var colorHex: String = "#007AFF"
     var priority: Int = 0
 
     var sortFieldKey: String = ItemSortField.dateAdded.rawValue
     var sortDirection: String = ItemSortDirection.ascending.rawValue
 
-    /// True once the user has confirmed deletion. The catalogue is hidden from the UI
-    /// immediately and its graph is torn down by `BackgroundDeletionActor`; the flag
-    /// persists (and syncs) so an interrupted deletion resumes on next launch.
+    /// Hides the catalogue while `BackgroundDeletionActor` tears it down. Persisted and synced
+    /// so an interrupted deletion resumes on next launch.
     var pendingDeletion: Bool = false
 
-    /// Whether the synthetic "All" tab is shown ahead of the status field's own tabs.
-    /// Only meaningful when the catalogue has a `.statusTabs` field.
-    /// Off by default — a status field is usually added because the user wants to work in
-    /// one state at a time; the catch-all tab is opt-in.
+    /// The "All" tab ahead of a `.statusTabs` field's own. Opt-in: a status field usually
+    /// means the user wants to work in one state at a time.
     var showAllTab: Bool = false
 
-    /// `CatalogueLayoutOptions`, JSON-encoded; read through `layoutOptions`. Nil means every
-    /// option is at its default, which is also what a catalogue from before the column has.
+    /// Read through `layoutOptions`. Nil means every option is at its default.
     var layoutOptionsData: Data?
 
     var itemLayoutRaw_mac: String = ItemLayout.list.rawValue
@@ -45,10 +40,8 @@ final class Catalogue {
     var gridCardSize_mac: Double = Double(AppConstants.GridCardSize.defaultSize)
     var gridCardSize_ios: Double = Double(AppConstants.GridCardSize.defaultSize)
 
-    // CloudKit requires every relationship to be optional, so the persisted properties are
-    // optional arrays and the app reads them through the non-optional accessors below.
-    // Nothing outside this file should touch the `stored…` properties, except a
-    // `relationshipKeyPathsForPrefetching` key path, which must name the persisted property.
+    // Optional for CloudKit; use the accessors below. Only key paths handed to SwiftData
+    // (predicates, prefetching) should name these directly.
     @Relationship(deleteRule: .cascade, inverse: \FieldDefinition.catalogue)
     var storedFieldDefinitions: [FieldDefinition]? = []
 
@@ -76,8 +69,7 @@ extension Catalogue {
             return options
         }
         set {
-            // Compare before assign: a synced column rewritten with an equal value still
-            // exports, and a merge that bounces between devices is the failure mode to avoid.
+            // An equal value rewritten still exports, and can bounce between devices.
             guard newValue != layoutOptions else { return }
             layoutOptionsData = try? JSONEncoder().encode(newValue)
         }
@@ -87,9 +79,7 @@ extension Catalogue {
 // MARK: - Per-Platform Preferences
 
 extension Catalogue {
-    /// Item layout (list vs. gallery) for this catalogue, on the current platform.
-    /// Mac and iOS/iPadOS are stored separately so the same synced catalogue can
-    /// show a different layout on each platform.
+    /// Stored per platform, so a synced catalogue can use a different layout on Mac.
     var itemLayout: ItemLayout {
         get {
 #if os(macOS)
@@ -107,7 +97,6 @@ extension Catalogue {
         }
     }
 
-    /// Gallery card zoom size for this catalogue, on the current platform.
     var gridCardSize: Double {
         get {
 #if os(macOS)
@@ -128,26 +117,19 @@ extension Catalogue {
 
 // MARK: - Relationship Accessors
 
-/// The `stored…` relationships are optional because CloudKit requires it. These accessors give
-/// the rest of the app the non-optional collections it has always used.
+/// Non-optional views of the `stored…` relationships, which CloudKit requires to be optional.
 ///
-/// They live in an extension deliberately: the `@Model` macro rewrites *every* `var` in the
-/// class body into a persisted accessor, computed properties included, and the result is a
-/// runtime crash on first access ("Couldn't find \\CatalogueItem.fieldValues"). The macro does
-/// not touch extensions.
+/// Must stay in an extension: `@Model` rewrites every `var` in the class body, computed ones
+/// included, into a persisted accessor, which crashes on first access.
 extension Catalogue {
     var fieldDefinitions: [FieldDefinition] {
         get { storedFieldDefinitions ?? [] }
         set { storedFieldDefinitions = newValue }
     }
 
-    /// The definitions in the user's field order, with `fieldID` breaking priority ties.
-    ///
-    /// Always use this rather than sorting on `priority` alone. Two devices adding a field
-    /// before a merge produce two definitions with the same priority, and an unstable sort
-    /// then orders them differently per device — which would make every synced derived
-    /// column that encodes field order (`tiebreakKey`, `searchText`) differ per device, and
-    /// two devices rewrite each other's columns forever. See `ItemDerivedColumns`.
+    /// Always use this rather than sorting on `priority`: two devices adding a field before a
+    /// merge produce equal priorities, and a per-device order makes synced derived columns
+    /// (`tiebreakKey`, `searchText`) differ, so devices rewrite each other's forever.
     var sortedFieldDefinitions: [FieldDefinition] {
         fieldDefinitions.sorted(by: FieldDefinition.isOrderedBefore)
     }

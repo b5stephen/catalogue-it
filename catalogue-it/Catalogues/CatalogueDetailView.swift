@@ -21,20 +21,15 @@ struct CatalogueDetailView: View {
 #endif
 #if os(iOS)
     @Environment(\.verticalSizeClass) private var verticalSizeClass
-    /// Drives the search field when `drawsOwnSearchButton` stands in for the system's.
+    /// Drives the field when `drawsOwnSearchButton` stands in for the system's.
     @State private var isSearchPresented = false
 #endif
 
     @State private var selectedTab: StatusTab = .all
-    /// The catalogue `selectedTab` was seeded for. `.task` is cancelled and re-run whenever
-    /// this view disappears and comes back — which includes pushing an item detail and
-    /// popping it again in compact width — so seeding unconditionally there would throw the
-    /// user's tab away every time they returned from an item. Seeding is therefore keyed on
-    /// the catalogue itself: a different catalogue gets its default tab, the same one keeps
-    /// whatever the user last chose.
+    /// Seeding is keyed on the catalogue: `.task` re-runs whenever the view comes back, including
+    /// returning from an item in compact width, and would otherwise throw the user's tab away.
     @State private var seededCatalogueID: PersistentIdentifier?
-    /// `fieldID`s of the flag filters the user has switched on. ANDed with each other
-    /// and with the status tab.
+    /// ANDed with each other and with the status tab.
     @State private var activeFlagIDs: Set<UUID> = []
     @State private var showingEditCatalogue = false
     @State private var showingAddItem = false
@@ -43,21 +38,15 @@ struct CatalogueDetailView: View {
     @State private var searchText: String = ""
     @State private var appliedSearchText: String = ""
     @State private var displayedCount: Int = 0
-    /// Whether the band's title row has collapsed, at which point the bar shows the name and
-    /// count itself.
     @State private var isBandScrolledAway = false
     @State private var bandScroll = BandScrollState()
-    /// The band's full height, which the list reserves at its top.
     @State private var bandHeight: CGFloat = 0
-    /// Cached result of a cheap fetchCount — avoids faulting catalogue.items on every render.
+    /// A cached fetchCount, so rendering never faults `catalogue.items`.
     @State private var hasRecentlyDeletedItems = false
 #if os(iOS)
-    /// An export chosen from the toolbar, waiting for `ShareSheetAnchor` to present it.
     @State private var pendingExport: NSItemProvider?
 #endif
 
-    /// Updates `hasRecentlyDeletedItems` via a single fetchLimit-1 count — no object
-    /// materialisation, O(1) via the deletedDate index.
     private func refreshHasRecentlyDeleted() {
         let id = catalogue.persistentModelID
         var descriptor = FetchDescriptor<CatalogueItem>(
@@ -79,9 +68,8 @@ struct CatalogueDetailView: View {
         catalogue.flagFields
     }
 
-    /// Drops selections that no longer exist — the status field can be reconfigured here
-    /// or, via iCloud, on another device while this view is open. Without this the list
-    /// would filter on a tab the picker no longer shows, appearing permanently empty.
+    /// The status field can be reconfigured, here or on another device, while this is open; a
+    /// tab the picker no longer shows would leave the list permanently empty.
     private func reconcileFilterSelections() {
         let resolved = catalogue.resolvedStatusTab(selectedTab)
         if resolved != selectedTab { selectedTab = resolved }
@@ -95,10 +83,8 @@ struct CatalogueDetailView: View {
         GridItem(.adaptive(minimum: 160), spacing: 16)
     ]
 
-    /// Whether the catalogue's colour arrives as the band — only where the list is pushed on
-    /// its own. Beside a detail column the colour is the wash's glow instead, drawn the same in
-    /// both columns and fixed to the screen: a band scrolling away in one column while the
-    /// other stayed still left their top edges disagreeing at almost every scroll position.
+    /// Only where the list is pushed on its own; beside a detail column the colour is the glow,
+    /// fixed to the screen (see `CatalogueWash.glow`).
     private var usesBand: Bool {
 #if os(macOS)
         false
@@ -107,8 +93,7 @@ struct CatalogueDetailView: View {
 #endif
     }
 
-    /// Whether the list shares the glow with a detail column beside it, on iOS. macOS keeps
-    /// its own window chrome and the system edge effect.
+    /// macOS keeps its own window chrome and the system edge effect.
     private var sharesGlowWithDetail: Bool {
 #if os(iOS)
         hasDetailColumn
@@ -118,12 +103,10 @@ struct CatalogueDetailView: View {
     }
 
 #if os(iOS)
-    /// Beside a detail column in a compact-height window — a large iPhone in landscape —
-    /// the system's minimised search lands in the bottom bar, floating across both columns
-    /// over their content. Toolbar search only sits in the top bar on iPad, and that
-    /// placement can't be requested, so here the column's top bar carries a search button
-    /// of our own, which opens the field in that bar. A compact-height window never occurs
-    /// on iPad, which keeps the system button.
+    /// In a compact-height window beside a detail column (a large iPhone in landscape) the
+    /// system's minimised search lands in a bottom bar floating over both columns, and top-bar
+    /// placement can't be requested, so the column gets a search button of our own. iPad never
+    /// has a compact-height window and keeps the system's.
     private var drawsOwnSearchButton: Bool {
         hasDetailColumn && verticalSizeClass == .compact
     }
@@ -156,22 +139,17 @@ struct CatalogueDetailView: View {
                         selectedTab: $selectedTab
                     )
                 } else {
-                    // Room for the band floating over the list, plus the gap above the first
-                    // card; on macOS, just the gap below the bar or the tabs.
+                    // Room for the floating band plus the gap above the first card.
                     Color.clear
                         .frame(height: usesBand ? bandHeight + 12 : 8)
                         .accessibilityHidden(true)
                 }
             }
         )
-        // Beside a detail column the cards fade into the glow under the bar rather than
-        // blurring, so the top matches the detail column's at any scroll position. Inside
-        // the tabs' `safeAreaBar`, so the fade runs under them too. Pushed on its own the
-        // band covers that edge, and the soft effect below stays.
+        // Inside the tabs' `safeAreaBar`, so the fade runs under them too.
         .washFadeEdge(sharesGlowWithDetail)
 #if os(iOS)
-        // Under the trailing end of the bar, where the Export menu (or the overflow holding
-        // it) sits, so the share popover points back at what the user tapped.
+        // Under the Export menu (or the overflow holding it), so the popover points at it.
         .overlay(alignment: .topTrailing) {
             ShareSheetAnchor(itemProvider: $pendingExport)
                 .frame(width: 1, height: 1)
@@ -188,10 +166,7 @@ struct CatalogueDetailView: View {
                     height: $bandHeight,
                     isTitleCollapsed: $isBandScrolledAway
                 ) {
-                    // The tabs ride up with the band and then stay on its strip: the filter is
-                    // wanted while scrolling, and it is short. They exist only when the
-                    // catalogue defines a status field; without them the strip is just the
-                    // colour under the bar.
+                    // The tabs ride up with the band, then stay on its strip.
                     if !statusTabs.isEmpty {
                         StatusTabBar(tabs: statusTabs, catalogue: catalogue, selection: $selectedTab, onFill: true)
                             .padding(.horizontal)
@@ -201,39 +176,31 @@ struct CatalogueDetailView: View {
             }
         }
         .safeAreaBar(edge: .top) {
-            // On macOS there is no band to carry the tabs, so they are a bar of their own.
-            // (Beside a detail column on iOS they scroll in the list's header instead.)
+            // macOS has no band to carry the tabs.
             if !usesBand && !sharesGlowWithDetail && !statusTabs.isEmpty {
                 StatusTabBar(tabs: statusTabs, catalogue: catalogue, selection: $selectedTab)
                     .padding(.horizontal)
                     .padding(.vertical, 8)
             }
         }
-        // Where the fade edge is off (pushed under the band, and macOS), a soft edge fades
-        // and blurs the cards progressively as they pass under the bar, rather than a hard line.
         .scrollEdgeEffectStyle(.soft, for: .top)
         .catalogueGround(catalogue, glow: !usesBand, inSplitView: sharesGlowWithDetail)
         .tint(catalogue.palette(for: colorScheme).tint)
 #if os(macOS)
-        // The window title has nowhere else to come from.
         .navigationTitle(catalogue.name)
         .navigationSubtitle(itemCountLabel)
         .navigationSplitViewColumnWidth(min: 280, ideal: 360)
 #else
         .navigationTitle(catalogue.name)
-        // The band, or beside a detail column the list's header, carries the name and count
-        // instead. Beside a detail column the bar is crowded with buttons in a narrow column,
-        // so the title is removed from it outright rather than truncated to a few letters; it
-        // stays set for accessibility and the window title.
+        // The band or list header carries the name and count. Beside a detail column the narrow bar
+        // is full of buttons, so the title is removed rather than truncated; it stays set for
+        // accessibility and the window title.
         .navigationSubtitle(usesBand || hasDetailColumn ? "" : itemCountLabel)
         .toolbarTitleDisplayMode(.inline)
         .toolbar(removing: hasDetailColumn ? .title : nil)
         .toolbar {
-            // Over the band the bar sits on the catalogue's fill, which may have gone either
-            // way, so the title is drawn here in the band's own label colours. Not
-            // `toolbarColorScheme`: that flips the whole bar's scheme, and the glass buttons
-            // came out looking foreign on the fill. The band stands in for the title on
-            // arrival, so this only fades in once the band's title row has collapsed.
+            // Drawn in the band's label colours, since the fill may be light or dark. Not
+            // `toolbarColorScheme`, which made the glass buttons look foreign on the fill.
             if usesBand {
                 ToolbarItem(placement: .principal) {
                     BandBarTitle(catalogue: catalogue, countLabel: itemCountLabel)
@@ -250,9 +217,7 @@ struct CatalogueDetailView: View {
         .searchable(text: $searchText)
 #endif
 #if os(iOS)
-        // Beside a detail column iOS draws the field as a full-width row at the top of the
-        // list, above the status tabs. Minimised it is a toolbar button instead. Pushed on its
-        // own the field is already a bottom bar, so that is left alone.
+        // Beside a detail column iOS would draw the field as a full-width row above the tabs.
         .searchToolbarBehavior(hasDetailColumn ? .minimize : .automatic)
 #endif
         .onChange(of: searchText) { _, newValue in
@@ -284,12 +249,11 @@ struct CatalogueDetailView: View {
             }
             reconcileFilterSelections()
             PurgeService.purgeExpiredItems(for: catalogue, in: modelContext)
-            // Refresh after purge — purging expired items may clear the deleted set.
+            // Purging can empty the deleted set.
             refreshHasRecentlyDeleted()
         }
         .onChange(of: displayedCount) {
-            // A soft-delete or restore changes displayedCount; refresh so the toolbar
-            // entry appears/disappears without faulting the full items relationship.
+            // A soft-delete or restore changes displayedCount.
             refreshHasRecentlyDeleted()
         }
 #if !os(macOS)
@@ -304,15 +268,12 @@ struct CatalogueDetailView: View {
 #endif
         .toolbar {
 #if os(iOS)
-            // Add is the one primary action. Everything else is `.secondaryAction`, which the
-            // system keeps in the bar while there is room and folds into its own overflow
-            // menu when there isn't — so the flag filter collapses into the same "…" as the
-            // rest, rather than a hand-rolled menu sitting beside it and crowding the bar.
+            // The rest are `.secondaryAction`, kept in the bar while there's room and folded into the
+            // system's overflow when not.
             ToolbarItem(placement: .primaryAction) {
                 AddItemButton(showingAddItem: $showingAddItem)
             }
-            // Stands in for the system's search button; see `drawsOwnSearchButton`. iPad puts
-            // its own after the overflow menu, which an app's items can't follow.
+            // See `drawsOwnSearchButton`.
             if drawsOwnSearchButton {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Search", systemImage: "magnifyingglass") {
@@ -389,11 +350,8 @@ struct CatalogueDetailView: View {
 
 // MARK: - List Header
 
-/// The top of the item list beside a detail column: the catalogue's name and count, then the
-/// status tabs, all scrolling away with the items. The narrow column's bar has no room left
-/// for a readable title once its buttons are in, and vertical space is worth more to the list
-/// than keeping the tabs pinned. A new search or filter scrolls the list back to the top, so
-/// the count is in view whenever it has just changed.
+/// Name, count and tabs scroll away with the items beside a detail column: the narrow bar has
+/// no room for a readable title, and the list wants the height more than pinned tabs.
 private struct ListHeader: View {
     let catalogue: Catalogue
     let countLabel: String
@@ -428,14 +386,12 @@ private struct ListHeader: View {
 
 // MARK: - Export Menu Items
 
-/// Isolated subview so that export data is never computed during search keystrokes.
-/// CatalogueDetailView re-renders on every keystroke (@State searchText changes), but
-/// SwiftUI only re-renders this view when `catalogue` properties it accessed actually change.
+/// Its own view so export data isn't computed on every search keystroke.
 private struct ExportMenuItems: View {
     let catalogue: Catalogue
 #if os(iOS)
-    /// Not `ShareLink`: this menu can end up in the bar's overflow, which leaves the share
-    /// sheet nothing to anchor on and crashes. See `ShareSheetAnchor`.
+    /// Not `ShareLink`: in the bar's overflow the share sheet has nothing to anchor on and
+    /// crashes. See `ShareSheetAnchor`.
     let onExport: (CatalogueExportFormat) -> Void
 #endif
 

@@ -5,15 +5,10 @@
 
 import Foundation
 
-/// Picks the starting colour for a new catalogue, preferring one that doesn't look like any
-/// catalogue the user already has.
-///
-/// Colours are compared by hue rather than by hex: existing catalogues may have been picked
-/// freely in the colour picker, so a `#0A84FF` should still count as "blue taken". Near-neutral
-/// picks (greys, black, white) carry no meaningful hue and claim nothing.
+/// Compared by hue, not hex, so a freely picked `#0A84FF` still counts as "blue taken".
+/// Near-neutrals claim nothing.
 nonisolated enum CatalogueColorSuggester {
-    /// Candidates in the order they're offered. System blue stays first so the very first
-    /// catalogue looks as it always has; after that, each step jumps well round the wheel.
+    /// System blue first, so the first catalogue looks as it always has; then large jumps.
     static let palette: [String] = [
         "#007AFF", // blue
         "#FF9500", // orange
@@ -26,17 +21,13 @@ nonisolated enum CatalogueColorSuggester {
         "#5856D6", // indigo
     ]
 
-    /// Hue distance (as a fraction of the wheel) under which two colours read as the same.
-    /// Kept below the palette's closest pairs (red/pink ~15°, orange/yellow ~13°), so taking
-    /// one of them doesn't rule out its neighbour.
+    /// Below the palette's closest pairs (red/pink ~15°, orange/yellow ~13°), so taking one
+    /// doesn't rule out its neighbour.
     static let sameHueThreshold = 1.0 / 36 // 10°
 
-    /// Below this saturation a colour is treated as neutral and ignored.
     static let neutralSaturation = 0.15
 
-    /// The first palette colour whose hue is clear of every existing one. Once the palette is
-    /// exhausted, the candidate furthest from its nearest existing hue — so a long list still
-    /// spreads out rather than repeating blue.
+    /// Once the palette is exhausted, the candidate furthest from its nearest existing hue.
     static func suggestedHex(avoiding existingHexes: [String]) -> String {
         let usedHues = existingHexes
             .map { HSBComponents(hex: $0) }
@@ -53,11 +44,11 @@ nonisolated enum CatalogueColorSuggester {
         if let free = palette.first(where: { clearance($0) >= sameHueThreshold }) {
             return free
         }
-        // `max(by:)` keeps the first of equal elements, so ties go to the earlier palette entry.
+        // `max(by:)` keeps the first of equals, so ties go to the earlier entry.
         return palette.max { clearance($0) < clearance($1) } ?? palette[0]
     }
 
-    /// Shortest distance between two hues around the wheel, in 0…0.5.
+    /// In 0…0.5.
     static func hueDistance(_ a: Double, _ b: Double) -> Double {
         let d = abs(a - b).truncatingRemainder(dividingBy: 1)
         return min(d, 1 - d)

@@ -52,6 +52,23 @@ xcodebuild -project catalogue-it.xcodeproj -scheme catalogue-it -configuration D
 swiftc -typecheck catalogue-it/*.swift
 ```
 
+## Code Comments
+
+Comments are succinct and only state what the code cannot.
+
+- **Don't restate the code.** No "Convenience accessor for…", "Header row", or a doc comment that
+  paraphrases the name and signature.
+- **State the reason, not the history.** No "previously…", "this used to…", "(bug 4)", build
+  numbers or debugging narrative; keep only the constraint that remains true, in the present tense.
+- **Keep what prevents a bug.** Platform quirks, invariants, sync and SwiftData constraints, and why
+  a non-obvious choice was made (e.g. the `fetchHistory` ban, `nonisolated` on stored `Codable`
+  types, compare-before-assign) stay — trimmed to their essentials.
+- **Put it where it applies.** A comment explaining a function sits on that function, not its
+  neighbour.
+- **Keep it true.** When changing code, update or delete any comment it makes wrong; a stale comment
+  is worse than none.
+- Long-form rationale belongs in this file, not repeated across source files.
+
 ## iCloud Sync
 
 Backed by CloudKit through SwiftData's built-in mirroring.

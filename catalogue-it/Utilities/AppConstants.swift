@@ -9,9 +9,7 @@ import SwiftUI
 
 // MARK: - App Design Constants
 
-/// Declared `nonisolated` to opt out of the module's default `@MainActor` isolation,
-/// so these plain constants are usable from any actor context (e.g. as default
-/// values for SwiftData model properties, which are themselves `nonisolated`).
+/// `nonisolated` so the constants can be SwiftData property defaults.
 nonisolated enum AppConstants {
     enum CornerRadius {
         static let small: CGFloat = 8
@@ -25,27 +23,23 @@ nonisolated enum AppConstants {
     enum PhotoHeight {
         static let detail: CGFloat = 280
     }
-    /// Metrics for the catalogue cards on the Catalogues screen. Catalogues are the app's
-    /// entry point and there are few of them, so the cards are deliberately roomier than a
-    /// standard list row.
+    /// Roomier than a standard row: catalogues are the entry point, and few.
     enum CatalogueCard {
         static let iconTile: CGFloat = 52
         static let contentPadding: CGFloat = 14
         static let horizontalInset: CGFloat = 16
         static let rowSpacing: CGFloat = 12
-        /// Nested-radius rule: inner radius = outer radius − padding (see the card-design skill).
+        /// Inner radius = outer − padding (see the card-design skill).
         static let iconTileCornerRadius: CGFloat = CornerRadius.card - contentPadding
     }
-    /// Metrics for the item cards in the list layout. Same inset as the catalogue cards so
-    /// the two screens line up; a tighter gap, because there are many more of these.
+    /// The catalogue cards' inset, so the screens line up; a tighter gap, as there are more.
     enum ItemCard {
         static let horizontalInset: CGFloat = 16
         static let rowSpacing: CGFloat = 8
-        /// Uniform on all sides: the thumbnail's corners can only sit concentric with the
-        /// card's if it is inset the same amount horizontally and vertically.
+        /// Uniform, or the thumbnail's corners can't be concentric with the card's.
         static let contentPadding: CGFloat = 10
-        /// Nested-radius rule: inner radius = outer radius − padding. Anything larger and the
-        /// gap between the two curves widens at the corner; anything smaller and it pinches.
+        /// Inner radius = outer − padding; otherwise the gap between the curves widens or pinches
+        /// at the corner.
         static let thumbnailCornerRadius: CGFloat = CornerRadius.card - contentPadding
     }
     enum GridCardSize {

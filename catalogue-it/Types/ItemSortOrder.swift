@@ -9,11 +9,8 @@ import Foundation
 
 // MARK: - Item Sort Field
 
-/// Encodes the sort field selection as a plain string for `@AppStorage`.
-/// Built-in sorts use a `__` prefix to avoid collisions with user-defined field names.
-///
-/// Declared `nonisolated` to opt out of the module's default `@MainActor` isolation,
-/// so its `Hashable` conformance is usable from any actor context.
+/// Stored as a string on `Catalogue.sortFieldKey`: a field's UUID, or a `__`-prefixed key for
+/// a built-in sort.
 nonisolated enum ItemSortField: Hashable {
     case dateAdded
     case field(UUID)
@@ -28,7 +25,7 @@ nonisolated enum ItemSortField: Hashable {
             if let uuid = UUID(uuidString: rawValue) {
                 self = .field(uuid)
             } else {
-                self = .dateAdded // fallback for any stale stored values
+                self = .dateAdded
             }
         }
     }

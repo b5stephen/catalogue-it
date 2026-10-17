@@ -9,27 +9,15 @@ import SwiftUI
 
 // MARK: - Field Row
 
-/// One field of the item, in the catalogue's chosen `DetailLabelLayout`.
-///
-/// `.beside`: label on the left, value on the right, on one line — the same shape as the
-/// status row, so a card of mixed fields reads as one table. A value too long for the
-/// remaining width wraps beneath itself, trailing-aligned, rather than flipping the row into
-/// a different layout from its neighbours; the label keeps its width so it is never the thing
-/// that gets squashed. Only a genuine block of text (a paragraph, several lines) drops below
-/// the label, and then with the same label styling so the row still reads as part of the
-/// same table.
-///
-/// `.above`: every row is label over value, left-aligned, whatever its length. Since every
-/// row shares the shape, the label can drop to a caption — it's a heading, not a column.
+/// `.beside` keeps one table shape: a long value wraps trailing-aligned rather than changing
+/// layout, and only a real block of text drops below its label. `.above` stacks every row, so
+/// the label can drop to a caption.
 private struct FieldRowView: View {
     let label: String
     let value: String
     let layout: DetailLabelLayout
-    /// The rows sit inside a card, so the last one draws no divider against the card's edge.
     var isLast: Bool = false
 
-    /// A value that would take several lines even at full width has no business in a trailing
-    /// column; it reads as prose, so it is laid out as prose.
     private var isBlockOfText: Bool {
         value.contains("\n") || value.count > 80
     }
@@ -38,8 +26,6 @@ private struct FieldRowView: View {
         layout == .above || isBlockOfText
     }
 
-    /// A block of text stacked among inline rows keeps the body-size label so it still reads
-    /// as one of them; under `.above` every label is a heading, and a caption suits that.
     private var stackedLabelFont: Font {
         layout == .above ? .caption : .body
     }
@@ -104,9 +90,7 @@ struct ItemFieldsSection: View {
             ForEach(fields, id: \.0.id) { def, val in
                 let isLast = def.id == fields.last?.0.id
                 if def.isStatusField {
-                    // The status field gets the same chip treatment as the item row, and
-                    // resolves boolean statuses through their tab labels rather than showing
-                    // a bare "Yes"/"No" that doesn't match what the tab bar says.
+                    // Boolean statuses show their tab labels, not a bare "Yes"/"No".
                     StatusFieldRowView(field: def, value: val, layout: layout, isLast: isLast)
                 } else {
                     FieldRowView(label: def.name, value: val.displayValue(options: def.fieldOptions), layout: layout, isLast: isLast)
@@ -124,8 +108,7 @@ private struct StatusFieldRowView: View {
     let layout: DetailLabelLayout
     var isLast: Bool = false
 
-    /// Recomputed from the field value rather than read from `CatalogueItem.statusValue`,
-    /// so the detail view shows what is actually stored on the item.
+    /// From the field value, not `statusValue`, so it shows what is actually stored.
     private var storedValue: String {
         ItemFacetBuilder.statusValue(from: [value], definitions: [field])
     }
@@ -141,8 +124,7 @@ private struct StatusFieldRowView: View {
     }
 
     var body: some View {
-        // Follows the field rows' layout so the card stays one table (or one stack); a lone
-        // side-by-side chip row among stacked fields would read as a different component.
+        // Follows the field rows' layout so the card stays one table.
         Group {
             switch layout {
             case .beside:
@@ -173,9 +155,7 @@ private struct StatusFieldRowView: View {
 
 // MARK: - Item Notes Section
 
-/// Inside a card titled "Notes", so the text stands alone rather than under a second label.
-/// Always present, even with nothing written: the placeholder and the pencil together say
-/// "tap here to add some", which a card that only appears once notes exist can't.
+/// Always shown, even empty: the placeholder and pencil invite adding notes.
 struct ItemNotesSection: View {
     let notes: String?
     let onEdit: () -> Void

@@ -7,24 +7,14 @@ import SwiftUI
 
 // MARK: - Field Preview Section
 
-/// A live preview of a field being configured: the control the user will fill in when
-/// adding an item, and how the value they enter then reads on the item itself.
-///
-/// Everything here renders through the same views the real screens use — `FieldControl`
-/// for the input, `FieldValueFormatter` and `FieldChipView` for the display — so the
-/// preview cannot drift from what the field actually becomes. The sample value is live
-/// state: typing, toggling, or picking in the preview updates the display line below it.
-///
-/// Rendered by `FieldEditorView` for every field type, so a field looks the
-/// same wherever it is being configured.
+/// Renders through the real screens' views (`FieldControl`, `FieldValueFormatter`,
+/// `FieldChipView`), so it can't drift from what the field becomes.
 struct FieldPreviewSection: View {
     let name: String
     let fieldType: FieldType
     var numberOptions: NumberOptions = NumberOptions()
     var optionListOptions: OptionListOptions = OptionListOptions()
     var booleanOptions: BooleanOptions = BooleanOptions()
-    /// Drives the display line: a status field shows a chip and a flag shows its badge,
-    /// rather than the plain text an ordinary field gets.
     var displayRole: DisplayRole = .none
 
     @State private var textValue: String = ""
@@ -32,8 +22,7 @@ struct FieldPreviewSection: View {
     @State private var dateValue: Date? = nil
     @State private var boolValue: Bool = false
 
-    /// Fields are previewable before they are named, so an unnamed field borrows the same
-    /// placeholder the form's name row shows.
+    /// The name row's placeholder, for a field not yet named.
     private var label: String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? String(localized: "Field Name") : trimmed
@@ -83,8 +72,6 @@ struct FieldPreviewSection: View {
 
     // MARK: - Display Line
 
-    /// How the entered value reads once it is stored on an item — plain formatted text for
-    /// an ordinary field, a chip for a status field, a badge for a set flag.
     @ViewBuilder
     private var displayedValue: some View {
         switch fieldType {
@@ -114,8 +101,6 @@ struct FieldPreviewSection: View {
                 tint: StatusChipPalette.booleanTint(isTrue: boolValue)
             )
         case .flagFilter:
-            // A flag only marks the items that carry it, and only when it has an icon —
-            // an unset flag, or one with no icon, shows nothing on the item.
             if boolValue, let icon = trimmedLabel(booleanOptions.flagIconName) {
                 Image(systemName: icon)
                     .font(.caption)
@@ -169,8 +154,6 @@ struct FieldPreviewSection: View {
 
     // MARK: - Sample Value
 
-    /// Seeds a plausible value per type so the display line shows something real. The user
-    /// is free to change it — the preview is a working control, not a picture of one.
     private func seedSample() {
         textValue = ""
         numberValue = nil
@@ -191,8 +174,7 @@ struct FieldPreviewSection: View {
         }
     }
 
-    /// Keeps the sample pointing at an option that still exists — options can be renamed or
-    /// deleted while the preview is on screen.
+    /// Options can be renamed or deleted while the preview is on screen.
     private func seedOptionListSampleIfNeeded() {
         guard fieldType == .optionList else { return }
         guard !optionListOptions.options.contains(textValue) else { return }

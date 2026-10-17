@@ -7,24 +7,17 @@ import Foundation
 import SwiftData
 import os
 
-/// Hard-deletes items and catalogues by re-fetching every row from the store rather than
-/// walking in-memory relationship arrays. Relationship arrays can contain stale or
-/// future-backed models (after an undo, a rollback, or a delete elsewhere), and calling
-/// `context.delete()` on one of those crashes SwiftData's snapshot creation
-/// ("Unexpected backing data for snapshot creation: _FullFutureBackingData"). Predicate
-/// fetches return only live, fully-materialised rows, so deletion succeeds regardless of
-/// how the in-memory graph got into its current state — and also sweeps up orphaned rows
-/// (e.g. a FieldValue with a definition but no item) that a relationship walk would miss.
+/// Deletes by re-fetching rows rather than walking relationships: a relationship can hold a
+/// stale or future-backed model (after an undo, rollback or remote delete), and deleting one
+/// crashes snapshot creation ("_FullFutureBackingData"). Fetching also catches orphans a walk
+/// would miss.
 ///
-/// Not actor-isolated (explicitly, since the module defaults to MainActor): the delete
-/// functions operate solely on the `ModelContext` passed in, so they run safely on whichever
-/// executor owns that context — the main actor for the main context, or
-/// `BackgroundDeletionActor` for its background context. The `…AndSave` variants are
-/// `@MainActor` because they suspend undo registration, which is main-context state.
+/// Not actor-isolated: works on whichever executor owns the context passed in. The `…AndSave`
+/// variants are `@MainActor` because they suspend undo registration.
 nonisolated enum DeletionService {
     private static let logger = Logger(subsystem: "catalogue-it", category: "DeletionService")
 
-    /// Deletes an item and its children bottom-up. Does NOT save — caller saves once after a batch.
+    /// Bottom-up. Doesn't save — the caller saves once per batch.
     static func deleteItem(_ item: CatalogueItem, in context: ModelContext) {
         let itemID = item.persistentModelID
         do {
@@ -45,11 +38,8 @@ nonisolated enum DeletionService {
         removeThumbnails(for: [itemID])
     }
 
-    /// Deletes a catalogue and its entire graph bottom-up: each item with its children,
-    /// then each field definition with any field values orphaned from their item, then the
-    /// catalogue itself. Every fetch joins through at most one relationship — predicates
-    /// joining two levels deep (or ORing across two joins) compile to unreliable SQL that
-    /// intermittently misses or over-matches rows.
+    /// Every fetch joins through at most one relationship: deeper or ORed joins compile to SQL
+    /// that intermittently misses or over-matches rows.
     static func deleteCatalogue(_ catalogue: Catalogue, in context: ModelContext) {
         let catalogueID = catalogue.persistentModelID
         do {
@@ -63,9 +53,7 @@ nonisolated enum DeletionService {
         }
     }
 
-    /// Final phase of catalogue deletion, once all items are gone: field definitions with
-    /// any field values orphaned from their item, then the catalogue row itself.
-    /// Also called directly by `BackgroundDeletionActor` after its batched item deletion.
+    /// Once the items are gone. Also called by `BackgroundDeletionActor` after its batches.
     static func deleteFieldDefinitionsAndCatalogueRow(
         catalogueID: PersistentIdentifier,
         in context: ModelContext
@@ -85,11 +73,8 @@ nonisolated enum DeletionService {
         for fetched in catalogues { context.delete(fetched) }
     }
 
-    /// Hard deletes are deliberately NOT undoable: the confirmation alert promises the
-    /// deletion is permanent, and SwiftData's native undo of a saved delete is broken
-    /// anyway (it re-inserts models under their old, now-deleted row identities, which
-    /// silently vanish on the next save — nothing is actually restored). Registration is
-    /// suspended so the undo stack never offers a lying undo.
+    /// Not undoable: the alert promises permanence, and SwiftData's undo of a saved delete
+    /// re-inserts under dead identities that vanish on the next save.
     @MainActor
     static func deleteCatalogueAndSave(_ catalogue: Catalogue, in context: ModelContext) {
         context.withUndoRegistrationSuspended {
@@ -98,17 +83,14 @@ nonisolated enum DeletionService {
         }
     }
 
-    /// Hides a catalogue from the UI immediately and hands the actual teardown to
-    /// `BackgroundDeletionActor`, keeping the main thread free. The flag write is not
-    /// undoable for the same reason hard deletes aren't (see above) — and undoing it
-    /// mid-teardown would resurrect a half-deleted catalogue.
+    /// Not undoable either: undoing mid-teardown would resurrect a half-deleted catalogue.
     @MainActor
     static func markForBackgroundDeletion(_ catalogue: Catalogue, in context: ModelContext) {
         context.withUndoRegistrationSuspended {
             catalogue.pendingDeletion = true
             save(context)
         }
-        // Read the ID after saving: saving replaces a temporary ID with the permanent one.
+        // After saving: the save replaces a temporary ID with the permanent one.
         BackgroundDeletionActor.scheduleDeletion(of: catalogue.persistentModelID)
     }
 
@@ -124,15 +106,13 @@ nonisolated enum DeletionService {
         do {
             try context.save()
         } catch {
-            // Roll back so the failed deletes don't sit poisoned in the context; the
-            // fetch-based delete paths above stay safe to retry after a rollback.
+            // So the failed deletes don't sit poisoned in the context; the fetch-based paths are safe
+            // to retry.
             context.rollback()
             logger.error("Delete save failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
-    /// Runs `body` with SwiftData's automatic undo registration disabled, so hard deletes
-    /// never land on the undo stack as natively-undoable (see above).
     private static func removeThumbnails(for itemIDs: [PersistentIdentifier]) {
         Task.detached {
             for itemID in itemIDs {

@@ -7,14 +7,8 @@ import Foundation
 
 // MARK: - Field Value Formatter
 
-/// Formats stored field values for display.
-///
-/// Owned separately from `FieldValue` so the field-configuration previews can format a
-/// sample value — which has no `FieldValue` record behind it — through exactly the code
-/// that will format the real thing.
-///
-/// `nonisolated` because `FieldValue.displayValue` is: formatting runs wherever a value is
-/// being read, including off the main actor.
+/// Apart from `FieldValue` so previews format a sample value through the same code.
+/// `nonisolated` because `FieldValue.displayValue` is.
 nonisolated enum FieldValueFormatter {
     static func number(_ value: Double, options: NumberOptions) -> String {
         let grouping: NumberFormatStyleConfiguration.Grouping = options.usesGroupingSeparator ? .automatic : .never

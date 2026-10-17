@@ -11,8 +11,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    // Catalogues marked for deletion vanish from the sidebar instantly, while
-    // BackgroundDeletionActor tears their data down off the main thread.
+    // Pending deletion hides a catalogue at once; BackgroundDeletionActor does the teardown.
     @Query(filter: #Predicate<Catalogue> { !$0.pendingDeletion }, sort: \Catalogue.priority)
     private var catalogues: [Catalogue]
     @State private var showingAddCatalogue = false
@@ -24,10 +23,8 @@ struct ContentView: View {
 #if os(macOS)
     @State private var selectedCatalogue: Catalogue?
 #else
-    /// The leading column's stack: empty on the catalogue list, one catalogue on its items.
-    /// `selectedCatalogue` is derived from it so import, seeding and deletion write one piece
-    /// of state on every platform. Popping the stack clears the selection, which in turn
-    /// clears `selectedItem` via `onChange`.
+    /// Empty on the catalogue list, one catalogue on its items. `selectedCatalogue` derives from
+    /// it so every writer sets one piece of state.
     @State private var cataloguePath: [Catalogue] = []
     private var selectedCatalogue: Catalogue? {
         get { cataloguePath.last }
@@ -46,7 +43,7 @@ struct ContentView: View {
 
 #if !os(macOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    /// Read here, outside the split view, so it reflects the window and not a column.
+    /// Read outside the split view, so it reflects the window and not a column.
     private var hasDetailColumn: Bool { horizontalSizeClass != .compact }
     @State private var columnVisibility: NavigationSplitViewVisibility = .doubleColumn
 #endif
@@ -83,10 +80,8 @@ struct ContentView: View {
             selectedItem = nil
         }
 #else
-        // Going back to the catalogue list (nil) keeps the open item in the detail column: the
-        // list is a step away, not a different place, and losing the item on every Back was
-        // jarring. Entering a catalogue clears it unless it's the item's own, so stepping back
-        // into the same catalogue finds it still selected.
+        // Back to the catalogue list keeps the open item: losing it on every Back was jarring.
+        // Entering a catalogue clears it unless it's the item's own.
         .onChange(of: selectedCatalogue) { _, catalogue in
             if let catalogue, catalogue != selectedItem?.catalogue {
                 selectedItem = nil
@@ -134,8 +129,8 @@ struct ContentView: View {
     }
 
 #if os(macOS)
-    /// Catalogues | items | item detail. The Mac has the width for all three, and the sidebar
-    /// selection is what keyboard navigation and the standard sidebar look are built on.
+    /// The Mac has the width for three columns, and sidebar selection carries its keyboard
+    /// navigation and standard look.
     private var threeColumnLayout: some View {
         NavigationSplitView {
             sidebarContent
@@ -154,31 +149,24 @@ struct ContentView: View {
         }
     }
 #else
-    /// Two columns, with the items screen pushed onto a stack *inside* the leading column.
-    ///
-    /// Three columns don't work on iPad in portrait: the only resting state is items + detail
-    /// with the sidebar hidden, so a fresh launch with nothing selected shows two empty
-    /// placeholders, and every attempt to force the sidebar open with a `columnVisibility`
-    /// binding was overwritten during the split view's first layout pass. With two columns and
-    /// `.balanced`, the leading column is always tiled, and it shows either the catalogue list
-    /// or — a Back tap away — the items of the chosen one. In compact width the whole thing
-    /// collapses to catalogues → items → item detail on this one explicit stack, which also
-    /// sidesteps the split view's own re-hosting of pushed columns.
+    /// Two columns, with the items pushed inside the leading one. Three don't work on iPad in
+    /// portrait: the only resting state hides the sidebar, a fresh launch shows two empty
+    /// placeholders, and the split view overwrites a forced `columnVisibility` on first layout.
+    /// In compact width this collapses to one explicit stack, which also sidesteps the split
+    /// view's re-hosting of pushed columns.
     private var twoColumnLayout: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             NavigationStack(path: $cataloguePath) {
                 sidebarContent
                     .navigationDestination(for: Catalogue.self) { catalogue in
                         CatalogueDetailView(catalogue: catalogue, selectedItem: $selectedItem)
-                            // On the destination itself: set on the stack, it never reached
-                            // the pushed view once the split view had collapsed on iPhone.
+                            // Set on the stack, it never reached the pushed view once the split view collapsed.
                             .environment(\.hasDetailColumn, hasDetailColumn)
                     }
             }
             .navigationSplitViewColumnWidth(min: 280, ideal: 420, max: 560)
         } detail: {
-            // The item's own catalogue, not the selected one: the item outlives the pop back
-            // to the catalogue list, where nothing is selected.
+            // The item's own catalogue: the item outlives the pop back to the catalogue list.
             if hasDetailColumn, let item = selectedItem, let catalogue = item.catalogue {
                 ItemDetailView(catalogue: catalogue, item: item, selectedItem: $selectedItem)
             } else {
@@ -189,8 +177,7 @@ struct ContentView: View {
     }
 #endif
 
-    /// The empty detail column. Inside a catalogue it sits on that catalogue's wash, so the
-    /// two columns read as one place rather than the detail side dropping back to plain grey.
+    /// On the catalogue's wash, so the detail side doesn't drop back to plain grey.
     @ViewBuilder
     private var selectAnItemPlaceholder: some View {
         let placeholder = ContentUnavailableView("Select an item", systemImage: "cube")
@@ -205,8 +192,7 @@ struct ContentView: View {
         }
     }
 
-    /// Where the catalogue list's seldom-used actions go: the overflow menu on iOS, the bar on
-    /// macOS, which has the room and no overflow to speak of.
+    /// macOS has the room, and no overflow to speak of.
     private var rareActionPlacement: ToolbarItemPlacement {
 #if os(macOS)
         .primaryAction
@@ -239,9 +225,7 @@ struct ContentView: View {
         .cloudSyncStatusBar()
         .overlay {
             if catalogues.isEmpty {
-                // While the first import is still running, "No Catalogues" is actively
-                // misleading — it's the moment a user is most likely to conclude sync is
-                // broken, or start recreating catalogues they already have.
+                // "No Catalogues" during the first import makes sync look broken.
                 if case .syncing = CloudKitSyncMonitor.shared.status {
                     ContentUnavailableView {
                         Label("Syncing from iCloud", systemImage: "icloud.and.arrow.down")
@@ -267,10 +251,8 @@ struct ContentView: View {
                 onShowSyncDiagnostics: { showingSyncDiagnostics = true }
             )
 #else
-            // TestFlight gets its own toolbar button, since the hammer menu that holds this in
-            // DEBUG builds doesn't exist here — and a silent failure shows no status bar, so
-            // the sheet needs a way in that doesn't depend on one being on screen. Release
-            // builds from the App Store show nothing.
+            // The hammer menu that holds this is DEBUG-only, and a silent failure shows no status bar
+            // to tap. App Store builds show nothing.
             if isBeta {
                 ToolbarItem(placement: rareActionPlacement) {
                     Button("Sync Diagnostics", systemImage: "stethoscope") {
@@ -279,9 +261,8 @@ struct ContentView: View {
                 }
             }
 #endif
-            // Import is rare, so on iOS it goes behind the overflow menu: the leading column
-            // is ~300pt on an iPad in portrait, and a title plus three or four trailing
-            // buttons don't fit — the bar drops the title rather than a button.
+            // Rare, so behind the overflow: on an iPad in portrait the ~300pt bar would drop the title
+            // rather than a button.
             ToolbarItem(placement: rareActionPlacement) {
                 Button("Import Catalogue", systemImage: "square.and.arrow.down") {
                     showingImporter = true
@@ -347,10 +328,7 @@ struct ContentView: View {
         }
     }
 
-    /// Recomputes `FieldValue.tiebreakKey` across every catalogue — a dev-only escape hatch
-    /// for refreshing sort order after changes to the tiebreak encoding itself, since the app
-    /// hasn't shipped yet and there's no real user data to migrate. Shows progress immediately
-    /// (no delay) since this is an explicit, deliberate action rather than an incidental one.
+    /// Dev-only: refreshes sort order after a change to the tiebreak encoding.
     private func recalculateAllSortKeys() {
         Task { @MainActor in
             sortKeyRecalcProgress = (current: 0, total: 0)
@@ -370,12 +348,8 @@ struct ContentView: View {
         }
     }
 
-    /// Pushes the full CloudKit schema to the Development environment, or with `dryRun` just
-    /// validates it and prints it to the console. See `CloudKitSchemaInitializer` for why the
-    /// schema does not create itself correctly from ordinary use of the app.
-    ///
-    /// Detached: `initializeCloudKitSchema` is synchronous and talks to the network, so running
-    /// it on the main actor would freeze the UI for its duration.
+    /// See `CloudKitSchemaInitializer` for why the schema can't come from ordinary use. Detached:
+    /// `initializeCloudKitSchema` is synchronous and talks to the network.
     private func runSchemaInitializer(dryRun: Bool) {
         Task {
             let result = await Task.detached {
@@ -404,9 +378,8 @@ struct ContentView: View {
                         importProgress = (current: current, total: total)
                     }
                 )
-                // Save immediately to assign permanent PersistentIdentifiers before
-                // any view renders the imported models. Temporary IDs handed to views
-                // before the save would crash if autosave fires while a view holds them.
+                // Permanent identifiers before any view renders the imported models: a temporary one held
+                // by a view crashes if autosave fires.
                 try? modelContext.save()
                 importProgress = nil
                 selectedCatalogue = imported.first
@@ -417,7 +390,6 @@ struct ContentView: View {
         }
     }
 
-    /// Deletes outright when there is nothing in the catalogue, otherwise asks first.
     private func requestDelete(_ catalogue: Catalogue) {
         let hasItems = catalogue.items.contains { $0.deletedDate == nil }
         let hasRecentlyDeleted = catalogue.items.contains { $0.deletedDate != nil }
@@ -428,8 +400,7 @@ struct ContentView: View {
         }
     }
 
-    /// Clears the selection first so no column is left showing a catalogue that is about to
-    /// vanish, then hands the teardown to the background actor.
+    /// Clears the selection first, so no column shows a catalogue about to vanish.
     private func delete(_ catalogue: Catalogue) {
         if selectedItem?.catalogue == catalogue {
             selectedItem = nil

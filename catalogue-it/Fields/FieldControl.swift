@@ -7,12 +7,8 @@ import SwiftUI
 
 // MARK: - Field Control
 
-/// The editing control for a single field, driven by plain values rather than by a
-/// persisted `FieldDefinition`.
-///
-/// The item form reaches it through `FieldInputView`; the field-configuration previews
-/// render it directly from an unsaved draft. Both go through this one view so a preview
-/// is the control the user will actually get, not a lookalike.
+/// Driven by plain values rather than a `FieldDefinition`, so field-configuration previews of
+/// an unsaved draft render the real control.
 struct FieldControl: View {
     let label: String
     let fieldType: FieldType

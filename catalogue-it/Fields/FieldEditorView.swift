@@ -9,29 +9,22 @@ import SwiftUI
 
 // MARK: - Field Editor View
 
-/// The one form for defining a field, used both when adding a new field and when editing an
-/// existing one. Editing shows exactly the same controls as adding, with two differences:
-/// the type picker is locked (an existing field's stored values are typed, so changing it
-/// would strand them), and option-list renames and deletions are recorded on the draft so
-/// `AddEditCatalogueView` can cascade them to `FieldValue` records on save.
+/// Editing locks the type picker, since stored values are typed, and records option renames
+/// and deletions on the draft for `AddEditCatalogueView` to cascade on save.
 struct FieldEditorView: View {
     @Environment(\.dismiss) private var dismiss
 
-    /// Names of the *other* fields in the catalogue. When editing, the field's own name is
-    /// excluded by the caller so keeping it isn't flagged as a duplicate.
+    /// The *other* fields' names; the caller excludes this field's own.
     let existingNames: [String]
     private let isEditing: Bool
     let onSave: (FieldDefinitionDraft) -> Void
 
     @State private var draft: FieldDefinitionDraft
-    /// The draft as the sheet opened, so a swipe-down or tap outside can tell an untouched
-    /// sheet from one with edits pending.
     private let initialDraft: FieldDefinitionDraft
     @State private var newOptionText: String = ""
     @State private var renamingOption: String? = nil
     @State private var renameText: String = ""
 
-    /// Adding: starts from an empty Text field.
     init(existingNames: [String] = [], onAdd: @escaping (FieldDefinitionDraft) -> Void) {
         self.existingNames = existingNames
         self.isEditing = false
@@ -41,7 +34,6 @@ struct FieldEditorView: View {
         _draft = State(initialValue: empty)
     }
 
-    /// Editing: starts from the field as it stands, and hands back the edited draft.
     init(editing field: FieldDefinitionDraft, existingNames: [String] = [], onSave: @escaping (FieldDefinitionDraft) -> Void) {
         self.existingNames = existingNames
         self.isEditing = true
@@ -55,7 +47,6 @@ struct FieldEditorView: View {
         !draft.hasSameContent(as: initialDraft) || !trimmedNew.isEmpty
     }
 
-    // Trimmed candidate for the new option being typed
     private var trimmedNew: String { newOptionText.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var canAddOption: Bool { !trimmedNew.isEmpty && !draft.optionListOptions.options.contains(trimmedNew) }
 
@@ -169,15 +160,10 @@ struct FieldEditorView: View {
                     }
                 }
 
-                // Peer of the type-specific option sections above. Which fields drive the
-                // tab bar or a filter toggle is decided in the catalogue's Options section,
-                // once the field exists — this form only configures the field itself.
                 if draft.fieldType == .boolean {
                     BooleanOptionsSection(options: $draft.booleanOptions)
                 }
 
-                // A working sample of the field as configured so far — the same controls the
-                // item form will show, re-seeded whenever the type or its options change.
                 FieldPreviewSection(
                     name: draft.name,
                     fieldType: draft.fieldType,
@@ -186,7 +172,6 @@ struct FieldEditorView: View {
                     booleanOptions: draft.booleanOptions,
                     displayRole: draft.displayRole
                 )
-                // Switching type resets the sample value along with the options it belongs to.
                 .id(draft.fieldType)
             }
             .alert("Rename Option", isPresented: Binding(get: { renamingOption != nil }, set: { if !$0 { renamingOption = nil } })) {
@@ -230,9 +215,7 @@ struct FieldEditorView: View {
                     Button(isEditing ? "Done" : "Add", systemImage: "checkmark") {
                         var edited = draft
                         edited.name = trimmedFieldName
-                        // Dropping below the two-option minimum makes a tab bar impossible;
-                        // give up the role here so the Options section stops offering this
-                        // field as the status field, rather than silently discarding it.
+                        // Below the option minimum a tab bar is impossible.
                         if edited.displayRole == .statusTabs,
                            edited.fieldType == .optionList,
                            edited.optionListOptions.options.count < FieldDefinitionValidation.minimumStatusOptions {
@@ -245,16 +228,13 @@ struct FieldEditorView: View {
                 }
             }
         }
-        // A swipe-down, or a tap outside the sheet on iPad, would silently drop the edits;
-        // once there are any, dismissal has to go through Cancel.
+        // A swipe-down or tap outside would silently drop edits.
         .interactiveDismissDisabled(hasChanges)
     }
 
     // MARK: - Option Edits
 
-    /// Renames an option, recording the change for the save-time cascade to stored values.
-    /// Chains collapse: renaming A→B then B→C is recorded as A→C, so the cascade only ever
-    /// looks for names that are actually on disk.
+    /// Chains collapse (A→B then B→C records A→C), so the cascade only looks for stored names.
     private func renameOption(_ old: String, to new: String) {
         if let index = draft.optionListOptions.options.firstIndex(of: old) {
             draft.optionListOptions.options[index] = new
@@ -276,8 +256,7 @@ struct FieldEditorView: View {
             draft.optionListOptions.defaultValue = nil
         }
         guard draft.existingDefinition != nil else { return }
-        // A pending rename pointing at this option is simply dropped — the stored value is
-        // still under its original name, and the deletion below clears it by that name.
+        // Stored values still carry the original name, so delete by that.
         if let originalName = draft.pendingOptionRenames.first(where: { $0.value == option })?.key {
             draft.pendingOptionRenames.removeValue(forKey: originalName)
             draft.pendingOptionDeletions.insert(originalName)

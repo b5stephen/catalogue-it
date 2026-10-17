@@ -9,14 +9,10 @@ import UIKit
 
 // MARK: - Share Sheet Anchor
 
-/// Presents the system share sheet for `itemProvider`, anchored on this view, then clears it.
-///
-/// Exists because `ShareLink` can't live in a `.secondaryAction` toolbar item. When the bar is
-/// short of room iOS folds those items into its own "…" overflow menu, and choosing a
-/// `ShareLink` there closes the menu — taking the view the share sheet anchors on with it.
-/// On iOS 26 the share sheet is a popover even on iPhone, so UIKit then throws for want of a
-/// `sourceView` and the app aborts. Place this where it stays on screen for as long as the
-/// menu that requests the share, near the button the popover should point at.
+/// `ShareLink` can't live in a `.secondaryAction` item: chosen from the bar's overflow menu it
+/// closes the menu and its own anchor, and on iOS 26 the share popover then aborts the app for
+/// want of a `sourceView`. Place this where it outlives that menu, near the button the popover
+/// should point at.
 struct ShareSheetAnchor: UIViewRepresentable {
     @Binding var itemProvider: NSItemProvider?
 
@@ -28,8 +24,8 @@ struct ShareSheetAnchor: UIViewRepresentable {
 
     func updateUIView(_ uiView: UIView, context: Context) {
         guard let provider = itemProvider else { return }
-        // Deferred a turn: state can't be written from inside an update, and clearing the
-        // request first means a re-render can never present it twice.
+        // Deferred a turn: state can't be written inside an update. Clearing first means a
+        // re-render can't present it twice.
         Task {
             itemProvider = nil
             Self.present(provider, from: uiView)
@@ -43,7 +39,7 @@ struct ShareSheetAnchor: UIViewRepresentable {
         }
 
         let configuration = UIActivityItemsConfiguration(itemProviders: [provider])
-        // The file name as the sheet's header, as `ShareLink`'s preview gave it.
+        // The file name as the header, as `ShareLink`'s preview gave it.
         let title = provider.suggestedName
         configuration.metadataProvider = { key in
             key == .title ? title : nil

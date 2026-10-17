@@ -11,15 +11,9 @@ import SwiftData
 // MARK: - Catalogue Importer
 
 enum CatalogueImporter {
-    /// Decodes a catalogue export JSON file and inserts the catalogues into the given context.
     /// - Parameters:
-    ///   - data: Raw JSON data from a `.json` export file.
-    ///   - context: The SwiftData context to insert models into.
-    ///   - priorityOffset: Added to each catalogue's stored priority so imported catalogues
-    ///     append after existing ones without colliding. Pass `catalogues.count`.
-    ///   - onProgress: Called on the main actor after each item is processed.
-    ///     Receives (completedItems, totalItems) across all imported catalogues.
-    /// - Returns: The newly created `Catalogue` objects.
+    ///   - priorityOffset: Pass `catalogues.count`, so imports append without colliding.
+    ///   - onProgress: (completed, total) across all catalogues, on the main actor.
     @MainActor
     static func importCatalogues(
         from data: Data,
@@ -30,8 +24,7 @@ enum CatalogueImporter {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let file = try decoder.decode(CatalogueExportFile.self, from: data)
-        // v1 files are upgraded in place during import (see LegacyWishlistUpgrade), so every
-        // format this build knows about is accepted. Only newer formats are rejected.
+        // v1 files are upgraded during import; only newer formats are rejected.
         guard file.version <= CatalogueExportFile.currentVersion else {
             throw ImportError.unsupportedVersion(file.version)
         }

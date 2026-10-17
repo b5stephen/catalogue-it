@@ -7,9 +7,7 @@
 import Photos
 import os
 
-/// Best-effort, silent saving of camera-captured photos to the system Photos library.
-/// Any denial, restriction, or PHPhotoLibrary failure is silently logged and ignored —
-/// call this from a non-blocking `Task` alongside attaching the photo to the in-app model.
+/// Best effort: denial or failure is logged and ignored. Call from a non-blocking `Task`.
 enum PhotoLibrarySaver {
     nonisolated private static let logger = Logger(subsystem: "catalogue-it", category: "PhotoLibrarySaver")
 

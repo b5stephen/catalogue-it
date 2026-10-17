@@ -9,10 +9,8 @@
 import SwiftUI
 import UIKit
 
-/// Imperatively presents UIImagePickerController from the topmost UIViewController,
-/// bypassing SwiftUI's sheet nesting restrictions.
-/// Must be retained externally (e.g. via @State) for the duration of the session,
-/// since UIImagePickerController.delegate is a weak reference.
+/// Presented imperatively to get around SwiftUI's sheet nesting limits. Retain it for the
+/// session: the picker's delegate reference is weak.
 @MainActor
 final class CameraCoordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
     private let onCapture: (UIImage) -> Void
@@ -24,8 +22,8 @@ final class CameraCoordinator: NSObject, UIImagePickerControllerDelegate, UINavi
         self.onDismiss = onDismiss
     }
 
-    /// Presents over the window `anchor` is in — the one the user asked from. With more than
-    /// one window open, "the first foreground scene" can be a different one.
+    /// From `anchor`'s window: with several windows open, the first foreground scene may be
+    /// a different one from the one the user asked from.
     func present(from anchor: UIView) {
         guard !hasPresented else { return }
         hasPresented = true
@@ -43,7 +41,7 @@ final class CameraCoordinator: NSObject, UIImagePickerControllerDelegate, UINavi
         picker.sourceType = .camera
         picker.cameraCaptureMode = .photo
         picker.modalPresentationStyle = .fullScreen
-        picker.delegate = self  // retains self for the session
+        picker.delegate = self
         topVC.present(picker, animated: true)
     }
 
@@ -62,8 +60,8 @@ final class CameraCoordinator: NSObject, UIImagePickerControllerDelegate, UINavi
     }
 }
 
-/// Presents `coordinator`'s camera from the window this view sits in. Place it on the control
-/// that requests the camera, where it stays mounted for the session.
+/// Presents `coordinator`'s camera from this view's window. Place it on the control that
+/// requests the camera, so it stays mounted for the session.
 struct CameraPresentationAnchor: UIViewRepresentable {
     let coordinator: CameraCoordinator?
 

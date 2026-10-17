@@ -10,7 +10,6 @@ import SwiftData
 
 // MARK: - Item Photo
 
-/// A photo attached to an item
 @Model
 final class ItemPhoto {
     // Every stored property below carries a default value: CloudKit rejects

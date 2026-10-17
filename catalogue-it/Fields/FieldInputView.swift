@@ -10,10 +10,6 @@ import SwiftData
 
 // MARK: - Field Input View
 
-/// Renders the appropriate SwiftUI control for a given field type.
-///
-/// A thin adapter from the item form's `FieldValueDraft` onto `FieldControl`, which holds
-/// the actual controls and is shared with the field-configuration previews.
 struct FieldInputView: View {
     let label: String
     @Binding var draft: FieldValueDraft
@@ -35,7 +31,6 @@ struct FieldInputView: View {
 // MARK: - Preview
 
 #Preview {
-    // Previews require a model container since FieldValueDraft now holds a FieldDefinition
     let config = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
     let container = try! ModelContainer(for: FieldDefinition.self, configurations: config)
     let def = FieldDefinition(name: "Example", fieldType: .text)

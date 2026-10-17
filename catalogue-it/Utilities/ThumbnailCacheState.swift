@@ -9,31 +9,20 @@ import SwiftData
 
 // MARK: - Thumbnail Cache State
 
-/// What a thumbnail view keys its load on, and the one piece of process-wide state that can
-/// change it from outside the item.
+/// Thumbnail views load in `.task(id:)` from `@State`, so the key must change for a mounted
+/// view to look again — on iPad the list stays on screen while an item is edited:
+/// - `modifiedDate`, bumped by the save, and synced, so a photo swapped elsewhere reloads.
+/// - `generation`, bumped when `RemoteChangeObserver` clears the caches.
 ///
-/// `ItemCardView` and `ItemRowView` hold their decoded cover image in `@State` and load it in
-/// `.task(id:)`. Keyed on the item's identifier alone, that task never re-ran: an edit that
-/// replaced the photo evicted the caches correctly, but nothing asked the mounted view to look
-/// again, so on iPad — where the list stays on screen while the item is edited — the old
-/// image stayed until the whole list was rebuilt. The key now also carries:
-///
-/// - `modifiedDate`, which the save bumps. Being a model property it also arrives through
-///   sync, so a photo swapped on another device reloads here too.
-/// - `generation`, bumped by `RemoteChangeObserver` when it clears the caches wholesale. This
-///   covers a remote change from a device on a build that predates `modifiedDate`.
-///
-/// Both views build their key in `body`, so the bump re-evaluates the whole row, text
-/// included. That is relied upon: a value merged in from CloudKit does not go through the
-/// model's setters, so SwiftData observation cannot be trusted to re-render a row for it, and
-/// `ItemPaginationController`'s reload hands SwiftUI the same instances it already had.
+/// Built in `body`, so a bump re-evaluates the whole row. That is relied on: a CloudKit merge
+/// bypasses the setters, so observation won't re-render the row, and a pagination reload
+/// hands back the same instances.
 @MainActor
 @Observable
 final class ThumbnailCacheState {
     static let shared = ThumbnailCacheState()
 
-    /// Incremented whenever both thumbnail caches were dropped for reasons no item's
-    /// `modifiedDate` reflects.
+    /// Bumped when both caches were dropped for reasons no item's `modifiedDate` reflects.
     private(set) var generation = 0
 
     func invalidateAll() {
@@ -41,7 +30,7 @@ final class ThumbnailCacheState {
     }
 }
 
-/// Identity of one thumbnail load. Equal keys mean the cached image is still the right one.
+/// Equal keys mean the cached image is still right.
 struct ThumbnailKey: Equatable {
     let itemID: PersistentIdentifier
     let modifiedDate: Date

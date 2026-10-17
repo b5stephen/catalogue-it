@@ -9,63 +9,45 @@ import StoreKit
 import Synchronization
 import os
 
-// Everything in this file is `nonisolated`: the build defaults declarations to @MainActor
-// (SWIFT_DEFAULT_ACTOR_ISOLATION), but the CloudKit event notification is delivered on
-// whatever thread posted it, and a failure report has to be built and recorded there.
+// All `nonisolated`: CloudKit event notifications arrive on whatever thread posted them, and
+// the report is built and recorded there.
 
 // MARK: - Sync Failure Report
 
-/// One CloudKit failure, unwrapped far enough to be actionable.
-///
-/// `CKError.partialFailure` (code 2) is a container, not a cause: the errors that matter are
-/// in `userInfo[CKPartialErrorsByItemIDKey]`, one per rejected record. Everything the app
-/// used to show came from `localizedDescription` on the *outer* error, which is why a failure
-/// reached the user as the uninformative "CKErrorDomain error 2".
+/// `CKError.partialFailure` (code 2) is a container, not a cause: the per-record errors are in
+/// `userInfo[CKPartialErrorsByItemIDKey]`.
 nonisolated struct SyncFailureReport: Codable, Identifiable, Equatable, Sendable {
 
-    /// Per-record failures collapsed by (code, record type) so a 2000-item import produces a
-    /// handful of lines rather than 2000. Screenshot legibility is the whole point.
+    /// Collapsed by (code, record type), so a 2000-item import fits in a screenshot.
     struct Bucket: Codable, Identifiable, Equatable, Sendable {
         var id: String { "\(code)|\(recordType)" }
         var code: String
         var recordType: String
         var count: Int
-        /// First server message in this bucket, truncated. Carries the detail that names a
-        /// missing field for schema errors.
+        /// Truncated. For schema errors it names the missing field.
         var sampleMessage: String
-        /// `CD_…` tokens scraped from the server messages. For a schema-drift failure these
-        /// name the exact fields missing from the deployed Production schema.
+        /// For schema drift, the fields missing from the deployed Production schema.
         var schemaTokens: [String]
     }
 
     var id: UUID = UUID()
     var date: Date = .now
-    /// "import", "export" or "setup" — which direction was in flight.
     var eventType: String
-    /// The outer error, e.g. "partialFailure (2)".
+    /// e.g. "partialFailure (2)".
     var outerCode: String
-    /// How many individual records the outer error wrapped.
     var partialCount: Int
     var buckets: [Bucket]
-    /// The message the user was shown, or `nil` for failures deliberately kept silent
-    /// (not signed in, offline, throttled). Silent failures are still recorded here.
+    /// `nil` for failures deliberately kept silent, which are still recorded.
     var userFacingMessage: String?
     var rawDescription: String
 }
 
 // MARK: - Build Environment
 
-/// Which CloudKit environment this build talks to, and whether the beta-only diagnostics
-/// entry point should exist.
 nonisolated enum BuildEnvironment {
 
-    /// TestFlight builds run against StoreKit's sandbox environment, App Store builds against
-    /// production. Debug builds count as beta so the screen is reachable while developing.
-    ///
-    /// Async because `AppTransaction.shared` is: it is resolved once from a `.task` and held in
-    /// view state, rather than read inline while building a toolbar. Anything short of a
-    /// verified sandbox transaction — App Store, unverified, no transaction at all — is
-    /// treated as not beta, since being wrong here only shows or hides one debug button.
+    /// TestFlight runs against StoreKit's sandbox. Debug builds count as beta. Anything short of a
+    /// verified sandbox transaction counts as not beta: being wrong only shows or hides a button.
     static func isBeta() async -> Bool {
         #if DEBUG
         return true
@@ -75,9 +57,7 @@ nonisolated enum BuildEnvironment {
         #endif
     }
 
-    /// Inferred, not read: there is no API that reports the mirroring environment. Debug
-    /// builds sign into Development, everything else (TestFlight included) into Production.
-    /// Labelled as inferred wherever it is shown, because that is what it is.
+    /// Inferred — no API reports the mirroring environment — and labelled so wherever shown.
     static var cloudKitEnvironment: String {
         #if DEBUG
         return "Development (inferred)"
@@ -96,28 +76,21 @@ nonisolated enum BuildEnvironment {
 
 // MARK: - Sync Diagnostics Store
 
-/// Rolling record of sync failures and oversized field values, kept so the diagnostics screen
-/// has something to show minutes after the fact — and across a relaunch.
-///
-/// Every failure lands here, including the ones `CloudKitSyncMonitor` deliberately keeps out
-/// of the UI. Staying quiet about a self-resolving network error in the status bar is a
-/// separate decision from throwing the evidence away.
+/// Rolling and persisted, so the diagnostics screen has something to show after the fact.
+/// Records every failure, including those kept out of the UI.
 nonisolated enum SyncDiagnostics {
 
     private static let logger = Logger(subsystem: "catalogue-it", category: "SyncDiagnostics")
 
-    /// Reports beyond this are dropped oldest-first. Twenty covers a bulk import's worth of
-    /// batches without turning the screen into a scroll marathon.
     private static let maxReports = 20
 
-    /// Only field values at or above this size are recorded. A CloudKit record is capped at
-    /// 1 MB in total, so anything under 8 KB is irrelevant and not worth taking a lock for on
-    /// a path that runs once per field value per item.
+    /// A record is capped at 1 MB, so smaller values don't justify the lock on a path that runs
+    /// per field value.
     static let fieldSizeThreshold = 8 * 1024
 
     private struct State: Codable, Sendable {
         var reports: [SyncFailureReport] = []
-        /// Largest observed value per instrumented field, keyed by field name.
+        /// Keyed by field name.
         var largestFields: [String: Int] = [:]
     }
 
@@ -147,9 +120,7 @@ nonisolated enum SyncDiagnostics {
         persist()
     }
 
-    /// Notes an oversized denormalised string so the record-size hypothesis can be confirmed
-    /// or ruled out from the same screen. Threshold-gated: the comparison is free, the lock is
-    /// only taken for the rare large value.
+    /// To confirm or rule out the record-size hypothesis from the same screen.
     static func noteFieldSize(_ name: String, _ length: Int) {
         guard length >= fieldSizeThreshold else { return }
         let isNewMax = state.withLock { s -> Bool in
@@ -178,8 +149,7 @@ nonisolated enum SyncDiagnostics {
 
     // MARK: Persistence
 
-    /// Survives a relaunch, which matters: a failed import is usually reported after the fact,
-    /// often after the tester has force-quit the app.
+    /// A failed import is usually reported after the tester has force-quit the app.
     private static var storeURL: URL {
         let base = (try? FileManager.default.url(
             for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
@@ -204,8 +174,6 @@ nonisolated enum SyncDiagnostics {
 
 nonisolated extension SyncFailureReport {
 
-    /// Builds a report from a CloudKit mirroring error, descending into a partial failure to
-    /// reach the per-record errors underneath.
     init(error: Error, eventType: String, userFacingMessage: String?) {
         let nsError = error as NSError
         let partials = Self.partialErrors(in: error)
@@ -232,9 +200,7 @@ nonisolated extension SyncFailureReport {
         self.rawDescription = String(describing: nsError).prefix(2000).description
     }
 
-    /// Flattens `CKPartialErrorsByItemIDKey`, one level of nesting deep — a partial failure
-    /// occasionally wraps another. Returns `[error]` when there is nothing to unwrap, so a
-    /// plain single error still produces one bucket.
+    /// One level deep: a partial failure occasionally wraps another.
     private static func partialErrors(in error: Error) -> [Error] {
         let userInfo = (error as NSError).userInfo
         guard let map = userInfo[CKPartialErrorsByItemIDKey] as? [AnyHashable: Error],
@@ -261,8 +227,7 @@ nonisolated extension SyncFailureReport {
         )
     }
 
-    /// The CloudKit record type behind a failure, when the error carries a record at all.
-    /// Core Data's mirrored types are named `CD_<Entity>`, which points straight at the model.
+    /// Mirrored types are named `CD_<Entity>`.
     private static func recordType(for error: Error) -> String? {
         guard let ckError = error as? CKError else { return nil }
         if let record = ckError.serverRecord ?? ckError.clientRecord {
@@ -271,9 +236,7 @@ nonisolated extension SyncFailureReport {
         return nil
     }
 
-    /// Scrapes `CD_…` identifiers out of a server message. For the schema-drift case — a field
-    /// present in Development but never deployed to Production — these name the exact fields
-    /// CloudKit is rejecting, which is the single most useful thing in the whole report.
+    /// For schema drift these name the exact fields CloudKit is rejecting.
     private static func schemaTokens(in text: String) -> [String] {
         guard text.contains("CD_") else { return [] }
         let separators = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "_")).inverted
@@ -292,8 +255,7 @@ nonisolated extension SyncFailureReport {
 // MARK: - CKError Naming
 
 nonisolated extension CKError.Code {
-    /// `CKError.Code` is not `CustomStringConvertible`, and the raw number is what leaves a
-    /// tester staring at "error 2". Names are spelled out so a screenshot reads as English.
+    /// So a screenshot reads as English rather than "error 2".
     var diagnosticName: String {
         switch self {
         case .internalError: "internalError"
@@ -332,8 +294,7 @@ nonisolated extension CKError.Code {
         case .serverResponseLost: "serverResponseLost"
         case .assetNotAvailable: "assetNotAvailable"
         case .accountTemporarilyUnavailable: "accountTemporarilyUnavailable"
-        // Plain `default`, not `@unknown default`: CloudKit adds codes, and a report that says
-        // "code 42" is still useful — a compile error here would not be.
+        // Not `@unknown default`: CloudKit adds codes, and "code 42" is still useful.
         default: "code \(rawValue)"
         }
     }

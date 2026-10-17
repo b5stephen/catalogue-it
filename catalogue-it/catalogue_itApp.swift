@@ -11,12 +11,10 @@ import SwiftData
 @main
 struct catalogue_itApp: App {
     let sharedModelContainer: ModelContainer = {
-        // Model list lives on the versioned schema so it stays in one place; see SchemaVersions.swift.
         let schema = Schema(versionedSchema: CatalogueSchemaCurrent.self)
         let isUITesting = ProcessInfo.processInfo.arguments.contains("--ui-testing")
-        // CloudKit is not a valid combination with an in-memory store, so UI-test runs opt out.
-        // Otherwise `.automatic` adopts the container named in catalogue-it.entitlements — the
-        // container id is deliberately not repeated here.
+        // CloudKit can't back an in-memory store, so UI tests opt out. `.automatic` adopts the
+        // entitlement's container, so the id isn't repeated here.
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: isUITesting,
@@ -45,10 +43,9 @@ struct catalogue_itApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                // Attach undo before anything below touches the store: an inner modifier's
-                // onAppear runs before an outer one's, and `.task` bodies run before the
-                // outer onAppear too. Attaching after the backfill has started modifying
-                // rows crashes its next save — see ModelContextUndoModifier.
+                // Before anything touches the store: an inner modifier's onAppear and `.task` bodies run
+                // before an outer onAppear, and attaching after the backfill has written crashes its next
+                // save — see ModelContextUndoModifier.
                 .withModelContextUndoManager()
                 .onAppear { seedUITestDataIfNeeded() }
                 .task {
@@ -67,7 +64,7 @@ struct catalogue_itApp: App {
         let catalogue = Catalogue(name: "Test Catalogue", iconName: "star", colorHex: "#007AFF")
         ctx.insert(catalogue)
 
-        // Force a known layout so the UI test starts in a predictable state.
+        // A known layout, so UI tests start predictably.
         if let layoutRaw = ProcessInfo.processInfo.environment["UITESTING_LAYOUT"],
            let layout = ItemLayout(rawValue: layoutRaw) {
             catalogue.itemLayout = layout
@@ -86,8 +83,7 @@ struct catalogue_itApp: App {
         fieldValue.item = item
         ctx.insert(fieldValue)
 
-        // Commit now so the seed is never left pending across an undo-manager change —
-        // SwiftData asserts on a save that finds changes made without a manager attached.
+        // Saved now, so no change is pending when the undo manager is attached.
         try? ctx.save()
     }
 }

@@ -14,8 +14,7 @@ struct DebugToolbarItem: ToolbarContent {
     var onShowSyncDiagnostics: () -> Void
 
     var body: some ToolbarContent {
-        // Overflow on iOS: the leading column is ~300pt on an iPad in portrait, and the
-        // title is the first thing the bar drops when the buttons don't fit.
+        // Overflow on iOS: on an iPad in portrait the ~300pt bar drops its title first.
 #if os(macOS)
         let placement: ToolbarItemPlacement = .primaryAction
 #else
@@ -36,15 +35,13 @@ struct DebugToolbarItem: ToolbarContent {
                 Button("Push CloudKit Schema (Dev)", systemImage: "icloud.and.arrow.up") {
                     onInitializeCloudKitSchema()
                 }
-                // Lives in this menu rather than its own toolbar slot in DEBUG builds: four
-                // trailing items overflows behind a "…" on phone widths, and this menu is
-                // already the home for developer affordances. TestFlight builds, which have no
-                // hammer menu, get the standalone button instead — see ContentView.
+                // Here rather than its own slot: four trailing items overflow on phone widths. TestFlight
+                // builds, which have no hammer menu, get a standalone button — see ContentView.
                 Button("Sync Diagnostics", systemImage: "stethoscope") {
                     onShowSyncDiagnostics()
                 }
             } label: {
-                // A full label: inside the overflow menu the image alone reads as "build".
+                // In the overflow the image alone reads as "build".
                 Label("Developer", systemImage: "hammer")
             }
         }

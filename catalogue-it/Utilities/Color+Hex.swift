@@ -10,7 +10,7 @@ import SwiftUI
 // MARK: - Color + Hex
 
 extension Color {
-    /// Creates a Color from a hex string (e.g. "#FF0000" or "FF0000").
+    /// Accepts "#FF0000" or "FF0000".
     nonisolated init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0
@@ -35,18 +35,9 @@ extension Color {
         )
     }
 
-    /// Returns a hex string representation of this color (e.g. "#FF0000").
-    ///
-    /// Deliberately not read straight off `cgColor.components`: the component count depends on
-    /// the colour space, and a greyscale colour — which is what the macOS colour panel's Greyscale
-    /// sliders and a plain white or black pick produce — carries just two (white, alpha), so
-    /// indexing a blue channel out of it traps. Asking the platform colour to *resolve* itself
-    /// into RGB works regardless of the space it arrived in.
-    ///
-    /// Wide-gamut picks are clamped rather than rejected. A Display P3 colour resolves to
-    /// extended-sRGB components that can sit outside 0…1, which would otherwise format into
-    /// nonsense; clamping keeps the nearest displayable sRGB colour, which is what the card
-    /// palette can draw anyway.
+    /// Resolved into RGB rather than read off `cgColor.components`, whose count depends on the
+    /// colour space: a greyscale pick has two, and indexing blue traps. Wide-gamut components
+    /// outside 0…1 are clamped to the nearest sRGB colour, which is all the palette can draw.
     func toHex() -> String {
         let fallback = "#007AFF"
         let r: Double, g: Double, b: Double

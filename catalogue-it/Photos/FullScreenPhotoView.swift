@@ -21,21 +21,16 @@ struct FullScreenPhotoView: View {
 #if os(iOS)
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    // Reflects whether the currently visible photo is zoomed in.
-    // Set by ZoomablePhotoView via binding; gates paging and dismiss.
+    // Set by ZoomablePhotoView; gates paging and dismiss.
     @State private var isZoomed = false
 
-    // Reflects whether the currently visible photo has an active pinch gesture.
-    // Set by ZoomablePhotoView via binding; gates dismiss independently of isZoomed,
-    // since isZoomed is false during the transition from 1× to zoomed.
+    // Gates dismiss separately: isZoomed is still false while a pinch is leaving 1×.
     @State private var isPinching = false
 
-    // Swipe-to-dismiss state
     @State private var dismissOffset: CGFloat = 0
     @State private var dismissProgress: CGFloat = 0 // 0 = fully presented, 1 = dismissed
 
-    // Latched to true within a gesture if horizontal motion is detected first.
-    // Prevents accidental dismiss from diagonal or horizontal swipes.
+    // Latched when horizontal motion comes first, so a sideways swipe never dismisses.
     @State private var dismissSuppressed = false
 #endif
 
@@ -67,12 +62,10 @@ struct FullScreenPhotoView: View {
     private var iOSBody: some View {
         NavigationStack {
             ZStack {
-                // Background fades during dismiss drag
                 adaptiveBackground
                     .opacity(1.0 - dismissProgress * 0.5)
                     .ignoresSafeArea()
 
-                // Photo pager — moves and scales during dismiss drag
                 GeometryReader { proxy in
                     ScrollViewReader { scrollProxy in
                         ScrollView(.horizontal) {
@@ -105,11 +98,9 @@ struct FullScreenPhotoView: View {
                 }
                 .offset(y: dismissOffset)
                 .scaleEffect(1.0 - dismissProgress * 0.1)
-                // simultaneousGesture lets the ScrollView's horizontal paging and
-                // this vertical dismiss gesture both recognise touches concurrently.
+                // Simultaneous, so horizontal paging keeps working.
                 .simultaneousGesture(dismissGesture)
 
-                // Page indicator dots
                 if photos.count > 1 {
                     VStack {
                         Spacer()
@@ -155,16 +146,8 @@ struct FullScreenPhotoView: View {
 
     // MARK: - Dismiss Gesture
 
-    // Vertical downward drag to dismiss. Uses simultaneousGesture on the parent
-    // so horizontal ScrollView paging is unaffected.
-    //
-    // Suppression logic prevents accidental activation:
-    // - isPinching: blocks dismiss while a pinch-to-zoom is active (isZoomed alone
-    //   is insufficient because it's false during the 1× → zoomed transition).
-    // - dismissSuppressed: latched true if horizontal motion is detected before
-    //   vertical, preventing diagonal/horizontal swipes from triggering dismiss.
-    // - 3× angle requirement (was 1.5×): gesture must be within ~18° of vertical.
-    // - 20pt minimum threshold: avoids a 1-frame visual jump at gesture start.
+    // Within ~18° of vertical (3×), and 20pt in before any feedback, which avoids a
+    // one-frame jump at the start.
     private var dismissGesture: some Gesture {
         DragGesture()
             .onChanged { value in
@@ -173,16 +156,13 @@ struct FullScreenPhotoView: View {
                 let height = value.translation.height
                 let width = value.translation.width
 
-                // Latch suppression if horizontal motion is detected first
                 if abs(width) > abs(height) {
                     dismissSuppressed = true
                 }
                 guard !dismissSuppressed, height > 0 else { return }
 
-                // Require a steep vertical angle to avoid diagonal false positives
                 guard abs(height) > abs(width) * 3.0 else { return }
 
-                // Minimum threshold before showing visual feedback
                 guard height > 20 else { return }
 
                 if !reduceMotion {
@@ -195,10 +175,8 @@ struct FullScreenPhotoView: View {
 
                 let didDragFar = value.translation.height > 100
                 let didDragFast = value.velocity.height > 600
-                // dismissOffset > 0 confirms onChanged actually tracked this as a
-                // dismiss gesture. Without this, a pinch-out (where onChanged is
-                // suppressed by !isPinching but onEnded fires after isPinching resets)
-                // could satisfy didDragFar/didDragFast from the pinch translation.
+                // A pinch can end here after isPinching resets; only a drag that onChanged
+                // tracked (dismissOffset > 0) may dismiss.
                 if !dismissSuppressed, dismissOffset > 0, (didDragFar || didDragFast) {
                     dismiss()
                 } else {
@@ -312,7 +290,6 @@ private struct MacOSPhotoPage: View {
 
 // MARK: - Photo Transferable
 
-/// Wraps image Data as a Transferable type for use with ShareLink.
 private struct PhotoTransferable: Transferable {
     let data: Data
 

@@ -10,7 +10,6 @@ import SwiftData
 
 // MARK: - Catalogue Item
 
-/// An individual item in a catalogue
 @Model
 final class CatalogueItem {
     #Index<CatalogueItem>(
@@ -20,12 +19,9 @@ final class CatalogueItem {
         [\.deletedDate],
         [\.deletedDate, \.statusValue],
         [\.deletedDate, \.searchText],   // enables DB-level search combined with soft-delete filter
-        // Catalogue-scoped compound indexes: the most common access pattern is
-        // "items in catalogue X, not deleted, sorted by createdDate". Without these,
-        // every fetchCount and paginated fetch must scan all non-deleted rows and
-        // filter by catalogue FK in memory — O(n) scan + O(n log n) sort per page.
-        // With these indexes SQLite can seek directly into the right range and return
-        // rows in sorted order without a separate sort step.
+        // The common query is "items in catalogue X, not deleted, sorted by createdDate".
+        // These let SQLite seek straight to that range in order, rather than scanning every
+        // non-deleted row and sorting for each count and page.
         [\.catalogue, \.deletedDate, \.createdDate],
         [\.catalogue, \.deletedDate, \.statusValue, \.createdDate]
     )
@@ -33,37 +29,26 @@ final class CatalogueItem {
     // Every stored property below carries a default value: CloudKit rejects
     // non-optional attributes that have none, and the container fails to build.
     var createdDate: Date = Date.now
-    /// When the user last changed this item's own content — field values, photos or notes.
-    /// Bumped by `ItemSaveService`, never by derived-column maintenance (sort keys, facets,
-    /// search text) or by soft delete, which has `deletedDate`. Equal to `createdDate` for an
-    /// item that has never been edited, including every item migrated from schema V1.
-    /// Doubles as the key the thumbnail views reload on, locally and after a sync.
+    /// The user's last edit of fields, photos or notes — only `ItemSaveService` bumps it, never
+    /// derived-column maintenance or soft delete. Also the key thumbnails reload on.
     var modifiedDate: Date = Date.now
-    var notes: String? // Optional general notes field
+    var notes: String?
     var deletedDate: Date? // nil = active; non-nil = soft deleted
 
-    /// Lowercased, space-joined concatenation of all field display values.
-    /// Updated on every item save via `SearchTextBuilder`. Enables DB-level CONTAINS predicate
-    /// so non-matching items are never loaded into Swift memory during search.
-    /// Adding with a default value requires no SchemaMigrationPlan; existing rows get "".
+    /// Built by `SearchTextBuilder`, so search is a CONTAINS predicate in the store.
     var searchText: String = ""
 
-    /// Denormalised mirror of this item's value for the catalogue's `.statusTabs` field.
-    /// `""` when the catalogue has no status field or the item has no value for it.
-    /// Maintained by `ItemFacetBuilder` on every write path — see that type for why the
-    /// mirror exists rather than filtering through the `FieldValue` relationship.
+    /// Mirror of the `.statusTabs` field's value, maintained by `ItemFacetBuilder`.
     var statusValue: String = ""
 
-    /// Denormalised mirror of this item's set `.flagFilter` fields, as concatenated
-    /// `|<fieldID>|` tokens. `""` when no flags are set. Filtered with a CONTAINS
-    /// predicate, the same mechanism `searchText` uses.
+    /// The set `.flagFilter` fields as `|<fieldID>|` tokens, matched with CONTAINS.
     var flagKeys: String = ""
 
     var isDeleted: Bool { deletedDate != nil }
 
     var catalogue: Catalogue?
 
-    // Optional for CloudKit; read through the non-optional accessors below. See Catalogue.swift.
+    // Optional for CloudKit; use the accessors below.
     @Relationship(deleteRule: .cascade, inverse: \FieldValue.item)
     var storedFieldValues: [FieldValue]? = []
 
@@ -77,9 +62,7 @@ final class CatalogueItem {
         self.notes = notes
     }
 
-    /// Get the value for a specific field definition.
-    /// Performs an O(n) in-memory linear scan over `fieldValues`.
-    /// Not predicate-backed — safe because item field counts are small. Should the item
+    /// A linear scan of `fieldValues`, fine for an item's handful of fields. Should the item
     /// hold duplicates for the definition (a merge artefact), the same one is chosen on
     /// every device — see `SortKeyEncoder.preferredValue`.
     func value(for definition: FieldDefinition) -> FieldValue? {
@@ -89,8 +72,7 @@ final class CatalogueItem {
 
 // MARK: - Relationship Accessors
 
-/// Non-optional views onto the CloudKit-mandated optional relationships.
-/// Must stay in an extension — see the note in Catalogue.swift.
+/// Must stay in an extension — see Catalogue.swift.
 extension CatalogueItem {
     var fieldValues: [FieldValue] {
         get { storedFieldValues ?? [] }

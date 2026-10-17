@@ -52,13 +52,8 @@ struct AddItemButton: View {
 
 // MARK: - Flag Filter Button
 
-/// Surfaces the catalogue's `.flagFilter` fields as filter controls.
-///
-/// One flag gets a direct toggle — the star/favourite pattern, one tap to filter. Several
-/// collapse into a menu of independent toggles, since a row of toolbar icons would crowd out
-/// everything else. On iOS the whole thing sits in the bar's overflow menu (see
-/// `CatalogueDetailView`), where the menu becomes a submenu. Renders nothing when the
-/// catalogue defines no flags.
+/// One flag gets a direct toggle; several collapse into a menu of toggles rather than crowding
+/// the bar. Renders nothing without flags.
 struct FlagFilterButton: View {
     let flagFields: [FieldDefinition]
     @Binding var activeFlagIDs: Set<UUID>
@@ -69,8 +64,8 @@ struct FlagFilterButton: View {
         if flagFields.count == 1, let flag = flagFields.first {
             let isActive = activeFlagIDs.contains(flag.fieldID)
 #if os(iOS)
-            // On iOS this is a `.secondaryAction`, which always lands in the overflow menu:
-            // a toggle there gets a checkmark, where a filled symbol on a button says nothing.
+            // A `.secondaryAction` always lands in the overflow menu, where a toggle gets a checkmark
+            // and a filled symbol says nothing.
             Toggle(isOn: Binding(get: { isActive }, set: { _ in toggle(flag.fieldID) })) {
                 Label(flag.name, systemImage: flag.flagIconName ?? BooleanOptions.fallbackFilterIconName)
             }
@@ -80,9 +75,7 @@ struct FlagFilterButton: View {
             } label: {
                 Label(flag.name, systemImage: flag.flagIconName ?? BooleanOptions.fallbackFilterIconName)
             }
-            // The active state fills the chosen symbol and applies its tint. `.symbolVariant`
-            // rather than a hardcoded ".fill" name, so a symbol with no filled counterpart
-            // still renders instead of vanishing.
+            // `.symbolVariant` rather than a ".fill" name, so a symbol with no filled form still renders.
             .symbolVariant(isActive ? .fill : .none)
             .tint(isActive ? flag.flagColor : nil)
 #endif

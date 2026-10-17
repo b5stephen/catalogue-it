@@ -17,8 +17,7 @@ struct AddEditItemView: View {
     let catalogue: Catalogue
     let existingItem: CatalogueItem?
     let duplicateSource: CatalogueItem?
-    /// Status the new item should start in — the tab the user was viewing when they tapped +.
-    /// `nil` falls back to the status field's own configured default.
+    /// The tab the user was viewing; `nil` uses the status field's own default.
     let defaultStatusTab: StatusTab?
 
     // MARK: - Form State
@@ -29,33 +28,25 @@ struct AddEditItemView: View {
     @State private var notes: String = ""
     @State private var previewPhotoID: UUID? = nil
     @State private var hasLoaded: Bool = false
-    /// A failed save keeps the sheet open with the drafts intact rather than dismissing as
-    /// if it had worked.
+    /// Keeps the sheet open, drafts intact, after a failed save.
     @State private var saveError: Error?
-    /// Guards the Save button against a second tap while the first save is in flight.
     @State private var isSaving = false
-    /// The form as loaded, in every mode. The photos tell the save whether the thumbnail
-    /// needs invalidating; all three tell `hasChanges` whether dismissing would lose an edit.
-    /// Distinct from `baseline`, which must stay nil when duplicating so the save writes
-    /// every pre-filled value to the new item.
+    /// The form as loaded. Unlike `baseline` it is set when duplicating too, where the save
+    /// must write every pre-filled value.
     @State private var loadedPhotoDrafts: [PhotoDraft] = []
     @State private var loadedFieldDrafts: [FieldValueDraft] = []
     @State private var loadedNotes: String = ""
-    /// Everything as loaded when editing, so the save writes only what the user changed
-    /// and not a stale copy of what another device edited meanwhile — see `EditBaseline`.
+    /// Set only when editing — see `EditBaseline`.
     @State private var baseline: EditBaseline?
     @FocusState private var isNotesFocused: Bool
 
-    /// Anchor for scrolling the notes row into view; see `revealNotesField`.
     private let notesFieldID = "notesField"
 
     // MARK: - Computed
 
     private var isEditing: Bool { existingItem != nil }
 
-    /// Whether dismissing without saving would lose something: anything that differs from
-    /// what the sheet opened with. A duplicate's pre-filled values and a new item's default
-    /// status are what it opened with, so they don't count until the user touches them.
+    /// A duplicate's pre-filled values and a new item's default status don't count until touched.
     private var hasChanges: Bool {
         guard hasLoaded else { return false }
         return notes != loadedNotes
@@ -64,10 +55,8 @@ struct AddEditItemView: View {
             || !zip(fieldDrafts, loadedFieldDrafts).allSatisfy { $0.hasSameValue(as: $1) }
     }
 
-    // Boolean fields always have a value (true/false), so they don't count toward "has content" —
-    // otherwise every item would trivially pass validation regardless of user input.
-    // Status and flag fields are excluded for the same reason: a status field pre-filled with
-    // its default value would otherwise make a completely empty item look like it has content.
+    // Booleans always have a value, and status and flag fields start at their defaults, so none
+    // of them make an item non-empty.
     private var hasNoContent: Bool {
         photoDrafts.isEmpty && fieldDrafts.allSatisfy { draft in
             guard draft.fieldDefinition.displayRole == .none else { return true }
@@ -110,11 +99,8 @@ struct AddEditItemView: View {
                             .lineLimit(4...8)
                             .focused($isNotesFocused)
                             .id(notesFieldID)
-                            // The form's own keyboard avoidance only reveals the line that
-                            // had focus when the keyboard came up. When the field grows —
-                            // typing past a line, or pasting a paragraph — the new lines
-                            // extend below it, under the keyboard, and nothing follows them.
-                            // Re-anchoring on every height change keeps the whole box in view.
+                            // Form keyboard avoidance only reveals the line that had focus, so lines added by typing
+                            // or pasting would sit under the keyboard. Re-anchor on every height change.
                             .onGeometryChange(for: CGFloat.self) { geometry in
                                 geometry.size.height
                             } action: { _ in
@@ -124,8 +110,7 @@ struct AddEditItemView: View {
                     }
                 }
                 .onChange(of: isNotesFocused) { _, focused in
-                    // Wait for the keyboard to finish rising, so the scroll targets the
-                    // space above it rather than the full height it had before.
+                    // Wait for the keyboard to finish rising, so the scroll targets the space above it.
                     guard focused else { return }
                     revealNotesField(proxy, after: .milliseconds(350))
                 }
@@ -145,8 +130,7 @@ struct AddEditItemView: View {
                     .disabled(hasNoContent || isSaving)
                 }
             }
-            // A swipe-down, or a tap outside the sheet on iPad, would silently drop the
-            // edits; once there are any, dismissal has to go through Cancel.
+            // A swipe-down or tap outside would silently drop edits.
             .interactiveDismissDisabled(hasChanges)
             .onAppear {
                 guard !hasLoaded else { return }
@@ -190,7 +174,6 @@ struct AddEditItemView: View {
 
     // MARK: - Helpers
 
-    /// Scrolls so the entire notes box sits just above the keyboard, not merely the cursor line.
     private func revealNotesField(_ proxy: ScrollViewProxy, after delay: Duration) {
         Task { @MainActor in
             try? await Task.sleep(for: delay)
@@ -218,7 +201,6 @@ struct AddEditItemView: View {
         sortedDefs = catalogue.sortedFieldDefinitions
 
         if let item = existingItem {
-            // Edit mode: populate from existing item
             fieldDrafts = sortedDefs.map { def in
                 var draft = FieldValueDraft(
                     fieldDefinition: def,
@@ -253,7 +235,7 @@ struct AddEditItemView: View {
 
             notes = item.notes ?? ""
         } else if let source = duplicateSource {
-            // Clone mode: populate from source item, saves as a new item
+            // Duplicate: saves as a new item.
             fieldDrafts = sortedDefs.map { def in
                 var draft = FieldValueDraft(fieldDefinition: def, fieldType: def.fieldType)
                 if let fv = source.value(for: def) {
@@ -274,7 +256,6 @@ struct AddEditItemView: View {
                 }
             notes = source.notes ?? ""
         } else {
-            // Create mode: blank drafts, pre-populate per-type defaults
             fieldDrafts = sortedDefs.map { def in
                 var draft = FieldValueDraft(fieldDefinition: def, fieldType: def.fieldType)
                 switch def.fieldType {
@@ -295,15 +276,12 @@ struct AddEditItemView: View {
         }
     }
 
-    /// Seeds the status field's draft from the tab the user was viewing, so adding an item
-    /// while filtered to "Wishlist" produces a wishlist item. Falls back to the status
-    /// field's own configured default when no tab context was passed (or "All" was active).
+    /// Adding while filtered to "Wishlist" makes a wishlist item.
     private func applyDefaultStatusTab() {
         guard let statusField = catalogue.statusField,
               let index = fieldDrafts.firstIndex(where: { $0.fieldID == statusField.fieldID })
         else { return }
 
-        // `.all` carries no status, so defer to the field's configured default.
         let effectiveTab: StatusTab? = {
             if let tab = defaultStatusTab, tab != .all { return tab }
             return catalogue.defaultStatusTabForNewItems
@@ -326,16 +304,13 @@ struct AddEditItemView: View {
 
     // MARK: - Save
 
-    /// Diffs the drafts against the stored item (see `ItemSaveService`) and keeps the cover
-    /// thumbnail caches in step. The in-memory cache is evicted *before* the save: the save
-    /// bumps `modifiedDate`, which is what the list's thumbnail views reload on, and they
-    /// must not find the old image still cached when they do.
+    /// Evicts the in-memory cover *before* saving: the save bumps `modifiedDate`, which the list's
+    /// thumbnails reload on, and they mustn't find the old image still cached.
     private func saveItem() async {
         guard !isSaving else { return }
         isSaving = true
         defer { isSaving = false }
 
-        // Only a photo change can make the cached cover wrong; a fields-only edit keeps it.
         let photosEdited = photoDrafts != loadedPhotoDrafts
         if let existingItem, photosEdited {
             await ImageCache.shared.removeImage(for: "cover_\(existingItem.persistentModelID)")
@@ -357,20 +332,17 @@ struct AddEditItemView: View {
             return
         }
 
-        // The cover thumbnail lives in the filesystem cache, not the model: storing it on
-        // CatalogueItem bloats the SQLite rows the main context reads on every page fetch.
-        // Written after the save so a new item has its permanent identifier.
+        // The cover lives in the file cache, not the model, to keep page fetches light. Written
+        // after the save so a new item has its permanent identifier.
         if outcome.photosChanged {
             let itemID = outcome.item.persistentModelID
             if !photosEdited {
-                // The store disagreed with the drafts (a photo removed on another device
-                // while the sheet was open), so the eviction above was skipped.
+                // A photo removed on another device while the sheet was open: the eviction was skipped.
                 await ImageCache.shared.removeImage(for: "cover_\(itemID)")
             }
             if let data = outcome.coverThumbnailData {
                 ThumbnailLoader.writeThumbnailToCache(data, for: itemID)
             } else if let url = ThumbnailLoader.thumbnailCacheURL(for: itemID) {
-                // All photos removed — drop the stale disk thumbnail so tier-2 doesn't serve it.
                 try? FileManager.default.removeItem(at: url)
             }
         }

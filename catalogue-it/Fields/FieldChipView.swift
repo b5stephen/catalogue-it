@@ -7,8 +7,6 @@ import SwiftUI
 
 // MARK: - Field Chip View
 
-/// Compact coloured chip for an enum-like field value — used to render the status field
-/// in item rows, cards, and the detail form, where a bare string wouldn't read as a state.
 struct FieldChipView: View {
     let text: String
     var tint: Color = .accentColor
@@ -26,33 +24,23 @@ struct FieldChipView: View {
 
 // MARK: - Status Chip Colour
 
-/// The chip colours a status field cycles through, and the rule that picks one.
-///
-/// Kept apart from `FieldDefinition` so the field-configuration previews — which work from
-/// an unsaved draft — tint their sample chip exactly as the item list will.
-///
-/// `nonisolated` to match `statusChipTint(for:)`, which is called from wherever an item is
-/// being rendered.
+/// Apart from `FieldDefinition` so previews of an unsaved draft tint exactly as the list will.
 nonisolated enum StatusChipPalette {
     static let colors: [Color] = [.blue, .green, .orange, .purple, .pink, .teal, .indigo, .brown]
 
-    /// Colour for an option at `index` in the field's option list; `nil` (an option that is
-    /// no longer configured) falls back to a neutral tint.
+    /// `nil` is an option no longer configured.
     static func tint(optionIndex index: Int?) -> Color {
         guard let index else { return .secondary }
         return colors[index % colors.count]
     }
 
-    /// Colour for a Yes/No status: the "on" state is the only one that reads as a state.
     static func booleanTint(isTrue: Bool) -> Color {
         isTrue ? .green : .secondary
     }
 }
 
 extension FieldDefinition {
-    /// A stable colour for a status value, derived from the value's position in the
-    /// field's option list so the same option always gets the same chip colour —
-    /// including across devices, since it depends only on stored configuration.
+    /// From the option's position in the stored list, so it is the same on every device.
     func statusChipTint(for storedValue: String) -> Color {
         switch fieldType {
         case .optionList:
@@ -65,8 +53,7 @@ extension FieldDefinition {
         }
     }
 
-    /// The user-facing label for a stored status token. Boolean statuses store sentinels
-    /// rather than text, so they resolve through `statusTabLabels`.
+    /// Boolean statuses store tokens, not text.
     func statusLabel(for storedValue: String) -> String? {
         guard !storedValue.isEmpty else { return nil }
         switch fieldType {

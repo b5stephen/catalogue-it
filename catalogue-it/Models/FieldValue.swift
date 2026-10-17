@@ -10,13 +10,9 @@ import SwiftData
 
 // MARK: - Field Value
 
-/// Stores the actual data for a field on a specific item.
-/// References the FieldDefinition via a SwiftData relationship — renaming a field
-/// requires no cascade update here.
 @Model
 final class FieldValue {
-    // Compound index enables DB-level sort on a custom field:
-    // fetch FieldValues WHERE fieldDefinition = X ORDER BY sortKey, tiebreakKey.
+    // Sorting by a custom field is a fetch of FieldValues for one definition in this order.
     #Index<FieldValue>([\.fieldDefinition, \.sortKey, \.tiebreakKey])
 
     // Every stored property below carries a default value: CloudKit rejects
@@ -25,24 +21,19 @@ final class FieldValue {
     var fieldType: FieldType = FieldType.text
     var item: CatalogueItem?
 
-    // Value storage — only one will be used based on fieldType
+    // Only the one matching `fieldType` is set.
     var textValue: String?
     var numberValue: Double?
     var dateValue: Date?
     var boolValue: Bool?
 
-    /// Normalised, lexicographically sortable string computed from the typed value on save.
-    /// `SortKeyEncoder.missingValueSentinel` ("\u{FFFF}") when the field has no value (sorts last).
-    /// Adding with a default value requires no SchemaMigrationPlan; existing rows get the sentinel.
+    /// The value encoded to sort lexicographically (`SortKeyEncoder`); the default sentinel,
+    /// for no value, sorts last.
     var sortKey: String = "\u{FFFF}"
 
-    /// All other fields on the item (priority order, excluding this one) + item.createdDate,
-    /// NUL-joined. Computed by `SortKeyEncoder.tiebreakKey`. Paired with `sortKey` as a second
-    /// SortDescriptor in ItemPaginationController.loadMoreCustomSort so ties on the primary
-    /// field are broken deterministically, entirely at the SwiftData fetch level.
-    /// Adding with a default value requires no SchemaMigrationPlan; existing rows get the
-    /// sentinel until a recompute trigger (item save, field add/remove/reorder, or the
-    /// one-time startup backfill) runs.
+    /// The item's other fields in priority order, then its `createdDate`, joined by
+    /// `SortKeyEncoder.tiebreakSeparator`: the second sort descriptor, so ties on `sortKey`
+    /// break the same way on every fetch.
     var tiebreakKey: String = "\u{FFFF}"
 
     init(fieldDefinition: FieldDefinition?, fieldType: FieldType) {

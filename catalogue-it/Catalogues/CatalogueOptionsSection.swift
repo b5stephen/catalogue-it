@@ -7,14 +7,9 @@ import SwiftUI
 
 // MARK: - Catalogue Options Section
 
-/// Chooses which of the catalogue's fields drive the item-list tab bar and the toolbar
-/// filter toggles.
-///
-/// These are catalogue-level decisions — "which field is the status of an item here?" — so
-/// they're made once, in one place, rather than field by field. Nothing new is persisted:
-/// the section is a projection of `FieldDefinitionDraft.displayRole` across the whole field
-/// set, which is also what makes the one-tab-bar-per-catalogue rule structural. A single
-/// `Picker` cannot express two status fields, so it cannot produce an invalid set.
+/// A projection of `FieldDefinitionDraft.displayRole` across the field set, so nothing new is
+/// persisted. A single `Picker` can't choose two status fields, which makes one tab bar per
+/// catalogue structural.
 struct CatalogueOptionsSection: View {
     @Binding var fields: [FieldDefinitionDraft]
     @Binding var showAllTab: Bool
@@ -27,8 +22,8 @@ struct CatalogueOptionsSection: View {
         FieldDefinitionValidation.flagEligibleDrafts(in: fields)
     }
 
-    /// Option-list fields the user has probably meant to use as tabs but that don't yet have
-    /// enough options — named in the footer so an absent field isn't a mystery.
+    /// Option-list fields short of enough options, named in the footer so their absence isn't a
+    /// mystery.
     private var underfilledOptionListNames: [String] {
         fields
             .filter { $0.fieldType == .optionList && !FieldDefinitionValidation.supportsStatusTabs($0) }
@@ -43,12 +38,9 @@ struct CatalogueOptionsSection: View {
     }
 
     var body: some View {
-        // Both sections are always shown, even with no eligible field. A section that
-        // vanishes until you happen to add a field of the right type is a dead end — the
-        // user has no way to learn that a Yes/No field is what creates a filter toggle.
+        // Always shown, even with no eligible field: otherwise there's no way to learn that a Yes/No
+        // field is what creates a filter toggle.
         Section {
-            // "Field" rather than "Tab Bar" — the section header already says what this
-            // configures, so the row names what it's asking for.
             Picker("Field", selection: selectedStatusID) {
                 Text("None").tag(UUID?.none)
                 ForEach(statusCandidates) { field in
@@ -79,9 +71,7 @@ struct CatalogueOptionsSection: View {
                     )) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(displayName(for: field))
-                            // A field holds one role at a time, so the field driving the tab
-                            // bar can't also be a toggle. Say why it's unavailable rather
-                            // than leaving a dead switch.
+                            // One role per field: say why it's unavailable rather than leave a dead switch.
                             if isStatus {
                                 Text("Used for the Tab Bar")
                                     .font(.caption)
@@ -116,8 +106,7 @@ struct CatalogueOptionsSection: View {
         return text
     }
 
-    /// Falls back to a placeholder so an as-yet-unnamed field is still selectable rather
-    /// than showing as a blank row.
+    /// So an unnamed field is still selectable, not a blank row.
     private func displayName(for field: FieldDefinitionDraft) -> String {
         let trimmed = field.name.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? String(localized: "Untitled Field") : trimmed

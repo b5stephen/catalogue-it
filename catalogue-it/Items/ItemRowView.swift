@@ -13,19 +13,16 @@ import SwiftData
 struct ItemRowView: View {
     let item: CatalogueItem
     let catalogue: Catalogue
-    /// Whether to show the status chip. Suppressed when the list is already filtered to a
-    /// single status — every row would carry the same chip, which is noise.
+    /// Off when the list is filtered to one status, where every row would show the same chip.
     var showStatusChip: Bool = false
-    /// `catalogue.layoutOptions.showPhotosInList`, decoded once by the list rather than once
-    /// per row.
+    /// Decoded once by the list rather than per row.
     var showPhoto: Bool = true
 
     private var sortedFields: [FieldDefinition] {
         catalogue.sortedFieldDefinitions
     }
 
-    /// Status fields are surfaced as a chip and flags as badges, so repeating them in the
-    /// summary lines would say the same thing twice.
+    /// Status and flags show as chip and badges, so they're left out of the summary lines.
     private var summaryFields: [FieldDefinition] {
         sortedFields.filter { $0.displayRole == .none }
     }
@@ -62,15 +59,13 @@ struct ItemRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Thumbnail — radius derived from the card's, so its corners run parallel to the
-            // card's corners (see `AppConstants.ItemCard.thumbnailCornerRadius`).
+            // Radius derived from the card's so the corners run parallel.
             if showPhoto {
                 ItemThumbnailView(key: ThumbnailKey(item: item))
                     .frame(width: AppConstants.ThumbnailSize.list, height: AppConstants.ThumbnailSize.list)
                     .clipShape(.rect(cornerRadius: AppConstants.ItemCard.thumbnailCornerRadius, style: .continuous))
             }
 
-            // Text content
             VStack(alignment: .leading, spacing: 4) {
                 Text(primaryValue)
                     .font(.headline)
@@ -83,17 +78,12 @@ struct ItemRowView: View {
                         .lineLimit(1)
                 }
             }
-            // The thumbnail is what gives the row its floor — an item with one summary line
-            // is as tall as one with three. Keep that floor when the photo is off, so the
-            // rows stay one height whichever way the catalogue is set. The text stays
-            // vertically centred, as it is beside a thumbnail.
+            // Keep the thumbnail's height as the floor when the photo is off, so rows stay one height.
             .frame(minHeight: AppConstants.ThumbnailSize.list, alignment: .leading)
 
             Spacer(minLength: 0)
 
-            // Flags sit inboard of the status chip so the chip is always the last element
-            // in the row. Its trailing edge then lines up down the whole list, however many
-            // flags each item happens to carry.
+            // Flags inboard of the status chip, so the chips' trailing edges line up down the list.
             ForEach(setFlagFields) { flag in
                 if let icon = flag.flagIconName {
                     Image(systemName: icon)
@@ -126,7 +116,7 @@ private struct ItemThumbnailView: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                // The row clips to the tile shape, so the placeholder needs no corners of its own.
+                // The row clips to the tile shape.
                 Rectangle()
                     .fill(.quaternary)
                     .overlay {
@@ -140,29 +130,25 @@ private struct ItemThumbnailView: View {
 #if os(iOS)
             let itemID = key.itemID
             let key = "cover_\(itemID)"
-            // Tier 1: in-memory cache — synchronous, no I/O.
             if let cached = await ImageCache.shared.image(for: key) {
                 loadedImage = Image(uiImage: cached)
                 return
             }
-            // Tier 2: filesystem cache — off the actor so all visible rows read in parallel.
-            // preparingForDisplay() forces JPEG pixel-decode here off the main thread.
+            // Off the actor so visible rows read in parallel; preparingForDisplay() decodes here too.
             let diskImage = await Task.detached(priority: .utility) { () -> UIImage? in
                 guard let url = ThumbnailLoader.thumbnailCacheURL(for: itemID),
                       let data = try? Data(contentsOf: url),
                       let img = UIImage(data: data) else { return nil }
                 return img.preparingForDisplay()
             }.value
-            // A load still in flight when the item was saved must not overwrite the fresh
-            // thumbnail the save wrote — the re-keyed task will load that one.
+            // A load in flight when the item was saved mustn't overwrite the thumbnail the save wrote.
             guard !Task.isCancelled else { return }
             if let ui = diskImage {
                 await ImageCache.shared.store(ui, for: key)
                 loadedImage = Image(uiImage: ui)
                 return
             }
-            // Tier 3: cold path — each row gets its own ephemeral ModelContext so all
-            // visible rows fetch and decode fully in parallel (no shared actor queue).
+            // Each row gets its own ModelContext so visible rows fetch and decode in parallel.
             guard let container = ThumbnailLoader.container else { loadedImage = nil; return }
             let generated = await Task.detached(priority: .utility) { () -> (data: Data, image: UIImage)? in
                 let context = ModelContext(container)
@@ -176,7 +162,6 @@ private struct ItemThumbnailView: View {
                       let image = UIImage(data: thumbData)?.preparingForDisplay() else { return nil }
                 return (thumbData, image)
             }.value
-            // Same guard as above: only a load that is still current may populate the caches.
             guard !Task.isCancelled else { return }
             guard let generated else { loadedImage = nil; return }
             let thumbData = generated.data

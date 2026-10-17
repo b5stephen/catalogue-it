@@ -6,9 +6,7 @@
 import Foundation
 
 extension FieldValue {
-    /// Formatted string representation for display.
-    /// Pass `fieldOptions` from the associated `FieldDefinition` to avoid faulting
-    /// the `fieldDefinition` relationship. Safe to omit for non-configurable field types.
+    /// Pass the definition's `fieldOptions` to avoid faulting the relationship.
     func displayValue(options: FieldOptions? = nil) -> String {
         switch fieldType {
         case .text:

@@ -13,8 +13,6 @@ typealias PlatformImage = NSImage
 
 // MARK: - Image Cache
 
-/// Shared, memory-pressure-aware cache for decoded thumbnail images.
-/// NSCache automatically evicts entries when the system is under memory pressure.
 actor ImageCache {
     static let shared = ImageCache()
 
@@ -32,8 +30,7 @@ actor ImageCache {
         cache.removeObject(forKey: key as NSString)
     }
 
-    /// Drops every cached image. Used when CloudKit merges changes from another device —
-    /// the entries are keyed by item, and a photo replaced remotely reuses the same key.
+    /// For CloudKit merges: entries are keyed by item, and a remotely replaced photo reuses the key.
     func removeAll() {
         cache.removeAllObjects()
     }

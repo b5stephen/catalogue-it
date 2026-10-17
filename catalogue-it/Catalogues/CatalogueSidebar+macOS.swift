@@ -9,10 +9,8 @@ import SwiftData
 
 // MARK: - Catalogue Sidebar (macOS)
 
-/// The catalogue list in the sidebar column on macOS: compact `CatalogueRow`s in a standard
-/// sidebar, where selection drives the content column of a three-column split view. The Mac
-/// keeps all three panes — there is room for them, and a Mac user expects the sidebar to stay
-/// put — so this is a `List(selection:)`, never a stack of links.
+/// Selection drives the content column of a three-column split view: the Mac has the room,
+/// and a Mac user expects the sidebar to stay put.
 struct MacCatalogueSidebar: View {
     let catalogues: [Catalogue]
     @Binding var selectedCatalogue: Catalogue?

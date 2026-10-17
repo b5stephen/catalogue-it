@@ -10,13 +10,8 @@ import SwiftData
 
 // MARK: - Edit Item Notes Sheet
 
-/// Edits an item's notes on their own, without the full edit screen. Opened from the notes
-/// card on the item detail screen.
-///
-/// The editor fills the sheet rather than growing with its text: it shrinks above the keyboard
-/// and scrolls internally, so the cursor can never end up underneath the keyboard however much
-/// is typed or pasted. That is the whole reason this is a `TextEditor` and not the vertical
-/// `TextField` used elsewhere.
+/// A `TextEditor` filling the sheet rather than a growing `TextField`: it shrinks above the
+/// keyboard and scrolls internally, so the cursor can't end up under the keyboard.
 struct EditItemNotesSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -49,8 +44,7 @@ struct EditItemNotesSheet: View {
                 .focused($isEditorFocused)
                 .padding(.horizontal, 12)
                 .overlay(alignment: .topLeading) {
-                    // `TextEditor` has no placeholder of its own. Inset to sit on the first
-                    // line of text, and inert so the tap still lands in the editor.
+                    // `TextEditor` has no placeholder. Inert, so the tap still lands in the editor.
                     if notes.isEmpty {
                         Text("Add notes…")
                             .foregroundStyle(.tertiary)
@@ -78,8 +72,7 @@ struct EditItemNotesSheet: View {
 #endif
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
-        // A swipe-down with edits pending would silently throw them away; make that go
-        // through the explicit cancel instead.
+        // A swipe-down would silently drop edits.
         .interactiveDismissDisabled(hasChanges)
         .onAppear { isEditorFocused = true }
     }
@@ -91,8 +84,8 @@ struct EditItemNotesSheet: View {
     }
 
     private func save() {
-        // Same normalisation as the full edit screen, so "" and nil don't drift apart, and
-        // saved now rather than left to autosave, so the change reaches iCloud promptly.
+        // Normalised like the full edit screen so "" and nil don't drift apart, and saved now so the
+        // change reaches iCloud promptly.
         _ = try? ItemSaveService.updateNotes(notes, on: item, context: modelContext)
         dismiss()
     }

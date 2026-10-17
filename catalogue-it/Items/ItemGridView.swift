@@ -19,16 +19,12 @@ struct ItemGridView<Header: View>: View {
     let hasMore: Bool
     let isLoadingMore: Bool
     let onLoadMore: () -> Void
-    /// Scrolls with the grid, above it, full-bleed.
     @ViewBuilder let header: Header
 
-    // Without a detail column, selecting an item pushes ItemDetailView via the same
-    // `selectedItem` binding, so the border would flash for a frame before the push
-    // transition covers it. Only show it where selection persists on-screen.
+    // Pushed, the border would flash for a frame before the push covers it.
     @Environment(\.hasDetailColumn) private var showsSelectionBorder
 
-    // Pinch gesture state — @State only, never @GestureState (see ZoomablePhotoView:
-    // @GestureState resets before onEnded fires, causing a one-frame snap-back).
+    // @State, never @GestureState — see ZoomablePhotoView.
     @State private var isPinching = false
     @State private var pinchStartSize: CGFloat = AppConstants.GridCardSize.defaultSize
     @State private var livePinchSize: CGFloat?
@@ -71,7 +67,6 @@ struct ItemGridView<Header: View>: View {
                     .gridCellColumns(gridColumns.count)
             }
         }
-        // Top clearance comes from the header above, the same as the list's.
         .padding(.bottom)
         .padding(.horizontal, 16)
     }

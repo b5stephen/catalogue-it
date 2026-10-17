@@ -9,13 +9,9 @@ import SwiftUI
 
 // MARK: - Item List View
 
-/// Still a `List` rather than a `LazyVStack`, for the same reasons as the catalogue cards:
-/// `scrollPosition` restoration and the accessibility rotor come for free, and on macOS so
-/// does split-view selection. The card look is a clear row background plus `listRowSpacing`; the ground it sits on
-/// is drawn by `CatalogueDetailView`, which is why the list's own background is hidden here.
-///
-/// `header` is the first row: full-bleed, and spaced from the first card by the same gap
-/// the cards keep between themselves.
+/// A `List`, not a `LazyVStack`, for scroll-position restoration, the accessibility rotor and,
+/// on macOS, split-view selection. Its background is hidden: `CatalogueDetailView` draws the
+/// ground. `header` is the first row, full-bleed.
 struct ItemListView<Header: View>: View {
     let items: [CatalogueItem]
     let catalogue: Catalogue
@@ -43,12 +39,8 @@ struct ItemListView<Header: View>: View {
         // Decoded once here rather than in each of up to 2000+ rows.
         let showPhotos = catalogue.layoutOptions.showPhotosInList
 #if !os(macOS)
-        // Never `List(selection:)` on iOS. This list sits in the split view's leading column,
-        // where a selectable list takes the sidebar's selection treatment — a filled tint
-        // block over the row, text inverted — whatever its style, and that reads as a bug over
-        // a card. The tap sets `selectedItem` directly and the card draws its own ring, which
-        // only matters where the detail sits beside the list; pushed over it, the ring would
-        // flash for a frame before the transition covers it.
+        // Never `List(selection:)` on iOS: in the split view's leading column it takes the
+        // sidebar's filled selection treatment, which reads as a bug over a card.
         List {
             headerRow
             ForEach(items) { item in
@@ -61,7 +53,7 @@ struct ItemListView<Header: View>: View {
             scrollSentinel
         }
         .listStyle(.plain)
-        // The header can be a short spacer; the default minimum would pad it out to a row.
+        // The header can be a short spacer; the default minimum would pad it to a row.
         .environment(\.defaultMinListRowHeight, 0)
         .listRowSpacing(AppConstants.ItemCard.rowSpacing)
         .contentMargins(.bottom, AppConstants.ItemCard.rowSpacing, for: .scrollContent)
@@ -72,7 +64,6 @@ struct ItemListView<Header: View>: View {
 #endif
     }
 
-    /// macOS only: selection is the split view's, with keyboard navigation for free.
     private func regularList(showPhotos: Bool) -> some View {
         List(selection: $selectedItem) {
             headerRow
@@ -85,7 +76,7 @@ struct ItemListView<Header: View>: View {
             scrollSentinel
         }
         .listStyle(.plain)
-        // The header can be a short spacer; the default minimum would pad it out to a row.
+        // The header can be a short spacer; the default minimum would pad it to a row.
         .environment(\.defaultMinListRowHeight, 0)
         .listRowSpacing(AppConstants.ItemCard.rowSpacing)
         .contentMargins(.bottom, AppConstants.ItemCard.rowSpacing, for: .scrollContent)
@@ -111,9 +102,7 @@ struct ItemListView<Header: View>: View {
 }
 
 private extension View {
-    /// Strips a `List` row back to nothing but its content, so the card draws its own
-    /// background and the gaps between cards come from `listRowSpacing`. Spacing rather than
-    /// vertical insets, as on the Catalogues screen: insets would inflate the row rect.
+    /// Gaps come from `listRowSpacing`: vertical insets would inflate the row rect.
     func cardRow() -> some View {
         self
             .listRowSeparator(.hidden)

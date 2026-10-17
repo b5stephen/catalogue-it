@@ -7,39 +7,19 @@ import SwiftUI
 
 // MARK: - Catalogue Wash
 
-/// The ground every screen inside a catalogue sits on.
-///
-/// The catalogue's colour is carried past the Catalogues screen in two layers. At the top of
-/// the screen it is strong: the band on a pushed item list, or the glow wherever list and
-/// detail sit side by side. Beneath that the ground keeps the colour in one of two places
-/// depending on the appearance.
-///
-/// In light appearance the ground is this faint wash of the tint over the system background —
-/// light enough that photos and label text sit on it comfortably, and no further from the
-/// Catalogues screen's grouped grey than a grouped background usually is. It is the one thing
-/// the item detail keeps, so list and detail read as one place.
-///
-/// In dark appearance there is no wash. The Catalogues screen is pure black with the colour
-/// on the cards, and a coloured ground here inverted that — the push landed on a screen using
-/// the opposite system, and every label had to be re-tuned to clear a ground of its own hue.
-/// So the dark ground is the plain system background and the colour moves into the cards
-/// instead (see `CardFill`), which is the language the Catalogues screen already speaks.
+/// The ground every screen inside a catalogue sits on. In light, a faint wash of the tint, which
+/// the item detail keeps too, so list and detail read as one place. In dark, plain black, with
+/// the colour in the cards instead (see `CardFill`), as on the Catalogues screen: a coloured
+/// dark ground meant re-tuning every label against its hue.
 struct CatalogueWash: View {
     @Environment(\.colorScheme) private var colorScheme
     let catalogue: Catalogue
-    /// Whether the colour pools at the top of the screen, fading into the wash.
-    ///
-    /// The glow is fixed to the screen rather than the content, so it never moves when the
-    /// content scrolls. That is the point of it beside a split view: a band scrolling away in
-    /// one column while the other stayed put made the two columns disagree about their top
-    /// edge at almost any scroll position. Every column there draws it identically from the
-    /// top of the screen (see `catalogueGround`), so the tops line up across the divider.
-    /// Strong enough in light
-    /// to carry the catalogue's colour the way the band does, but still light enough at its
-    /// strongest that the bar's standard title colour reads over it.
+    /// Colour pooled at the top, fixed to the screen rather than the content: a band scrolling
+    /// away in one column while the other stayed put left their tops disagreeing. Every column
+    /// draws it the same from the top of the screen. Light enough at its strongest for the bar's
+    /// standard title colour.
     var glow = false
 
-    /// The distance from the top of the screen over which the glow fades out.
     private static let glowHeight: CGFloat = 340
 
     var body: some View {
@@ -64,9 +44,8 @@ struct CatalogueWash: View {
     @ViewBuilder
     private var ground: some View {
         if colorScheme == .dark {
-            // Not `.background`: in dark that resolves by interface level, and on iPad
-            // the split view's leading column is elevated, so the item list came out
-            // grey beside a black detail column.
+            // Not `.background`, which in dark resolves by interface level: the iPad split view's
+            // elevated leading column came out grey.
             Color.black
         } else {
             catalogue.palette(for: .light).tint
@@ -75,9 +54,7 @@ struct CatalogueWash: View {
         }
     }
 
-    /// In dark, the same deep, restrained shade of the hue the cards are filled with (see
-    /// `CardFill`), a little brighter since it fades out: a vivid colour over black would be
-    /// the Catalogues screen's accent strength again, across the top of every column.
+    /// In dark, the deep shade the cards use (see `CardFill`), a little brighter since it fades.
     private var glowColor: Color {
         if colorScheme == .dark {
             let base = HSBComponents(hex: catalogue.colorHex)
@@ -96,22 +73,12 @@ struct CatalogueWash: View {
 }
 
 extension View {
-    /// The ground a screen inside a catalogue sits on (see `CatalogueWash`).
+    /// In a split view it is the column's container background, not `.background`: on a
+    /// landscape iPhone a column's content stops short of the bottom, out of `ignoresSafeArea`'s
+    /// reach, and on iOS 27 the leading column lays a translucent material over what's behind.
     ///
-    /// Pushed, the screen draws its own wash behind itself. In a split view the wash is the
-    /// column's navigation container background instead:
-    /// - A column's own content is laid out short of the bottom of the screen on a landscape
-    ///   iPhone, so a `.background` wash left a strip of plain background under the home
-    ///   indicator that `ignoresSafeArea` can't reach. The container background fills the
-    ///   whole column.
-    /// - On iOS 27 the leading column lays a translucent material over anything behind it,
-    ///   so a clear column over a shared wash came out paler than the detail column beside
-    ///   it. The container background sits above that material, so every column draws the
-    ///   identical wash, and the glow, measured from the top of the screen, lines up across
-    ///   the divider.
-    ///
-    /// Both are applied either way rather than switching branches, so a size-class change
-    /// doesn't rebuild the screen and lose its scroll position.
+    /// Both are applied either way, so a size-class change doesn't rebuild the screen and lose
+    /// its scroll position.
     func catalogueGround(_ catalogue: Catalogue, glow: Bool, inSplitView: Bool) -> some View {
         background {
             if !inSplitView {
@@ -130,24 +97,12 @@ extension View {
 
 // MARK: - Wash Fade Edge
 
-/// Fades scrolling content out as it passes under the bar, so the wash shows through,
-/// instead of the system scroll edge effect.
+/// Fades content to clear under the bar, in place of the system edge effect, for split-view
+/// columns: the system blur took on each column's own content, so the shared glow stopped
+/// matching across the divider once either scrolled. The fade covers the whole top safe area,
+/// including any `safeAreaBar` outside this modifier.
 ///
-/// For the columns of a split view. The system effect blurs whatever is scrolling
-/// underneath, so each column's top took on its own content (a photo in the detail
-/// column, cards in the list) and the shared glow stopped matching across the divider
-/// as soon as either one scrolled. Fading the content to transparent leaves only the
-/// wash under each bar, and the wash is fixed to the screen, so the column tops agree at
-/// any scroll position. The glow is already tuned for the bar's title to read on it,
-/// which is the job the edge effect was doing.
-///
-/// The fade covers the whole top safe area, including any `safeAreaBar` applied outside
-/// this modifier (the status tabs), and ends where it does, so content at rest is never
-/// faded.
-///
-/// Disabled, it leaves the system effect in place and the mask fully opaque. It stays
-/// applied either way rather than switching branches, so a size-class change doesn't
-/// rebuild the scroll view and lose its position.
+/// Applied either way, so a size-class change doesn't rebuild the scroll view.
 private struct WashFadeEdge: ViewModifier {
     let isEnabled: Bool
 
@@ -155,12 +110,9 @@ private struct WashFadeEdge: ViewModifier {
         content
             .scrollEdgeEffectHidden(isEnabled, for: .top)
             .mask {
-                // The reader stays inside the safe area so it can report the top inset; only
-                // the shape it draws extends under the bar.
+                // The reader stays in the safe area to report the top inset; only its shape extends under.
                 GeometryReader { proxy in
                     VStack(spacing: 0) {
-                        // Clear under the upper part of the bar, where the title and
-                        // buttons sit, then dissolving into the content below it.
                         LinearGradient(
                             stops: [
                                 .init(color: .clear, location: 0),
@@ -181,7 +133,6 @@ private struct WashFadeEdge: ViewModifier {
 }
 
 extension View {
-    /// Fades content into the wash under the bar when `isEnabled` (see `WashFadeEdge`).
     func washFadeEdge(_ isEnabled: Bool) -> some View {
         modifier(WashFadeEdge(isEnabled: isEnabled))
     }
@@ -189,41 +140,25 @@ extension View {
 
 // MARK: - Catalogue Band
 
-/// How far the item list has scrolled past its top, for the band to collapse by.
-///
-/// A class rather than state on the catalogue screen, because it changes on every frame of a
-/// scroll: only views that read `offset` are invalidated by a write, so the band re-renders
-/// and the screen that owns it — toolbar, list and all — does not.
+/// A class, not state on the screen, so a per-frame write invalidates only the band.
 @Observable
 final class BandScrollState {
     var offset: CGFloat = 0
 }
 
-/// The item list's header where the list is pushed on its own (compact width): the same
-/// duotone fill as the catalogue's card, so opening a catalogue feels like stepping into the
-/// card you tapped rather than leaving it behind. It stands in for the navigation title on
-/// arrival, which is why it carries the name and the count.
+/// The pushed item list's header, in the catalogue card's duotone fill, standing in for the
+/// navigation title. It floats over the list so it can collapse rather than scroll away,
+/// leaving a strip of fill holding `accessory` (the status tabs): cards passing under tabs
+/// in scroll content were unreadable over a photo. The fill runs up under the bar; the bar's
+/// title appears once the title row has mostly gone (`isTitleCollapsed`).
 ///
-/// It floats over the list rather than scrolling in it, so it can collapse instead of
-/// leaving. As the items scroll, the title row slides up under the bar and fades, and what is
-/// left is a strip of the fill holding `accessory` (the status tabs), with the cards passing
-/// behind it. Without tabs the strip is nothing but the colour under the bar — the colour
-/// stays at the top of every catalogue either way. Cards passed under the tabs when they were
-/// scroll content, and no glass made them readable over a photo; a solid fill does.
-///
-/// The fill runs up under the navigation bar so the colour reaches the top of the screen and
-/// the bar's controls float on it. The bar's title appears on it once the title row has
-/// mostly gone (`isTitleCollapsed`), so the name is never off screen.
-///
-/// The list reserves `height` at its top with a spacer, so the first card starts below the
-/// band; `scrollState` is what the list reports its scroll through.
+/// The list reserves `height` with a spacer and reports its scroll through `scrollState`.
 struct CatalogueBand<Accessory: View>: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     let catalogue: Catalogue
     let itemCount: Int
     let scrollState: BandScrollState
-    /// The band's full height, before any collapse.
     @Binding var height: CGFloat
     @Binding var isTitleCollapsed: Bool
     @ViewBuilder let accessory: Accessory
@@ -240,8 +175,7 @@ struct CatalogueBand<Accessory: View>: View {
             increasedContrast: colorSchemeContrast == .increased
         )
         let collapse = min(max(scrollState.offset, 0), titleHeight)
-        // Faded out over the first part of the collapse, so the text is gone before it reaches
-        // the bar rather than sliding under the bar's own title.
+        // Gone before it reaches the bar, rather than sliding under the bar's own title.
         let titleOpacity = titleHeight > 0 ? 1 - min(collapse / (titleHeight * 0.6), 1) : 1
 
         VStack(spacing: 0) {
@@ -253,17 +187,14 @@ struct CatalogueBand<Accessory: View>: View {
         }
         .fixedSize(horizontal: false, vertical: true)
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { height = $0 }
-        // Slid up by the collapse inside a frame shortened by the same amount, so the bottom
-        // edge — and the tabs on it — rise with the list until the title row has gone, then
-        // stay put.
+        // Slid up inside a frame shortened by the same amount, so the tabs rise with the list until
+        // the title row has gone, then stay.
         .offset(y: -collapse)
         .frame(height: height > 0 ? height - collapse : nil, alignment: .top)
         .clipped()
         .background(alignment: .bottom) {
-            // Fixed to the band's full height and pinned to its bottom edge, so the gradient
-            // moves rigidly with the collapse instead of re-stretching every frame. Extended
-            // far enough up to cover the bar and sideways past the horizontal safe area (the
-            // notch and home-indicator sides in landscape) so it reaches the screen edges.
+            // Fixed to the full height and pinned to the bottom, so the gradient moves rigidly rather
+            // than re-stretching; extended up under the bar and out past the landscape safe areas.
             palette.fill
                 .frame(height: height + 600)
                 .padding(.horizontal, -600)
@@ -306,8 +237,7 @@ struct CatalogueBand<Accessory: View>: View {
     }
 }
 
-/// The navigation bar's title while the band is under it: the name and count in the band's
-/// label colours, so it reads on the fill whichever way the fill went.
+/// In the band's label colours, so it reads on the fill.
 struct BandBarTitle: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
@@ -336,17 +266,11 @@ struct BandBarTitle: View {
 
 // MARK: - Card Fill
 
-/// What a card on the ground is filled with.
-///
-/// White in light appearance, lifted off the wash the way a grouped list lifts its cells. In
-/// dark the roles swap: the ground is black and the card carries the catalogue's colour — the
-/// hue kept, saturation restrained, brightness deep — so it reads as a coloured card on black,
-/// as on the Catalogues screen, but quiet enough that the photo and text on it stay the point.
-/// It sits well short of the Catalogues cards' vividness on purpose: those are the accent, and
-/// a whole list of them at that strength was more colour than a reading surface wants. A
-/// neutral pick stays neutral, and lands on the same lift a grouped cell would get.
+/// White in light, lifted off the wash like a grouped cell. In dark, a deep, restrained shade
+/// of the hue: a coloured card on black like the Catalogues screen, but quieter, since a whole
+/// list at that strength is too much for reading. A neutral colour stays neutral.
 private struct CardFill: ShapeStyle {
-    /// The hex rather than the catalogue: a `ShapeStyle` is `Sendable`, and a model isn't.
+    /// A hex rather than the catalogue: a `ShapeStyle` is `Sendable`, a model isn't.
     let colorHex: String
 
     init(catalogue: Catalogue) { colorHex = catalogue.colorHex }
@@ -368,15 +292,9 @@ private struct CardFill: ShapeStyle {
 
 // MARK: - Item Card
 
-/// A card lifted off the ground, for the item list rows.
-///
-/// Each item is its own card, spaced the way the catalogue cards are, so the card language
-/// runs catalogue → item → detail section without a break. The shadow is a plain grey one in
-/// light — the cards are neutral there, and a tinted shadow under every row would double up
-/// on the wash — and absent in dark, where the coloured fill does the lifting.
-///
-/// Because the list row background is clear, the system selection highlight no longer draws,
-/// so selection is a tint ring, matching the grid's cards.
+/// The item rows' card. A plain grey shadow in light, where a tinted one would double up on the
+/// wash; none in dark, where the fill does the lifting. The clear row background hides the
+/// system selection highlight, so selection is a tint ring, as on the grid.
 struct ItemCardModifier: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
     let catalogue: Catalogue
@@ -408,10 +326,8 @@ extension View {
 
 // MARK: - Catalogue Section Card
 
-/// A titled group on the item detail screen: a small-caps header in the catalogue's tint
-/// over a card. In light the card is neutral and solid colour is reserved for the header, so
-/// the item's own data — the point of the screen — stays black-on-white inside. In dark the
-/// card takes the same deep tinted fill as the item rows, so list and detail keep matching.
+/// In light the card is neutral and only the header takes the tint, keeping the item's data
+/// black-on-white. In dark it takes the item rows' deep tinted fill.
 struct CatalogueSectionCard<Content: View>: View {
     let title: LocalizedStringKey
     let catalogue: Catalogue

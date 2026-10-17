@@ -13,21 +13,15 @@ import UniformTypeIdentifiers
 // MARK: - Catalogue Exporter
 
 enum CatalogueExporter {
-    /// Generates a CSV string for all items in the catalogue.
-    /// Columns: [custom fields sorted by priority], Notes, Photo Count
-    ///
-    /// Status no longer gets a dedicated leading column — it's an ordinary field now, so it
-    /// exports in its own position like any other.
+    /// Columns: custom fields by priority, Notes, Photo Count.
     static func csvString(for catalogue: Catalogue) -> String {
         let fields = catalogue.sortedFieldDefinitions
         var rows: [String] = []
 
-        // Header row
         var headers = fields.map(\.name)
         headers.append(contentsOf: ["Notes", "Photo Count"])
         rows.append(headers.map(csvEscape).joined(separator: ","))
 
-        // Data rows
         let allItems = catalogue.items.filter { $0.deletedDate == nil }.sorted { $0.createdDate < $1.createdDate }
         for item in allItems {
             var cells: [String] = []
@@ -68,7 +62,6 @@ enum CatalogueExporter {
         return rows.joined(separator: "\n")
     }
 
-    /// Quotes a cell if it contains commas, double-quotes, or newlines.
     private static func csvEscape(_ value: String) -> String {
         guard value.contains(",") || value.contains("\"") || value.contains("\n") else {
             return value
@@ -79,8 +72,7 @@ enum CatalogueExporter {
 
     // MARK: - JSON Export
 
-    /// Encodes a catalogue as a JSON export file.
-    /// - Parameter includePhotos: When `false`, item photos are omitted to reduce file size.
+    /// - Parameter includePhotos: `false` omits photos to keep the file small.
     static func jsonData(for catalogue: Catalogue, includePhotos: Bool = true) throws -> Data {
         let file = CatalogueExportFile(
             exportedAt: .now,
@@ -95,7 +87,6 @@ enum CatalogueExporter {
 
 // MARK: - Export Format
 
-/// The entries of a catalogue's Export menu.
 enum CatalogueExportFormat: CaseIterable, Identifiable {
     case csv
     case jsonWithPhotos
@@ -119,8 +110,7 @@ enum CatalogueExportFormat: CaseIterable, Identifiable {
         self == .csv ? "\(catalogue.name).csv" : "\(catalogue.name).json"
     }
 
-    /// A provider that builds the file only when a share destination asks for it, exactly as
-    /// `ShareLink` would.
+    /// Builds the file only when a share destination asks, as `ShareLink` would.
     func itemProvider(for catalogue: Catalogue) -> NSItemProvider {
         let provider = NSItemProvider()
         let filename = filename(for: catalogue)
@@ -142,8 +132,8 @@ enum CatalogueExportFormat: CaseIterable, Identifiable {
 
 // MARK: - Catalogue CSV File (Transferable)
 
-// @unchecked Sendable: Catalogue is main-actor bound; DataRepresentation calls the
-// exporting closure on the main actor before the share sheet appears, so this is safe.
+// @unchecked Sendable: DataRepresentation calls the closure on the main actor, where the
+// catalogue lives, before the share sheet appears.
 struct CatalogueCSVFile: Transferable, @unchecked Sendable {
     let catalogue: Catalogue
     let filename: String
@@ -159,7 +149,7 @@ struct CatalogueCSVFile: Transferable, @unchecked Sendable {
 
 // MARK: - Catalogue JSON File (Transferable)
 
-// @unchecked Sendable: same reasoning as CatalogueCSVFile above.
+// @unchecked Sendable: as CatalogueCSVFile.
 struct CatalogueJSONFile: Transferable, @unchecked Sendable {
     let catalogue: Catalogue
     let includePhotos: Bool

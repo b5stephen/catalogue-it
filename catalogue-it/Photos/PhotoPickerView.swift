@@ -10,7 +10,6 @@ import PhotosUI
 
 // MARK: - Photo Picker View
 
-/// A Form Section component that manages photo selection and display for an item.
 @MainActor
 struct PhotoPickerView: View {
     @Binding var photos: [PhotoDraft]
@@ -122,7 +121,7 @@ struct PhotoPickerView: View {
                 onCapture: { image in appendCapturedPhoto(image) },
                 onDismiss: { isCameraPresented = false; cameraCoordinator = nil }
             )
-            // Presented by the CameraPresentationAnchor on the button, from its window.
+            // The button's CameraPresentationAnchor presents it.
             cameraCoordinator = coordinator
         }
         #endif
@@ -227,7 +226,7 @@ private struct PhotoThumbnailView: View {
 
 private struct PhotoListRow: View {
     static let contentHeight: CGFloat = 44
-    static let rowHeight: CGFloat = contentHeight + 22  // 11pt top inset + 11pt bottom inset
+    static let rowHeight: CGFloat = contentHeight + 22  // The row's 11pt top and bottom insets
 
     @Binding var photo: PhotoDraft
 
@@ -258,8 +257,7 @@ struct PhotoEditDetailSheet: View {
     let onDelete: () -> Void
 
     @Environment(\.dismiss) private var dismiss
-    // The caption is edited through the binding as it is typed, so Cancel has to
-    // put back what was there when the sheet opened.
+    // Edits go straight through the binding, so Cancel restores this.
     @State private var originalCaption = ""
 
     var body: some View {

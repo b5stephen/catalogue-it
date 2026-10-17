@@ -35,7 +35,7 @@ struct PhotoCarouselView: View {
                 .tabViewStyle(.page)
                 .indexViewStyle(.page(backgroundDisplayMode: .always))
 #else
-                // macOS: custom pager since TabView(.page) is iOS-only
+                // TabView(.page) is iOS-only.
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 0) {
                         ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
@@ -57,8 +57,7 @@ struct PhotoCarouselView: View {
 #endif
             }
             .frame(height: AppConstants.PhotoHeight.detail)
-            // Same inset as the section cards below, so a photo's edges line up with theirs on
-            // the wash rather than running out to the screen edge.
+            // The section cards' inset, so the edges line up.
             .padding(.horizontal)
 
             let caption = selectedIndex < photos.count ? photos[selectedIndex].caption : nil
@@ -85,8 +84,7 @@ struct PhotoCarouselView: View {
     private func photoPage(photo: ItemPhoto) -> some View {
         Group {
             if let image = photo.imageData.asImage() {
-                // Rounded on the photo itself, not the pager: a portrait photo sits narrower
-                // than the frame, so a clip on the frame would leave its corners square.
+                // On the photo, not the frame: a portrait photo is narrower than the frame.
                 image
                     .resizable()
                     .scaledToFit()

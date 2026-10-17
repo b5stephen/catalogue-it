@@ -8,14 +8,9 @@ import SwiftData
 
 // MARK: - Schema V2 (frozen)
 
-/// The model shape TestFlight builds 2–7 shipped with: V1 plus `CatalogueItem.modifiedDate`.
-/// Frozen: nothing in the app uses these classes — they exist so `CatalogueMigrationPlan`
-/// has a baseline to migrate *from*.
-///
-/// Every class is a verbatim copy of the live model at version 2.0.0, nested so the entity
-/// names match while the Swift types stay distinct. Do not edit these to track the live
-/// models; when the live models change again, add `CatalogueSchemaV4` and freeze V3 the
-/// same way.
+/// The models as TestFlight builds 2–7 shipped them, for `CatalogueMigrationPlan` to migrate
+/// from. Nested so the entity names match while the Swift types stay distinct. Never edit to
+/// track the live models.
 enum CatalogueSchemaV2: VersionedSchema {
     static let versionIdentifier = Schema.Version(2, 0, 0)
 

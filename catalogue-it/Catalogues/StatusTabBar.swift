@@ -7,27 +7,14 @@ import SwiftUI
 
 // MARK: - Status Tab Bar
 
-/// The item list's status filter: a row of capsules in the catalogue's tint, the current one
-/// filled.
+/// A scrolling row of capsules rather than a segmented control, which divides its width and
+/// truncates every segment to an ellipsis past a handful of options.
 ///
-/// A catalogue's status field can carry any number of options, so the bar cannot assume they
-/// fit: a segmented control divides its width evenly and then truncates, so past a handful of
-/// tabs every segment read as an ellipsis. A horizontally scrolling row sidesteps that — each
-/// capsule takes its natural width, and the row scrolls once they overflow, with the current
-/// tab kept in view.
-///
-/// Where the bar sits decides how the capsules are drawn:
-///
-/// - Over the ground (`onFill == false`, beside a detail column), the row sits on one glass
-///   shelf, with the current tab a solid segment of the catalogue's tint sliding inside it.
-///   The bar floats over cards passing beneath, and separate glass pills left gaps between
-///   them where a photo showed through at full strength; a single pane frosts the whole row.
-///   The segment's label comes from the palette rather than being white, since a pale pick
-///   (a yellow, say) needs dark text to clear its own colour.
-/// - On the catalogue band's fill, glass tinted with the catalogue colour disappears into a
-///   fill of that same colour. There the tabs take the band's own language instead, the way a
-///   segmented control sits on a coloured bar: the icon tile's translucent pane for the rest,
-///   and a light pill for the current one, lettered in the fill's deep stop.
+/// - Over the ground (`onFill == false`): one glass shelf, so a photo can't show through gaps
+///   between pills, with a sliding segment of the tint lettered from the palette (a pale tint
+///   needs dark text).
+/// - On the band's fill, where tinted glass vanishes into the same colour: the band's own
+///   language — the icon tile's pane for the rest, a light pill for the current one.
 struct StatusTabBar: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
@@ -37,7 +24,6 @@ struct StatusTabBar: View {
     var onFill = false
 
     @Namespace private var selectionNamespace
-    /// Which ends of the shelf have tabs scrolled out of sight past them.
     @State private var overflow = ShelfOverflow()
 
     var body: some View {
@@ -60,8 +46,7 @@ struct StatusTabBar: View {
                 }
             }
             .onChange(of: selection, initial: true) { _, tab in
-                // Keep the current tab visible — it may have been chosen from the catalogue's
-                // default rather than by a tap, or reconciled after the field was reconfigured.
+                // It may come from the default or a reconcile rather than a tap.
                 withAnimation { proxy.scrollTo(tab, anchor: .center) }
             }
         }
@@ -69,13 +54,10 @@ struct StatusTabBar: View {
         .accessibilityLabel("Status")
     }
 
-    /// The glass shelf. It hugs the tabs while they fit; once they don't, the shelf stops at
-    /// the column's width and the tabs scroll *inside* it, the way a segmented control would,
-    /// rather than the whole capsule scrolling and being sliced off at the column's edge.
-    /// The end with tabs hidden past it fades, which is what says there is more to scroll.
+    /// Hugs the tabs while they fit, then stops at the column's width with the tabs scrolling
+    /// inside it; the end with tabs hidden past it fades.
     private func shelf(_ palette: CataloguePalette) -> some View {
-        // Tighter than the pills: the segments share one pane, so the gaps only need to
-        // separate the labels.
+        // The segments share one pane, so the gaps need only separate the labels.
         let row = HStack(spacing: 2) { tabButtons(palette) }
             .padding(3)
 
@@ -134,8 +116,7 @@ struct StatusTabBar: View {
                 if onFill {
                     Capsule().fill(isOn ? Color.white.opacity(0.95) : palette.iconTint)
                 } else if isOn {
-                    // One segment, moved between tabs rather than faded in and out, so a
-                    // change of tab reads as the selection sliding along the shelf.
+                    // One segment moved between tabs, so a change reads as sliding along the shelf.
                     Capsule()
                         .fill(palette.tint)
                         .matchedGeometryEffect(id: "selection", in: selectionNamespace)
@@ -149,16 +130,14 @@ struct StatusTabBar: View {
     private func labelColor(isOn: Bool, palette: CataloguePalette) -> Color {
         if onFill {
             guard isOn else { return palette.primaryText }
-            // On the white pill: the fill's own deep stop, unless the fill is pale enough that
-            // its labels went dark — then the deep stop is pale too, and the dark label reads.
+            // The fill's deep stop, which is pale too when the fill's labels went dark.
             return palette.prefersDarkForeground ? palette.primaryText : palette.fillDeepStop
         }
         return isOn ? palette.primaryText : palette.tint
     }
 
-    /// Plain glass over the black ground is close to invisible — there is nothing light behind
-    /// it to catch. A faint white tint frosts it enough to read as a shelf without becoming a
-    /// button. In light appearance the glow itself provides that, so the glass is left clear.
+    /// Plain glass over the black ground is near invisible, so a faint white tint frosts it; in
+    /// light the glow does that.
     private var shelfGlass: Glass {
         colorScheme == .dark ? .regular.tint(.white.opacity(0.14)) : .regular
     }

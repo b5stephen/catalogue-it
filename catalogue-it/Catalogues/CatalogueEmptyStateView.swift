@@ -15,8 +15,7 @@ struct CatalogueEmptyStateView: View {
     let hasActiveFlags: Bool
     let isFiltered: Bool
 
-    /// The status tab currently selected, when it's a real status (not "All").
-    /// Drives copy that names the state the user is looking at.
+    /// A real status, not "All", so the copy can name it.
     private var selectedStatusDescriptor: StatusTabDescriptor? {
         guard statusTab != .all else { return nil }
         return catalogue.statusTabDescriptors.first { $0.tab == statusTab }
@@ -26,7 +25,7 @@ struct CatalogueEmptyStateView: View {
         if isFiltered {
             ContentUnavailableView.search
         } else if hasActiveFlags {
-            // Distinct from "no items": the catalogue may be full, just not of flagged items.
+            // The catalogue may be full, just not of flagged items.
             ContentUnavailableView(
                 "No Matching Items",
                 systemImage: "line.3.horizontal.decrease.circle",

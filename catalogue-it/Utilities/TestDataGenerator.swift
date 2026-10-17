@@ -10,8 +10,7 @@ import SwiftData
 
 // MARK: - Test Data Generator (Debug Only)
 
-/// Seeds a large catalogue into SwiftData for performance testing.
-/// Only compiled in Debug builds — completely absent from release / App Store builds.
+/// DEBUG-only.
 enum TestDataGenerator {
 
     // MARK: - Source Data
@@ -54,16 +53,9 @@ enum TestDataGenerator {
 
     // MARK: - Seed
 
-    /// Seeds a catalogue into SwiftData with the given configuration.
-    ///
     /// - Parameters:
-    ///   - context: The SwiftData context to insert into.
-    ///   - catalogueName: Name for the new catalogue.
-    ///   - itemCount: Number of items to generate.
-    ///   - includesPhotos: Whether to generate photo data for each item.
-    ///   - priorityOffset: Added to the catalogue's priority so it appends after existing catalogues.
-    ///   - onProgress: Called after each item is processed with (completedItems, totalItems).
-    /// - Returns: The newly created `Catalogue`.
+    ///   - priorityOffset: Appends after existing catalogues.
+    ///   - onProgress: (completed, total) after each item.
     @MainActor
     static func seed(
         into context: ModelContext,
@@ -81,8 +73,7 @@ enum TestDataGenerator {
         )
         context.insert(catalogue)
 
-        // Field definitions — all field types represented, plus one field of each display
-        // role so seeded data exercises the tab bar and flag filters, not just plain fields.
+        // One field per display role too, so seeded data exercises the tab bar and flag filters.
         let titleDef = FieldDefinition(name: "Title", fieldType: .text, priority: 0)
         let directorDef = FieldDefinition(name: "Director", fieldType: .text, priority: 1)
         let yearDef = FieldDefinition(name: "Year", fieldType: .number, priority: 2)
@@ -92,13 +83,11 @@ enum TestDataGenerator {
         let watchedDef = FieldDefinition(name: "Watched", fieldType: .boolean, priority: 4)
         let dateWatchedDef = FieldDefinition(name: "Date Watched", fieldType: .date, priority: 5)
 
-        // Status tab bar, backed by an option list — the general form of the old wishlist.
         let statusDef = FieldDefinition(name: "Status", fieldType: .optionList, priority: 6, displayRole: .statusTabs)
         statusDef.fieldOptions = .optionList(OptionListOptions(
             options: ["Owned", "Wishlist"],
             defaultValue: "Owned"
         ))
-        // Flag filter, backed by a bool.
         let favouriteDef = FieldDefinition(name: "Favourite", fieldType: .boolean, priority: 7, displayRole: .flagFilter)
 
         let allDefs = [titleDef, directorDef, yearDef, ratingDef, watchedDef, dateWatchedDef, statusDef, favouriteDef]
@@ -112,7 +101,7 @@ enum TestDataGenerator {
         var pendingThumbnails: [(CatalogueItem, Data)] = []
 
         for index in 0..<itemCount {
-            // Deterministic variety — same output on every seed call
+            // Deterministic, so every seed is the same.
             let titleIndex = index % titles.count
             let directorIndex = (index * 3) % directors.count
             let year = Double(1950 + (index * 7) % 76)                     // 1950–2025
@@ -123,7 +112,6 @@ enum TestDataGenerator {
             let hasRating = index % 10 != 0                                 // ~10% missing rating
             let hasNotes = index % 7 == 0                                   // ~14% have notes
 
-            // Disambiguate titles on repeat cycles: "Rashomon", "Rashomon (2)", …
             let titleSuffix = index >= titles.count ? " (\(index / titles.count + 1))" : ""
             let title = titles[titleIndex] + titleSuffix
             let notes: String? = hasNotes ? notesSamples[index % notesSamples.count] : nil
@@ -131,7 +119,7 @@ enum TestDataGenerator {
             let item = CatalogueItem(notes: notes)
             let createdDayOffset = (index * 3) % (365 * 3)
             item.createdDate = calendar.date(byAdding: .day, value: createdDayOffset, to: baseDate) ?? baseDate
-            // Never edited, so the same convention as migrated and imported items.
+            // Never edited: `modifiedDate == createdDate`.
             item.modifiedDate = item.createdDate
             item.catalogue = catalogue
             context.insert(item)
@@ -223,7 +211,6 @@ enum TestDataGenerator {
             }
         }
 
-        // Flush thumbnails for the final partial batch.
         if !pendingThumbnails.isEmpty {
             try? context.save()
             for (savedItem, data) in pendingThumbnails {
@@ -236,8 +223,7 @@ enum TestDataGenerator {
 
     // MARK: - Photo Generation
 
-    /// Generates a deterministic 400×300 JPEG with a colored background and diagonal stripe.
-    /// Uses CoreGraphics only — no UIKit/AppKit dependency.
+    /// CoreGraphics only, no UIKit/AppKit.
     private static func makePhotoData(index: Int) -> Data? {
         let width = 400, height = 300
         guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
@@ -252,14 +238,12 @@ enum TestDataGenerator {
               )
         else { return nil }
 
-        // Deterministic hue cycling across 12 colours
         let hue = CGFloat(index % 12) / 12.0
         let (r, g, b) = hsvToRGB(h: hue, s: 0.55, v: 0.80)
 
         ctx.setFillColor(red: r, green: g, blue: b, alpha: 1)
         ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
 
-        // Diagonal stripe for visual texture
         ctx.setFillColor(red: r * 0.85, green: g * 0.85, blue: b * 0.85, alpha: 1)
         let stripe = CGMutablePath()
         stripe.move(to: CGPoint(x: 0, y: 80))

@@ -26,8 +26,7 @@ struct CatalogueStatsView: View {
         catalogue.sortedFieldDefinitions
     }
 
-    /// One row per status tab (excluding the synthetic "All"), so a catalogue tracking
-    /// Owned/Wishlist/Ordered/Sold reports all four rather than a fixed pair.
+    /// Excludes the synthetic "All".
     private var statusCounts: [(label: String, count: Int)] {
         catalogue.statusTabDescriptors
             .filter { $0.tab != .all }
@@ -37,8 +36,7 @@ struct CatalogueStatsView: View {
             }
     }
 
-    /// Flags are independent of status, so they're counted separately rather than
-    /// partitioning the same total.
+    /// Counted separately: flags don't partition the total as statuses do.
     private var flagCounts: [(label: String, count: Int)] {
         catalogue.flagFields.map { flag in
             let token = ItemFacetBuilder.flagToken(for: flag.fieldID)

@@ -72,8 +72,7 @@ struct SeedDataSheet: View {
                 catalogueName = computedName(count: itemCount, photos: includesPhotos)
             }
             .onChange(of: itemCount) { oldCount, newCount in
-                // Only auto-update the name if it still matches the previous computed default,
-                // meaning the user hasn't typed a custom name.
+                // Only while the name is still the previous default, i.e. the user hasn't typed one.
                 if catalogueName == computedName(count: oldCount, photos: includesPhotos) {
                     catalogueName = computedName(count: newCount, photos: includesPhotos)
                 }

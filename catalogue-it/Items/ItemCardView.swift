@@ -12,12 +12,10 @@ import SwiftData
 
 struct ItemCardView: View {
     let item: CatalogueItem
-    /// Whether to show the status chip — see `ItemRowView.showStatusChip`.
     var showStatusChip: Bool = false
 
     private var primaryValue: String {
-        // Status and flag fields are rendered as chips/badges, so they never stand in as
-        // the item's display name.
+        // Status and flag fields render as chips and badges, never as the name.
         guard let catalogue = item.catalogue,
               let first = catalogue.fieldDefinitions
                   .filter({ $0.displayRole == .none })
@@ -37,8 +35,7 @@ struct ItemCardView: View {
         return (label, statusField.statusChipTint(for: item.statusValue))
     }
 
-    /// Flags set on this item, capped because a card thumbnail has no room for a long row.
-    /// Flags with no icon are dropped before the cap so they don't consume a visible slot.
+    /// Iconless flags are dropped before the cap so they don't take a slot.
     private var setFlagFields: [FieldDefinition] {
         guard let catalogue = item.catalogue else { return [] }
         return catalogue.flagFields
@@ -49,7 +46,6 @@ struct ItemCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Photo or placeholder
             GeometryReader { geometry in
                 ItemCardPhotoView(key: ThumbnailKey(item: item))
                     .frame(width: geometry.size.width, height: geometry.size.width)
@@ -81,7 +77,6 @@ struct ItemCardView: View {
                 }
             }
 
-            // Item name
             Text(primaryValue)
                 .font(.subheadline)
                 .lineLimit(2)
@@ -129,29 +124,25 @@ private struct ItemCardPhotoView: View {
 #if os(iOS)
             let itemID = key.itemID
             let key = "cover_\(itemID)"
-            // Tier 1: in-memory cache — synchronous, no I/O.
             if let cached = await ImageCache.shared.image(for: key) {
                 loadedImage = Image(uiImage: cached)
                 return
             }
-            // Tier 2: filesystem cache — off the actor so all visible cards read in parallel.
-            // preparingForDisplay() forces JPEG pixel-decode here off the main thread.
+            // Off the actor so visible cards read in parallel; preparingForDisplay() decodes here too.
             let diskImage = await Task.detached(priority: .utility) { () -> UIImage? in
                 guard let url = ThumbnailLoader.thumbnailCacheURL(for: itemID),
                       let data = try? Data(contentsOf: url),
                       let img = UIImage(data: data) else { return nil }
                 return img.preparingForDisplay()
             }.value
-            // A load still in flight when the item was saved must not overwrite the fresh
-            // thumbnail the save wrote — the re-keyed task will load that one.
+            // A load in flight when the item was saved mustn't overwrite the thumbnail the save wrote.
             guard !Task.isCancelled else { return }
             if let ui = diskImage {
                 await ImageCache.shared.store(ui, for: key)
                 loadedImage = Image(uiImage: ui)
                 return
             }
-            // Tier 3: cold path — each card gets its own ephemeral ModelContext so all
-            // visible cards fetch and decode fully in parallel (no shared actor queue).
+            // Each card gets its own ModelContext so visible cards fetch and decode in parallel.
             guard let container = ThumbnailLoader.container else { loadedImage = nil; return }
             let generated = await Task.detached(priority: .utility) { () -> (data: Data, image: UIImage)? in
                 let context = ModelContext(container)
@@ -165,7 +156,6 @@ private struct ItemCardPhotoView: View {
                       let image = UIImage(data: thumbData)?.preparingForDisplay() else { return nil }
                 return (thumbData, image)
             }.value
-            // Same guard as above: only a load that is still current may populate the caches.
             guard !Task.isCancelled else { return }
             guard let generated else { loadedImage = nil; return }
             let thumbData = generated.data

@@ -39,7 +39,6 @@ struct ItemDetailView: View {
         item.photos.sorted { $0.priority < $1.priority }
     }
 
-    /// Field definitions paired with their values, filtered to non-empty entries only.
     private var displayFields: [(FieldDefinition, FieldValue)] {
         catalogue.sortedFieldDefinitions
             .compactMap { def in
@@ -61,8 +60,6 @@ struct ItemDetailView: View {
         return lines.joined(separator: "\n")
     }
 
-    /// Whether this is the detail column beside the item list, on iOS. Pushed in compact
-    /// width the environment says there is no detail column; macOS keeps its own chrome.
     private var isBesideList: Bool {
 #if os(iOS)
         hasDetailColumn
@@ -74,9 +71,8 @@ struct ItemDetailView: View {
     // MARK: - Body
 
     var body: some View {
-        // A value merged in from CloudKit bypasses the model's setters, so nothing about
-        // `item` alone re-runs this body. Reading the generation `RemoteChangeObserver`
-        // bumps after each merge does — the same hook the list rows use (ThumbnailCacheState).
+        // A CloudKit merge bypasses the setters, so nothing about `item` re-runs this body; the
+        // generation `RemoteChangeObserver` bumps after each merge does.
         let _ = ThumbnailCacheState.shared.generation
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
@@ -100,29 +96,18 @@ struct ItemDetailView: View {
                 .padding()
             }
         }
-        // Beside the item list, the photos and cards fade into the glow under the bar the
-        // same way the list's cards do, so the two column tops match while either scrolls.
+        // Matches the list column's fade, so the two tops agree while either scrolls.
         .washFadeEdge(isBesideList)
-        // The same ground as the item list, so pushing an item changes the content and nothing
-        // about the room it sits in. No band here: the band is the list's title, and this
-        // screen has its own.
         .catalogueGround(catalogue, glow: true, inSplitView: isBesideList)
         .tint(catalogue.palette(for: colorScheme).tint)
 #if os(iOS)
-        // Pushed, this is a screen in the main navigation chain like the catalogue list, so
-        // it uses the large title that collapses into the bar as the content scrolls. Beside
-        // the item list it is inline instead, matching that column's bar, so the two bars are
-        // the same height and the fade starts at the same line in both.
+        // Inline beside the list, so both columns' bars are the same height.
         .toolbarTitleDisplayMode(isBesideList ? .inline : .automatic)
 #endif
-        // No subtitle: the catalogue is the screen the user just came from, so naming
-        // it again here is repetition. The subtitle slot earns its place on the item list,
-        // where the count says something the title doesn't.
+        // No subtitle: the catalogue is the screen the user just came from.
         .navigationTitle(primaryValue)
         .toolbar {
 #if os(iOS)
-            // Edit is the one primary action; the rest are `.secondaryAction` so the system
-            // folds them into its own "…" at the trailing edge, matching the item list.
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     showingEditItem = true

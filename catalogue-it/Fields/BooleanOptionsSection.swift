@@ -7,28 +7,17 @@ import SwiftUI
 
 // MARK: - Boolean Options Section
 
-/// Form sections configuring a Yes/No field: what its two states are called, which one new
-/// items start in, and how it looks when it's used as a filter toggle.
-///
-/// Peer of the "Number Options" and "Options" sections — it appears for every `.boolean`
-/// field regardless of display role. Roles are chosen in the catalogue's Options section;
-/// this is only about the field itself, so a field configured here can be promoted to the
-/// tab bar or a filter toggle later with its labels and appearance already in place.
-///
-/// Lives in `FieldEditorView`, so adding and editing a Yes/No field offer exactly
-/// the same capability.
+/// Shown for every Yes/No field whatever its display role, so one promoted to a role later
+/// already has its labels and appearance.
 struct BooleanOptionsSection: View {
     @Binding var options: BooleanOptions
 
     @State private var showingIconPicker = false
 
-    /// Matches `FieldDefinition.statusTabLabels`' fallback, so the placeholder shows exactly
-    /// what will render if the user leaves the field blank.
+    /// `FieldDefinition.statusTabLabels`' fallback, so the placeholder is what renders.
     private var truePlaceholder: String { String(localized: "Yes") }
     private var falsePlaceholder: String { String(localized: "No") }
 
-    /// Mirrors `FieldDefinition.flagIconName` for a field that may not exist yet — the
-    /// field editor configures appearance before anything is persisted.
     private var icon: String? {
         let name = options.flagIconName?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let name, !name.isEmpty else { return nil }
@@ -60,15 +49,10 @@ struct BooleanOptionsSection: View {
             ))
         }
 
-        // Several flags on one catalogue need to be told apart at a glance, so each picks its
-        // own symbol and tint rather than all rendering as the same badge. Both are optional:
-        // with no icon the field simply shows no badge.
         Section {
             Button {
                 showingIconPicker = true
             } label: {
-                // No row label — the section header already says "Icon", so the row is just
-                // the current choice.
                 HStack {
                     if let icon {
                         Image(systemName: icon)
@@ -99,8 +83,7 @@ struct BooleanOptionsSection: View {
                     set: { options.flagColorHex = $0.toHex() }
                 ), supportsOpacity: false)
             } else {
-                // ColorPicker can't represent "unset", so an absent colour is a button that
-                // adopts one rather than a picker sitting on an arbitrary starting value.
+                // ColorPicker can't represent "unset".
                 Button("Set Colour") {
                     options.flagColorHex = Color.accentColor.toHex()
                 }

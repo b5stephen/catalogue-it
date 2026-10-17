@@ -101,7 +101,7 @@ struct FieldDefinitionDraftEqualityTests {
 
     @Test("A pending option rename is a change even though the options list looks the same")
     func pendingRenamesCount() {
-        var a = draft(type: .optionList)
+        let a = draft(type: .optionList)
         var b = draft(type: .optionList)
         b.pendingOptionRenames = ["Owned": "Have"]
         #expect(!a.hasSameContent(as: b))
@@ -109,7 +109,7 @@ struct FieldDefinitionDraftEqualityTests {
 
     @Test("A pending option deletion is a change")
     func pendingDeletionsCount() {
-        var a = draft(type: .optionList)
+        let a = draft(type: .optionList)
         var b = draft(type: .optionList)
         b.pendingOptionDeletions = ["Wanted"]
         #expect(!a.hasSameContent(as: b))

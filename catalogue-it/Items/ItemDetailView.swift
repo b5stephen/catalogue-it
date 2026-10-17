@@ -13,7 +13,6 @@ import SwiftData
 struct ItemDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.catalogueWashEdges) private var washEdges
     @Environment(\.hasDetailColumn) private var hasDetailColumn
 
     let catalogue: Catalogue
@@ -107,9 +106,7 @@ struct ItemDetailView: View {
         // The same ground as the item list, so pushing an item changes the content and nothing
         // about the room it sits in. No band here: the band is the list's title, and this
         // screen has its own.
-        // Beside a showing leading column the wash stays out of the leading safe area, which
-        // is where that column floats; otherwise it fills the screen.
-        .background(CatalogueWash(catalogue: catalogue, edges: washEdges, glow: true))
+        .catalogueGround(catalogue, glow: true, inSplitView: isBesideList)
         .tint(catalogue.palette(for: colorScheme).tint)
 #if os(iOS)
         // Pushed, this is a screen in the main navigation chain like the catalogue list, so

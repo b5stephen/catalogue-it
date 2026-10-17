@@ -27,31 +27,19 @@ import SwiftUI
 struct CatalogueWash: View {
     @Environment(\.colorScheme) private var colorScheme
     let catalogue: Catalogue
-    /// Which safe-area edges the wash runs under. Pushed on a compact stack it fills the
-    /// screen; in a split view pass `detailColumnEdges` while the leading column is showing.
-    var edges: Edge.Set = .all
     /// Whether the colour pools at the top of the screen, fading into the wash.
     ///
     /// The glow is fixed to the screen rather than the content, so it never moves when the
     /// content scrolls. That is the point of it beside a split view: a band scrolling away in
     /// one column while the other stayed put made the two columns disagree about their top
-    /// edge at almost any scroll position. Every column that shows it draws it identically
-    /// from the top of the screen, so the tops line up across the divider. Strong enough in
-    /// light to carry the catalogue's colour the way the band does, but still light enough at
-    /// its strongest that the bar's standard title colour reads over it.
+    /// edge at almost any scroll position. There one wash sits behind the whole split view
+    /// (see `ContentView`), so both column tops share the same glow. Strong enough in light
+    /// to carry the catalogue's colour the way the band does, but still light enough at its
+    /// strongest that the bar's standard title colour reads over it.
     var glow = false
 
     /// The distance from the top of the screen over which the glow fades out.
     private static let glowHeight: CGFloat = 340
-
-    /// The edges for the detail column of a split view while the leading column is showing.
-    /// The detail column spans the full width with the leading column floating over it as a
-    /// safe-area inset, so a wash that ran under the leading edge showed through that
-    /// column's glass and tinted the catalogue list. The trailing edge is different: on an
-    /// iPhone in landscape its inset is the notch or home-indicator side of the screen, and a
-    /// wash that respected it stopped short of the screen edge. Once the leading column is
-    /// collapsed the leading inset is that same notch, so the wash goes back to `.all`.
-    static let detailColumnEdges: Edge.Set = [.vertical, .trailing]
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -69,7 +57,7 @@ struct CatalogueWash: View {
                 .frame(height: Self.glowHeight)
             }
         }
-        .ignoresSafeArea(edges: edges)
+        .ignoresSafeArea()
     }
 
     @ViewBuilder
@@ -104,6 +92,39 @@ struct CatalogueWash: View {
     }
 
     private var glowStrength: Double { colorScheme == .dark ? 1 : 0.42 }
+}
+
+extension View {
+    /// The ground a screen inside a catalogue sits on (see `CatalogueWash`).
+    ///
+    /// Pushed, the screen draws its own wash behind itself. In a split view the wash is the
+    /// column's navigation container background instead:
+    /// - A column's own content is laid out short of the bottom of the screen on a landscape
+    ///   iPhone, so a `.background` wash left a strip of plain background under the home
+    ///   indicator that `ignoresSafeArea` can't reach. The container background fills the
+    ///   whole column.
+    /// - On iOS 27 the leading column lays a translucent material over anything behind it,
+    ///   so a clear column over a shared wash came out paler than the detail column beside
+    ///   it. The container background sits above that material, so every column draws the
+    ///   identical wash, and the glow, measured from the top of the screen, lines up across
+    ///   the divider.
+    ///
+    /// Both are applied either way rather than switching branches, so a size-class change
+    /// doesn't rebuild the screen and lose its scroll position.
+    func catalogueGround(_ catalogue: Catalogue, glow: Bool, inSplitView: Bool) -> some View {
+        background {
+            if !inSplitView {
+                CatalogueWash(catalogue: catalogue, glow: glow)
+            }
+        }
+#if os(iOS)
+        .containerBackground(for: .navigation) {
+            if inSplitView {
+                CatalogueWash(catalogue: catalogue, glow: glow)
+            }
+        }
+#endif
+    }
 }
 
 // MARK: - Wash Fade Edge

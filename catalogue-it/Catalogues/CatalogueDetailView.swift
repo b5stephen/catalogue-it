@@ -212,7 +212,7 @@ struct CatalogueDetailView: View {
         // Where the fade edge is off (pushed under the band, and macOS), a soft edge fades
         // and blurs the cards progressively as they pass under the bar, rather than a hard line.
         .scrollEdgeEffectStyle(.soft, for: .top)
-        .background(CatalogueWash(catalogue: catalogue, glow: !usesBand))
+        .catalogueGround(catalogue, glow: !usesBand, inSplitView: sharesGlowWithDetail)
         .tint(catalogue.palette(for: colorScheme).tint)
 #if os(macOS)
         // The window title has nowhere else to come from.

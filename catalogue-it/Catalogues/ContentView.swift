@@ -295,7 +295,10 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $showingAddCatalogue) {
-            AddEditCatalogueView(nextPriority: catalogues.count)
+            AddEditCatalogueView(
+                nextPriority: catalogues.count,
+                existingColorHexes: catalogues.map(\.colorHex)
+            )
         }
         .sheet(isPresented: $showingSyncDiagnostics) {
             SyncDiagnosticsView()

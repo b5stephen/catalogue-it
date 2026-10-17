@@ -15,6 +15,9 @@ struct AddEditCatalogueView: View {
     // If editing an existing catalogue, pass it in
     let catalogue: Catalogue?
     let nextPriority: Int
+    /// Colours of the catalogues that already exist, so a new one can start on a colour that
+    /// isn't taken. Ignored when editing.
+    let existingColorHexes: [String]
 
     // Form state
     @State private var name: String = ""
@@ -74,9 +77,10 @@ struct AddEditCatalogueView: View {
         return names.count != Set(names).count
     }
 
-    init(catalogue: Catalogue? = nil, nextPriority: Int = 0) {
+    init(catalogue: Catalogue? = nil, nextPriority: Int = 0, existingColorHexes: [String] = []) {
         self.catalogue = catalogue
         self.nextPriority = nextPriority
+        self.existingColorHexes = existingColorHexes
     }
 
     var body: some View {
@@ -263,6 +267,7 @@ struct AddEditCatalogueView: View {
         }
 
         guard let catalogue else {
+            selectedColor = Color(hex: CatalogueColorSuggester.suggestedHex(avoiding: existingColorHexes))
             // Start with some common default fields for new catalogues
             fieldDefinitions = [
                 FieldDefinitionDraft(existingDefinition: nil, name: "Name", fieldType: .text, priority: 0)

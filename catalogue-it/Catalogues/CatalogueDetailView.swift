@@ -127,11 +127,20 @@ struct CatalogueDetailView: View {
             scrollState: bandScroll,
             trackedScrollRange: usesBand ? bandHeight : 0,
             header: {
-                // Room for the band floating over the list, plus the gap above the first
-                // card; beside a detail column, just the gap below the bar or the tabs.
-                Color.clear
-                    .frame(height: usesBand ? bandHeight + 12 : 8)
-                    .accessibilityHidden(true)
+                if sharesGlowWithDetail {
+                    ListHeader(
+                        catalogue: catalogue,
+                        countLabel: itemCountLabel,
+                        statusTabs: statusTabs,
+                        selectedTab: $selectedTab
+                    )
+                } else {
+                    // Room for the band floating over the list, plus the gap above the first
+                    // card; on macOS, just the gap below the bar or the tabs.
+                    Color.clear
+                        .frame(height: usesBand ? bandHeight + 12 : 8)
+                        .accessibilityHidden(true)
+                }
             }
         )
         // Beside a detail column the cards fade into the glow under the bar rather than
@@ -171,10 +180,9 @@ struct CatalogueDetailView: View {
             }
         }
         .safeAreaBar(edge: .top) {
-            // Beside a detail column there is no band to carry the tabs. As a bar they sit on
-            // the glow and inside the wash fade edge, so the cards fade out before they reach
-            // them rather than passing sharply beneath.
-            if !usesBand && !statusTabs.isEmpty {
+            // On macOS there is no band to carry the tabs, so they are a bar of their own.
+            // (Beside a detail column on iOS they scroll in the list's header instead.)
+            if !usesBand && !sharesGlowWithDetail && !statusTabs.isEmpty {
                 StatusTabBar(tabs: statusTabs, catalogue: catalogue, selection: $selectedTab)
                     .padding(.horizontal)
                     .padding(.vertical, 8)
@@ -192,8 +200,13 @@ struct CatalogueDetailView: View {
         .navigationSplitViewColumnWidth(min: 280, ideal: 360)
 #else
         .navigationTitle(catalogue.name)
-        .navigationSubtitle(usesBand ? "" : itemCountLabel)
+        // The band, or beside a detail column the list's header, carries the name and count
+        // instead. Beside a detail column the bar is crowded with buttons in a narrow column,
+        // so the title is removed from it outright rather than truncated to a few letters; it
+        // stays set for accessibility and the window title.
+        .navigationSubtitle(usesBand || hasDetailColumn ? "" : itemCountLabel)
         .toolbarTitleDisplayMode(.inline)
+        .toolbar(removing: hasDetailColumn ? .title : nil)
         .toolbar {
             // Over the band the bar sits on the catalogue's fill, which may have gone either
             // way, so the title is drawn here in the band's own label colours. Not
@@ -337,6 +350,45 @@ struct CatalogueDetailView: View {
             }
 #endif
         }
+    }
+}
+
+// MARK: - List Header
+
+/// The top of the item list beside a detail column: the catalogue's name and count, then the
+/// status tabs, all scrolling away with the items. The narrow column's bar has no room left
+/// for a readable title once its buttons are in, and vertical space is worth more to the list
+/// than keeping the tabs pinned. A new search or filter scrolls the list back to the top, so
+/// the count is in view whenever it has just changed.
+private struct ListHeader: View {
+    let catalogue: Catalogue
+    let countLabel: String
+    let statusTabs: [StatusTabDescriptor]
+    @Binding var selectedTab: StatusTab
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(catalogue.name)
+                    .font(.title2.bold())
+                    .lineLimit(2)
+                Text(countLabel)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
+            }
+            .padding(.horizontal)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+
+            if !statusTabs.isEmpty {
+                StatusTabBar(tabs: statusTabs, catalogue: catalogue, selection: $selectedTab)
+                    .padding(.horizontal)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
     }
 }
 

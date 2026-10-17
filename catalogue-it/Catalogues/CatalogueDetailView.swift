@@ -211,6 +211,12 @@ struct CatalogueDetailView: View {
         }
 #endif
         .searchable(text: $searchText)
+#if os(iOS)
+        // Beside a detail column iOS draws the field as a full-width row at the top of the
+        // list, above the status tabs. Minimised it is a toolbar button instead. Pushed on its
+        // own the field is already a bottom bar, so that is left alone.
+        .searchToolbarBehavior(hasDetailColumn ? .minimize : .automatic)
+#endif
         .onChange(of: searchText) { _, newValue in
             Task {
                 try? await Task.sleep(for: .milliseconds(200))

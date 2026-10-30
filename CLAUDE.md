@@ -4,53 +4,17 @@ A multi-platform SwiftUI collection management app for iOS, iPadOS, and macOS. U
 
 Performance and user customisation are key considerations. The app must be able to support small catalogues as well as larger ones containing many photos, custom fields and 2000+ items.
 
-## Tech Stack
-
-- **Language:** Swift 6
-- **UI:** SwiftUI
-- **Persistence:** SwiftData (with iCloud sync)
-- **Platform targets:** iOS 26+, iPadOS 26+, macOS 26+
-- **No external dependencies** — all frameworks are Apple built-ins
+**No external dependencies** — all frameworks are Apple built-ins.
 
 ## Project Structure
 
-All code files must be placed in the catalogue-it subfolder. Never place files in the Xcode project root group. Follow a feature-based subdirectories structure like below. Test have their on folders
-
-```
-catalogue-it/
-├── catalogue_itApp.swift          # App entry point, SwiftData ModelContainer setup
-├── Localizable.xcstrings          # Localization strings
-├── Assets.xcassets/               # App resources (icons, colors)
-├── Catalogues/                    # Catalogue list and detail views
-├── Fields/                        # Field definition UI
-├── Items/                         # Item management and display views
-├── Models/                        # SwiftData model definitions
-├── Photos/                        # Photo management views
-├── Types/                         # Supporting enums and value types
-└── Utilities/                     # Shared helpers and extensions
-UITests/                           # All UI Tests live here
-UnitTests/                         # All Unit Tests live here
-catalogue-it.xcodeproj/            # Xcode project configuration
-```
+All code files must be placed in the catalogue-it subfolder. Never place files in the Xcode project root group. Follow the existing feature-based subdirectories. Tests have their own folders: `UITests/` and `UnitTests/`.
 
 **Key design decisions:**
 
 - `FieldValue` denormalizes field name and type to prevent data loss if definitions change
 - Photos stored as `Data` directly in SwiftData
 - All ordered collections use an explicit `sortOrder: Int` field
-
-## Build & Run
-
-```bash
-# Open in Xcode
-open catalogue-it.xcodeproj
-
-# Command-line build
-xcodebuild -project catalogue-it.xcodeproj -scheme catalogue-it -configuration Debug build
-
-# Type-check only (fast)
-swiftc -typecheck catalogue-it/*.swift
-```
 
 ## Code Comments
 
@@ -175,66 +139,13 @@ The edit sheet's drafts are a copy of the item as of opening, not the user's int
 `ItemSaveService` takes the `EditBaseline` the sheet loaded and skips any draft equal to it —
 otherwise a stale draft writes over a value that merged in while the sheet was open.
 
-### Sync status UI
-
-`CloudKitSyncMonitor` reads `NSPersistentCloudKitContainer.eventChangedNotification` (again with
-`object: nil`, since SwiftData doesn't expose the container). Events carry only a type, start/end
-dates, a success flag and an error — **no record counts and no percentage**, so progress is
-necessarily indeterminate; the count in `SyncStatusBar` is how many items have landed in our own
-store since the run began (a delta against a baseline taken at the first event — never the total,
-since every launch runs an incremental import that usually fetches nothing). Behaviours worth
-preserving:
-
-- Signed out of iCloud, CloudKit posts an import event that *starts and never finishes*. The
-  monitor gates on `CKContainer.default().accountStatus()` so the indicator doesn't sit on
-  "Syncing…" forever for anyone not using iCloud.
-- Both directions are shown: `.import`/`.setup` as "Syncing from iCloud", plus "· N new items"
-  once any have arrived; `.export` as "Syncing to iCloud" with no count (the local total says
-  nothing about what is still queued).
-- Nothing shows until a run has been in flight for a while: 1s on an empty store (a new device
-  pulling everything down, where the bar is the only sign of life), 3s once catalogues exist.
-  Routine launch and foreground checks finish well inside that, so they don't flash the bar.
-- The bar lives on the catalogue list only. An inset on the `NavigationSplitView` doesn't reach
-  columns pushed onto their own stack in compact width, and on the item screen iOS 26 renders
-  `.searchable` as a bottom bar occupying the same edge.
-- Not-signed-in, network and throttling errors are deliberately **not** surfaced — they are either
-  the user's choice or self-resolving. Only actionable failures (quota, schema) reach the UI.
+### Schema changes
 
 Schema versions are pinned in `Models/SchemaVersions.swift`; add a version and a migration stage
 there for any post-release model change.
 
-### Deploying the CloudKit schema — required before every TestFlight/App Store build
+**Any model property added, removed or retyped requires a CloudKit schema deploy before the next
+TestFlight/App Store build** — Production never creates record types or fields on its own, and
+skipping it fails sync with `partialFailure`. Steps are in the `cloudkit-schema-deploy` skill.
 
-TestFlight and App Store builds talk to the **Production** CloudKit environment, which never
-creates record types or fields on its own. Development does — but only for fields it has
-actually seen exported, and a `CKRecord` carries no entry for a nil value. A field nobody
-happened to populate while testing is therefore missing from *both* environments, so comparing
-Development against Production shows no diff while Production is still behind the model. The
-comparison that matters is model vs Production.
-
-So, whenever a model property is added, removed or retyped:
-
-1. Debug build (Simulator signed into iCloud) → hammer menu → **Validate CloudKit Schema**.
-   Dry run; prints the complete record-type and field listing to the Xcode console.
-2. Same menu → **Push CloudKit Schema (Dev)**. This runs `initializeCloudKitSchema`, which
-   covers every entity and attribute from the model rather than from what got typed in.
-3. CloudKit Console → Schema → **Deploy Schema Changes** to push Development to Production.
-   Additive-only, so it cannot break existing production data.
-
-Skipping this produces `BAD_REQUEST` in the CloudKit Console logs and, on the client, a
-`partialFailure` — the bare `CKErrorDomain error 2` that started this. `CloudKitSchemaInitializer`
-(DEBUG only) holds the details.
-
-### Reporting sync failures from the field
-
-`CKError.partialFailure` (code 2) is a container, not a cause — the per-record errors are in
-`userInfo[CKPartialErrorsByItemIDKey]`. `SyncDiagnostics` unwraps them, buckets them by
-(code, record type), scrapes the `CD_…` field names out of the server messages, and keeps a
-rolling record that survives a relaunch. `SyncDiagnosticsView` renders it for screenshotting,
-because a screenshot is the only payload TestFlight feedback carries — there is no API to
-attach anything else. Two rules for anything added there:
-
-- Log at `.notice` or above with `privacy: .public`. `.debug` entries are memory-only and can
-  never be recovered from a tester's device, and interpolations are redacted by default.
-- Record every failure, including ones deliberately kept out of the UI. Staying quiet about a
-  self-resolving error is a separate decision from discarding the evidence.
+Sync status UI and field diagnostics rules live in `.claude/rules/sync-status-ui.md`.

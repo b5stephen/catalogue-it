@@ -105,7 +105,7 @@ struct ItemRowView: View {
 
 // MARK: - Item Thumbnail View
 
-private struct ItemThumbnailView: View {
+struct ItemThumbnailView: View {
     /// See `ThumbnailKey`: the load re-runs whenever any part of it changes.
     let key: ThumbnailKey
     @State private var loadedImage: Image?

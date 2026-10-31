@@ -20,7 +20,8 @@ struct FieldPreviewContext {
 /// Mock screens with the field among the catalogue's own, whose values are placeholders.
 /// Values go through the real `FieldControl`, `FieldValueFormatter` and `FieldChipView`;
 /// placement mirrors `ItemDetailView` (title is the first field) and `ItemRowView` (title and two
-/// summary lines from the `isSummaryField`s; status chip and icon badges trailing) — keep it in step.
+/// summary lines from the `isSummaryField`s; status chip and icon badges trailing) — keep it, and
+/// `CataloguePreviewView`, in step.
 struct FieldPreviewSection: View {
     let name: String
     let fieldType: FieldType
@@ -36,20 +37,17 @@ struct FieldPreviewSection: View {
     @State private var dateValue: Date? = nil
     @State private var boolValue: Bool = false
 
-    private static let screenPadding: CGFloat = 10
-    /// Outer = card + padding, so the mock cards sit concentric in the screen (card-design skill).
-    private static let screenCornerRadius = AppConstants.CornerRadius.card + screenPadding
     private static let summaryLineCount = 2
 
     enum PreviewScreen: CaseIterable, Identifiable {
-        case adding, itemPage, itemList
+        case adding, itemList, itemPage
         var id: Self { self }
 
         var title: LocalizedStringKey {
             switch self {
-            case .adding: "Adding"
-            case .itemPage: "Item Page"
-            case .itemList: "Item List"
+            case .adding: "Form View"
+            case .itemList: "List View"
+            case .itemPage: "Card View"
             }
         }
     }
@@ -100,11 +98,11 @@ struct FieldPreviewSection: View {
     private var footerText: LocalizedStringKey {
         switch screen {
         case .adding:
-            "Try a value here — the other previews show it."
+            "How the field displays when adding or editing its value. Try it out — a change here will be reflected in the other previews."
         case .itemPage:
-            "How the field reads on an item's page. Other fields' values are placeholders."
+            "How the field displays on an item's detail view card."
         case .itemList:
-            "How the field shows on an item in the list. Other fields' values are placeholders."
+            "How the field displays on an item's list view card."
         }
     }
 
@@ -116,20 +114,12 @@ struct FieldPreviewSection: View {
             case .itemList: itemListScreen
             }
         }
-        .padding(Self.screenPadding)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(context.tint.opacity(0.08), in: screenShape)
-        .overlay { screenShape.strokeBorder(.separator) }
-        .tint(context.tint)
+        .mockScreen(tint: context.tint)
     }
 
     /// The real cards' fill, which in dark is a deep shade of the catalogue's colour.
     private var cardFill: CardFill {
         CardFill(colorHex: context.tint.toHex())
-    }
-
-    private var screenShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: Self.screenCornerRadius, style: .continuous)
     }
 
     // MARK: - Adding
@@ -181,7 +171,7 @@ struct FieldPreviewSection: View {
                 if context.fieldsBefore.isEmpty {
                     Text(titleText.isEmpty ? String(localized: "Untitled Item") : titleText)
                 } else {
-                    placeholderText(PreviewSamples.title)
+                    RedactedSample(sample: PreviewSamples.title)
                 }
             }
             .font(.title2.bold())
@@ -189,14 +179,10 @@ struct FieldPreviewSection: View {
             .padding(.horizontal, 4)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Details")
-                    .font(.caption.weight(.semibold))
-                    .textCase(.uppercase)
-                    .foregroundStyle(.tint)
-                    .padding(.leading, 4)
+                MockDetailsCaption()
                 VStack(alignment: .leading, spacing: 0) {
                     if let before = context.fieldsBefore.last {
-                        detailRow(label: before.displayName) { placeholderText(PreviewSamples.value) }
+                        detailRow(label: before.displayName) { RedactedSample() }
                             .accessibilityHidden(true)
                         Divider()
                     }
@@ -204,7 +190,7 @@ struct FieldPreviewSection: View {
                         .highlighted()
                     if let after = context.fieldsAfter.first {
                         Divider()
-                        detailRow(label: after.displayName) { placeholderText(PreviewSamples.value) }
+                        detailRow(label: after.displayName) { RedactedSample() }
                             .accessibilityHidden(true)
                     }
                 }
@@ -213,29 +199,8 @@ struct FieldPreviewSection: View {
         }
     }
 
-    /// Mirrors `FieldRowView` and `StatusFieldRowView`.
-    @ViewBuilder
     private func detailRow(label: String, @ViewBuilder value: () -> some View) -> some View {
-        switch context.layoutOptions.detailLabelLayout {
-        case .beside:
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(label)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
-                value()
-            }
-            .padding(.vertical, 10)
-        case .above:
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                value()
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 10)
-        }
+        MockDetailRow(label: label, layout: context.layoutOptions.detailLabelLayout, value: value)
     }
 
     // MARK: - Item List
@@ -283,36 +248,18 @@ struct FieldPreviewSection: View {
     }
 
     private var sampleListRow: some View {
-        HStack(spacing: 12) {
-            if context.layoutOptions.showPhotosInList {
-                Image(systemName: "photo")
-                    .foregroundStyle(.tertiary)
-                    .frame(width: AppConstants.ThumbnailSize.list, height: AppConstants.ThumbnailSize.list)
-                    .background(
-                        .fill.tertiary,
-                        in: .rect(cornerRadius: AppConstants.ItemCard.thumbnailCornerRadius, style: .continuous)
-                    )
-                    .accessibilityHidden(true)
+        MockListRow(showsThumbnail: context.layoutOptions.showPhotosInList, fill: cardFill) {
+            MockThumbnail()
+        } title: {
+            if listPlacement == .title {
+                Text(titleText.isEmpty ? String(localized: "Untitled Item") : titleText)
+                    .highlighted()
+            } else {
+                RedactedSample(sample: PreviewSamples.title)
             }
-            VStack(alignment: .leading, spacing: 4) {
-                Group {
-                    if listPlacement == .title {
-                        Text(titleText.isEmpty ? String(localized: "Untitled Item") : titleText)
-                            .highlighted()
-                    } else {
-                        placeholderText(PreviewSamples.title)
-                    }
-                }
-                .font(.headline)
-                .lineLimit(1)
-
-                summaryLines
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            .frame(minHeight: AppConstants.ThumbnailSize.list, alignment: .leading)
-            Spacer(minLength: 0)
+        } lines: {
+            summaryLines
+        } trailing: {
             if listPlacement == .badge, boolValue {
                 flagIcon
                     .font(.caption)
@@ -321,8 +268,6 @@ struct FieldPreviewSection: View {
                 statusChip
             }
         }
-        .padding(AppConstants.ItemCard.contentPadding)
-        .background(cardFill, in: .rect(cornerRadius: AppConstants.CornerRadius.card, style: .continuous))
     }
 
     /// `nil` stands for the field being edited.
@@ -339,7 +284,7 @@ struct FieldPreviewSection: View {
             if let field {
                 HStack(spacing: 4) {
                     Text(verbatim: "\(field.displayName):")
-                    placeholderText(PreviewSamples.value)
+                    RedactedSample()
                 }
                 .accessibilityHidden(true)
             } else if !titleText.isEmpty {
@@ -391,7 +336,7 @@ struct FieldPreviewSection: View {
         } else if let badgeIcon {
             BooleanValueLabel(icon: badgeIcon, color: flagColor, isOn: boolValue, text: titleText)
         } else if titleText.isEmpty {
-            emptyPlaceholder
+            MockEmptyValue()
         } else {
             Text(titleText)
         }
@@ -408,19 +353,8 @@ struct FieldPreviewSection: View {
                 tint: StatusChipPalette.tint(optionIndex: optionListOptions.options.firstIndex(of: textValue))
             )
         default:
-            emptyPlaceholder
+            MockEmptyValue()
         }
-    }
-
-    private var emptyPlaceholder: some View {
-        Text(verbatim: "—")
-            .foregroundStyle(.tertiary)
-    }
-
-    private func placeholderText(_ sample: String) -> some View {
-        Text(verbatim: sample)
-            .redacted(reason: .placeholder)
-            .accessibilityHidden(true)
     }
 
     private var flagColor: Color? {
@@ -461,37 +395,6 @@ struct FieldPreviewSection: View {
         guard fieldType == .optionList else { return }
         guard !optionListOptions.options.contains(textValue) else { return }
         textValue = optionListOptions.defaultValue ?? optionListOptions.options.sorted().first ?? ""
-    }
-}
-
-// MARK: - Samples
-
-/// Lengths for the redacted placeholders; never shown as text.
-private enum PreviewSamples {
-    static let title = "Sample item name"
-    static let value = "Sample"
-}
-
-// MARK: - Mock Styling
-
-private extension View {
-    /// A `CatalogueSectionCard`-style card inside the mock screen.
-    func mockCard(fill: CardFill) -> some View {
-        padding(.horizontal, 14)
-            .padding(.vertical, 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(fill, in: .rect(cornerRadius: AppConstants.CornerRadius.card, style: .continuous))
-    }
-
-    /// Marks the field being edited among its placeholder neighbours. Rows and lines only: a
-    /// chip or icon is already the only real value in its row, and a halo crowds it.
-    func highlighted() -> some View {
-        background {
-            RoundedRectangle(cornerRadius: AppConstants.CornerRadius.small, style: .continuous)
-                .fill(.tint.opacity(0.14))
-                .padding(.horizontal, -6)
-                .padding(.vertical, 2)
-        }
     }
 }
 

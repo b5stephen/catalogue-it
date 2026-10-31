@@ -25,6 +25,8 @@ struct AddEditCatalogueView: View {
     @State private var layoutOptions = CatalogueLayoutOptions()
     @State private var showingIconPicker = false
     @State private var showingAddField = false
+    @State private var showingPreview = false
+    @State private var previewItems: [CataloguePreviewItem] = []
     @State private var baseline: Baseline?
 
     private struct Baseline {
@@ -81,6 +83,8 @@ struct AddEditCatalogueView: View {
                     color: $selectedColor,
                     onChangeIcon: { showingIconPicker = true }
                 )
+
+                CataloguePreviewSection(model: previewModel) { showingPreview = true }
 
                 // MARK: - Field Definitions Section
                 Section {
@@ -156,6 +160,9 @@ struct AddEditCatalogueView: View {
                 }
 #endif
             }
+            .navigationDestination(isPresented: $showingPreview) {
+                CataloguePreviewView(model: previewModel)
+            }
             .sheet(isPresented: $showingIconPicker) {
                 IconPickerView(selectedIcon: $selectedIcon, tint: selectedColor)
             }
@@ -226,6 +233,7 @@ struct AddEditCatalogueView: View {
             return
         }
 
+        previewItems = CataloguePreviewItem.recent(in: catalogue, context: modelContext)
         name = catalogue.name
         selectedIcon = catalogue.iconName
         selectedColor = catalogue.color
@@ -444,6 +452,16 @@ struct AddEditCatalogueView: View {
     /// Excludes the field's own name, so keeping it isn't a clash.
     private func otherFieldNames(excluding id: UUID) -> [String] {
         fieldDefinitions.filter { $0.id != id }.map(\.name)
+    }
+
+    private var previewModel: CataloguePreviewModel {
+        CataloguePreviewModel(
+            drafts: fieldDefinitions,
+            items: previewItems,
+            layoutOptions: layoutOptions,
+            showAllTab: showAllTab,
+            tint: selectedColor
+        )
     }
 
     /// `nil` for a field being added, which goes at the end.

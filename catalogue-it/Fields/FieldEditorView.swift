@@ -60,10 +60,6 @@ struct FieldEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if isEditing {
-                    previewSection
-                }
-
                 nameSection
 
                 if !isEditing {
@@ -102,9 +98,7 @@ struct FieldEditorView: View {
                     BooleanOptionsSection(draft: $draft)
                 }
 
-                if !isEditing {
-                    previewSection
-                }
+                previewSection
             }
             .onChange(of: draft.numberOptions.format) {
                 if draft.numberOptions.format == .currency { draft.numberOptions.precision = 2 }

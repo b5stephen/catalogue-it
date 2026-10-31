@@ -269,11 +269,12 @@ struct BandBarTitle: View {
 /// White in light, lifted off the wash like a grouped cell. In dark, a deep, restrained shade
 /// of the hue: a coloured card on black like the Catalogues screen, but quieter, since a whole
 /// list at that strength is too much for reading. A neutral colour stays neutral.
-private struct CardFill: ShapeStyle {
+struct CardFill: ShapeStyle {
     /// A hex rather than the catalogue: a `ShapeStyle` is `Sendable`, a model isn't.
     let colorHex: String
 
     init(catalogue: Catalogue) { colorHex = catalogue.colorHex }
+    init(colorHex: String) { self.colorHex = colorHex }
 
     func resolve(in environment: EnvironmentValues) -> some ShapeStyle {
         if environment.colorScheme == .dark {

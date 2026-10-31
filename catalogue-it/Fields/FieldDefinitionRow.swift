@@ -13,6 +13,7 @@ import SwiftUI
 struct FieldDefinitionRow: View {
     @Binding var field: FieldDefinitionDraft
     var otherFieldNames: [String] = []
+    var previewContext = FieldPreviewContext()
     /// The first field is each item's display name.
     var isFirstField = false
     /// The parent owns the "this field holds data" confirmation.
@@ -124,7 +125,7 @@ struct FieldDefinitionRow: View {
         .accessibilityLabel(accessibilitySummary)
         .accessibilityHint("Opens the field editor")
         .sheet(isPresented: $showingEditor) {
-            FieldEditorView(editing: field, existingNames: otherFieldNames) { edited in
+            FieldEditorView(editing: field, existingNames: otherFieldNames, previewContext: previewContext) { edited in
                 field = edited
             }
         }

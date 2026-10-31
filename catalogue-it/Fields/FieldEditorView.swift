@@ -16,6 +16,7 @@ struct FieldEditorView: View {
 
     /// The *other* fields' names; the caller excludes this field's own.
     let existingNames: [String]
+    let previewContext: FieldPreviewContext
     private let isEditing: Bool
     let onSave: (FieldDefinitionDraft) -> Void
 
@@ -24,8 +25,9 @@ struct FieldEditorView: View {
     @State private var newOptionText: String = ""
     @FocusState private var isAddOptionFocused: Bool
 
-    init(existingNames: [String] = [], onAdd: @escaping (FieldDefinitionDraft) -> Void) {
+    init(existingNames: [String] = [], previewContext: FieldPreviewContext = FieldPreviewContext(), onAdd: @escaping (FieldDefinitionDraft) -> Void) {
         self.existingNames = existingNames
+        self.previewContext = previewContext
         self.isEditing = false
         self.onSave = onAdd
         let empty = FieldDefinitionDraft(name: "", fieldType: .text, priority: 0)
@@ -33,8 +35,9 @@ struct FieldEditorView: View {
         _draft = State(initialValue: empty)
     }
 
-    init(editing field: FieldDefinitionDraft, existingNames: [String] = [], onSave: @escaping (FieldDefinitionDraft) -> Void) {
+    init(editing field: FieldDefinitionDraft, existingNames: [String] = [], previewContext: FieldPreviewContext = FieldPreviewContext(), onSave: @escaping (FieldDefinitionDraft) -> Void) {
         self.existingNames = existingNames
+        self.previewContext = previewContext
         self.isEditing = true
         self.onSave = onSave
         self.initialDraft = field
@@ -231,7 +234,8 @@ struct FieldEditorView: View {
             numberOptions: draft.numberOptions,
             optionListOptions: draft.optionListOptions,
             booleanOptions: draft.booleanOptions,
-            displayRole: draft.displayRole
+            displayRole: draft.displayRole,
+            context: previewContext
         )
         .id(draft.fieldType)
     }

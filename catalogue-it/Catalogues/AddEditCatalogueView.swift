@@ -88,6 +88,7 @@ struct AddEditCatalogueView: View {
                         FieldDefinitionRow(
                             field: $field,
                             otherFieldNames: otherFieldNames(excluding: field.id),
+                            previewContext: fieldPreviewContext(for: field.id),
                             isFirstField: field.id == fieldDefinitions.first?.id,
                             onDelete: { deleteField(withID: field.id) }
                         )
@@ -164,7 +165,10 @@ struct AddEditCatalogueView: View {
                 IconPickerView(selectedIcon: $selectedIcon, tint: selectedColor)
             }
             .sheet(isPresented: $showingAddField) {
-                FieldEditorView(existingNames: fieldDefinitions.map(\.name)) { field in
+                FieldEditorView(
+                    existingNames: fieldDefinitions.map(\.name),
+                    previewContext: fieldPreviewContext(for: nil)
+                ) { field in
                     fieldDefinitions.append(field)
                 }
             }
@@ -445,6 +449,17 @@ struct AddEditCatalogueView: View {
     /// Excludes the field's own name, so keeping it isn't a clash.
     private func otherFieldNames(excluding id: UUID) -> [String] {
         fieldDefinitions.filter { $0.id != id }.map(\.name)
+    }
+
+    /// `nil` for a field being added, which goes at the end.
+    private func fieldPreviewContext(for id: UUID?) -> FieldPreviewContext {
+        let index = id.flatMap { id in fieldDefinitions.firstIndex { $0.id == id } } ?? fieldDefinitions.endIndex
+        return FieldPreviewContext(
+            fieldsBefore: Array(fieldDefinitions[..<index]),
+            fieldsAfter: Array(fieldDefinitions[min(index + 1, fieldDefinitions.endIndex)...]),
+            layoutOptions: layoutOptions,
+            tint: selectedColor
+        )
     }
 
     /// Through the list's offset-based path, so a field holding data still gets confirmation.

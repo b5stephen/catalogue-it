@@ -43,7 +43,7 @@ struct FieldDefinitionRow: View {
         case .statusTabs:
             FieldBadge(title: String(localized: "Tab Bar"), systemImage: nil, tint: .blue)
         case .flagFilter:
-            // Plain: the icon, when there is one, already leads the summary line.
+            // Plain: the icon, when there is one, is already the tile.
             FieldBadge(title: String(localized: "Filter"), systemImage: nil, tint: .orange)
         }
     }
@@ -61,26 +61,29 @@ struct FieldDefinitionRow: View {
             FieldTypeTile(symbol: field.tileSymbol, color: field.fieldType.color)
 
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(displayName)
-                        .foregroundStyle(isUnnamed ? .secondary : .primary)
-                        .lineLimit(1)
-                    ForEach(badges, id: \.title) { badge in
-                        badge
+                Text(displayName)
+                    .foregroundStyle(isUnnamed ? .secondary : .primary)
+                    .lineLimit(1)
+                ViewThatFits(in: .horizontal) {
+                    ForEach(field.summaryVariants, id: \.self) { variant in
+                        Text(variant)
+                            .lineLimit(1)
                     }
-                }
-                HStack(spacing: 4) {
-                    if field.showsIconBadge, let icon = field.flagIconName {
-                        BooleanIconImage(icon: icon, color: field.flagColor, isOn: true)
-                    }
-                    Text(field.summary)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
                 }
                 .font(.caption)
+                .foregroundStyle(.secondary)
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
+            ForEach(badges, id: \.title) { badge in
+                badge
+            }
+            // The drag handle takes this slot while reordering.
+            if !isReordering {
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture {

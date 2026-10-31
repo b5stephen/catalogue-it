@@ -25,8 +25,10 @@ extension FieldDefinitionDraft {
         }
     }
 
-    /// Currency fields get their symbol; every other type its `FieldType.icon`.
+    /// Currency fields get their symbol and Yes/No fields their icon; every other type its
+    /// `FieldType.icon`.
     var tileSymbol: String {
+        if showsIconBadge, let flagIconName { return flagIconName }
         guard fieldType == .number, numberOptions.format == .currency else { return fieldType.icon }
         switch Locale.current.currency?.identifier {
         case "EUR": return "eurosign"
@@ -88,16 +90,43 @@ extension FieldDefinitionDraft {
         return parts.joined(separator: " · ")
     }
 
-    private var optionListSummary: String {
-        let all = optionListOptions.options
-        guard !all.isEmpty else { return String(localized: "No options yet") }
+    /// Longest first, for `ViewThatFits`: an option list drops trailing names for "+N", then all
+    /// names, so it never truncates mid-name. Capped, since a row never fits more than a handful.
+    var summaryVariants: [String] {
+        guard fieldType == .optionList else { return [summary] }
+        let names = optionListNames
+        guard names.count > 1 else { return [optionListSummary(names, showing: names.count)] }
+        return stride(from: min(names.count, 8), through: 1, by: -1).map { optionListSummary(names, showing: $0) }
+            + [optionCount(names.count)]
+    }
 
+    private var optionListSummary: String {
+        let names = optionListNames
+        return optionListSummary(names, showing: names.count)
+    }
+
+    /// The default leads; the rest are alphabetical.
+    private var optionListNames: [String] {
+        let all = optionListOptions.options
         let defaultValue = optionListOptions.defaultValue.flatMap { all.contains($0) ? $0 : nil }
         var names = all.sorted().filter { $0 != defaultValue }
         if let defaultValue {
             names.insert(String(localized: "\(defaultValue) (default)"), at: 0)
         }
-        let count = all.count == 1 ? String(localized: "1 option") : String(localized: "\(all.count) options")
-        return "\(count) · \(names.joined(separator: ", "))"
+        return names
+    }
+
+    private func optionListSummary(_ names: [String], showing shown: Int) -> String {
+        guard !names.isEmpty else { return String(localized: "No options yet") }
+
+        var listed = names.prefix(shown).joined(separator: ", ")
+        if shown < names.count {
+            listed += ", " + String(localized: "+\(names.count - shown)")
+        }
+        return "\(optionCount(names.count)) · \(listed)"
+    }
+
+    private func optionCount(_ count: Int) -> String {
+        count == 1 ? String(localized: "1 option") : String(localized: "\(count) options")
     }
 }

@@ -120,10 +120,6 @@ struct AddEditCatalogueView: View {
                     if hasDuplicateFieldNames {
                         Text("Field names must be unique.")
                             .foregroundStyle(.red)
-                    } else if isReorderingFields {
-                        Text("Drag fields to reorder. The first field is used as each item's display name.")
-                    } else {
-                        Text("The first field is each item's name. Tap a field to change its settings, or swipe it for more.")
                     }
                 }
 

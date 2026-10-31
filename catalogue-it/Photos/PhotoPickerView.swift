@@ -57,36 +57,42 @@ struct PhotoPickerView: View {
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             } else {
-                PhotoGridView(
-                    photos: $photos,
-                    onTap: { id in previewPhotoID = id }
-                )
-            }
-
-            if !isEditingPhotos {
-                PhotosPicker(
-                    selection: $selectedItems,
-                    maxSelectionCount: 10,
-                    matching: .images
-                ) {
-                    Label(
-                        loading ? "Loading…" : "Add Photos",
-                        systemImage: loading ? "hourglass" : "photo.badge.plus"
+                Group {
+                    PhotoGridView(
+                        photos: $photos,
+                        onTap: { id in previewPhotoID = id }
                     )
-                }
-                .disabled(isLoadingPhotos)
-                .onChange(of: selectedItems) {
-                    loadPhotos()
-                }
-                #if os(iOS)
-                if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    Button { isCameraPresented = true } label: {
-                        Label("Take Photo", systemImage: "camera")
+
+                    PhotosPicker(
+                        selection: $selectedItems,
+                        maxSelectionCount: 10,
+                        matching: .images
+                    ) {
+                        Label(
+                            loading ? "Loading…" : "Add Photos",
+                            systemImage: loading ? "hourglass" : "photo.badge.plus"
+                        )
                     }
                     .disabled(isLoadingPhotos)
-                    .background(CameraPresentationAnchor(coordinator: cameraCoordinator))
+                    .onChange(of: selectedItems) {
+                        loadPhotos()
+                    }
+                    #if os(iOS)
+                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                        Button { isCameraPresented = true } label: {
+                            Label("Take Photo", systemImage: "camera")
+                        }
+                        .disabled(isLoadingPhotos)
+                        .background(CameraPresentationAnchor(coordinator: cameraCoordinator))
+                    }
+                    #endif
                 }
-                #endif
+                .contextMenu {
+                    // The system control reads the pasteboard without the "Allow Paste" prompt.
+                    PasteButton(payloadType: ImportedPhoto.self) { pasted in
+                        photos.appendImages(pasted.map(\.data))
+                    }
+                }
             }
         } header: {
             HStack {
@@ -135,22 +141,18 @@ struct PhotoPickerView: View {
         isLoadingPhotos = true
 
         loadTask = Task {
-            var newDrafts: [PhotoDraft] = []
-            let startOrder = photos.count
-
-            for (index, item) in selectedItems.enumerated() {
+            var loaded: [Data] = []
+            for item in selectedItems {
                 guard !Task.isCancelled else { break }
                 do {
-                    guard let data = try await item.loadTransferable(type: Data.self),
-                          let compressed = data.compressedAsJPEG(quality: 0.8) else { continue }
-                    newDrafts.append(PhotoDraft(imageData: compressed, priority: startOrder + index))
+                    if let data = try await item.loadTransferable(type: Data.self) { loaded.append(data) }
                 } catch {
                     if !(error is CancellationError) { loadError = error }
                 }
             }
 
             guard !Task.isCancelled else { return }
-            photos.append(contentsOf: newDrafts)
+            photos.appendImages(loaded)
             selectedItems = []
             isLoadingPhotos = false
         }
@@ -172,6 +174,36 @@ struct PhotoPickerView: View {
             for index in photos.indices {
                 photos[index].priority = index
             }
+        }
+    }
+}
+
+// MARK: - Imported Photo
+
+/// An image pasted or dropped in from outside the app.
+struct ImportedPhoto: Transferable {
+    let data: Data
+
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(importedContentType: .image) { ImportedPhoto(data: $0) }
+    }
+}
+
+extension View {
+    func acceptsPhotoDrops(into photos: Binding<[PhotoDraft]>) -> some View {
+        dropDestination(for: ImportedPhoto.self) { dropped, _ in
+            photos.wrappedValue.appendImages(dropped.map(\.data))
+            return true
+        }
+    }
+}
+
+extension [PhotoDraft] {
+    /// Compresses each image and appends it last; data that doesn't decode as an image is skipped.
+    mutating func appendImages(_ images: [Data]) {
+        for data in images {
+            guard let compressed = data.compressedAsJPEG(quality: 0.8) else { continue }
+            append(PhotoDraft(imageData: compressed, priority: count))
         }
     }
 }

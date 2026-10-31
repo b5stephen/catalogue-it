@@ -87,12 +87,14 @@ struct AddEditItemView: View {
             ScrollViewReader { proxy in
                 Form {
                     PhotoPickerView(photos: $photoDrafts, previewPhotoID: $previewPhotoID)
+                        .acceptsPhotoDrops(into: $photoDrafts)
 
                     Section("Details") {
                         ForEach(fieldDrafts.indices, id: \.self) { index in
                             FieldInputView(label: sortedDefs[index].name, draft: $fieldDrafts[index])
                         }
                     }
+                    .acceptsPhotoDrops(into: $photoDrafts)
 
                     Section("Notes") {
                         TextField("Optional notes", text: $notes, axis: .vertical)
@@ -108,6 +110,7 @@ struct AddEditItemView: View {
                                 revealNotesField(proxy, after: .milliseconds(50))
                             }
                     }
+                    .acceptsPhotoDrops(into: $photoDrafts)
                 }
                 .onChange(of: isNotesFocused) { _, focused in
                     // Wait for the keyboard to finish rising, so the scroll targets the space above it.

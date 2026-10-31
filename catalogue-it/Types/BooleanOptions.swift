@@ -16,8 +16,12 @@ nonisolated struct BooleanOptions: Codable, Equatable {
     var falseLabel: String? = nil
     var defaultValue: Bool = false
 
-    /// SF Symbol for a `.flagFilter` field. `nil` means no badge on rows and cards; only the
-    /// toolbar toggle, which must render something, substitutes `fallbackFilterIconName`.
+    /// SF Symbol marking the "on" value: a badge on rows and cards, beside the label on the
+    /// item page, a tappable tile in the edit sheet, and the filter button's symbol. Independent
+    /// of the display role, though a status-tab field never shows it. `nil` keeps the plain
+    /// toggle and no badge; only the toolbar toggle, which must render something, substitutes
+    /// `fallbackFilterIconName`. Named for its first use; renaming a stored property breaks
+    /// decoding of existing rows.
     var flagIconName: String? = nil
     /// `nil` leaves the badge in the accent colour.
     var flagColorHex: String? = nil
@@ -33,5 +37,10 @@ nonisolated struct BooleanOptions: Codable, Equatable {
             trueLabel: (trueLabel?.isEmpty == false ? trueLabel! : String(localized: "Yes")),
             falseLabel: (falseLabel?.isEmpty == false ? falseLabel! : String(localized: "No"))
         )
+    }
+
+    func label(for value: Bool) -> String {
+        let labels = resolvedLabels
+        return value ? labels.trueLabel : labels.falseLabel
     }
 }

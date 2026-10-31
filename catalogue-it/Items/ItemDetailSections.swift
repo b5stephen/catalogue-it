@@ -90,8 +90,16 @@ struct ItemFieldsSection: View {
             ForEach(fields, id: \.0.id) { def, val in
                 let isLast = def.id == fields.last?.0.id
                 if def.isStatusField {
-                    // Boolean statuses show their tab labels, not a bare "Yes"/"No".
                     StatusFieldRowView(field: def, value: val, layout: layout, isLast: isLast)
+                } else if def.showsIconBadge, let icon = def.flagIconName {
+                    ViewFieldRowView(label: def.name, layout: layout, isLast: isLast) {
+                        BooleanValueLabel(
+                            icon: icon,
+                            color: def.flagColor,
+                            isOn: val.boolValue == true,
+                            text: val.displayValue(options: def.fieldOptions)
+                        )
+                    }
                 } else {
                     FieldRowView(label: def.name, value: val.displayValue(options: def.fieldOptions), layout: layout, isLast: isLast)
                 }
@@ -113,33 +121,44 @@ private struct StatusFieldRowView: View {
         ItemFacetBuilder.statusValue(from: [value], definitions: [field])
     }
 
-    @ViewBuilder
-    private var chip: some View {
-        if let label = field.statusLabel(for: storedValue) {
-            FieldChipView(text: label, tint: field.statusChipTint(for: storedValue))
-        } else {
-            Text("—")
-                .foregroundStyle(.tertiary)
+    var body: some View {
+        ViewFieldRowView(label: field.name, layout: layout, isLast: isLast) {
+            if let label = field.statusLabel(for: storedValue) {
+                FieldChipView(text: label, tint: field.statusChipTint(for: storedValue))
+            } else {
+                Text("—")
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
+}
+
+// MARK: - View Field Row
+
+/// A row whose value is a view rather than text. Follows `FieldRowView`'s layout so the card
+/// stays one table.
+private struct ViewFieldRowView<Value: View>: View {
+    let label: String
+    let layout: DetailLabelLayout
+    var isLast: Bool = false
+    @ViewBuilder let value: Value
 
     var body: some View {
-        // Follows the field rows' layout so the card stays one table.
         Group {
             switch layout {
             case .beside:
                 HStack {
-                    Text(field.name)
+                    Text(label)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    chip
+                    value
                 }
             case .above:
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(field.name)
+                    Text(label)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    chip
+                    value
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

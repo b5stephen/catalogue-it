@@ -14,8 +14,6 @@ struct FieldDefinitionRow: View {
     @Binding var field: FieldDefinitionDraft
     var otherFieldNames: [String] = []
     var previewContext = FieldPreviewContext()
-    /// The first field is each item's display name.
-    var isFirstField = false
     /// The parent owns the "this field holds data" confirmation.
     var onDelete: () -> Void
 
@@ -45,21 +43,13 @@ struct FieldDefinitionRow: View {
         case .statusTabs:
             FieldBadge(title: String(localized: "Tab Bar"), systemImage: nil, tint: .blue)
         case .flagFilter:
-            FieldBadge(
-                title: String(localized: "Filter"),
-                systemImage: field.flagIconName ?? BooleanOptions.fallbackFilterIconName,
-                tint: .orange
-            )
+            // Plain: the icon, when there is one, already leads the summary line.
+            FieldBadge(title: String(localized: "Filter"), systemImage: nil, tint: .orange)
         }
     }
 
     private var badges: [FieldBadge] {
-        var result: [FieldBadge] = []
-        if isFirstField {
-            result.append(FieldBadge(title: String(localized: "Item Name"), systemImage: nil, tint: .secondary))
-        }
-        if let roleBadge { result.append(roleBadge) }
-        return result
+        roleBadge.map { [$0] } ?? []
     }
 
     private var accessibilitySummary: String {
@@ -79,11 +69,16 @@ struct FieldDefinitionRow: View {
                         badge
                     }
                 }
-                Text(field.summary)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                HStack(spacing: 4) {
+                    if field.showsIconBadge, let icon = field.flagIconName {
+                        BooleanIconImage(icon: icon, color: field.flagColor, isOn: true)
+                    }
+                    Text(field.summary)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                .font(.caption)
             }
             Spacer(minLength: 0)
         }

@@ -109,6 +109,19 @@ struct FieldValueDisplayTests {
         #expect(unset.displayValue() == "No")
     }
 
+    @Test("Booleans display the field's labels, falling back to Yes/No when blank")
+    func booleanDisplayUsesLabels() {
+        let options = FieldOptions.boolean(BooleanOptions(trueLabel: "Built", falseLabel: "  "))
+
+        let built = makeFieldValue(type: .boolean)
+        built.boolValue = true
+        #expect(built.displayValue(options: options) == "Built")
+
+        let notBuilt = makeFieldValue(type: .boolean)
+        notBuilt.boolValue = false
+        #expect(notBuilt.displayValue(options: options) == "No")
+    }
+
     // MARK: - Option List
 
     @Test("Option list displays the stored text verbatim")

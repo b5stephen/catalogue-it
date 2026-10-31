@@ -24,8 +24,4 @@ nonisolated enum FieldValueFormatter {
     static func date(_ value: Date) -> String {
         value.formatted(date: .abbreviated, time: .omitted)
     }
-
-    static func boolean(_ value: Bool) -> String {
-        value ? String(localized: "Yes") : String(localized: "No")
-    }
 }

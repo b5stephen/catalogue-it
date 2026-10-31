@@ -20,7 +20,7 @@ struct FieldPreviewContext {
 /// Mock screens with the field among the catalogue's own, whose values are placeholders.
 /// Values go through the real `FieldControl`, `FieldValueFormatter` and `FieldChipView`;
 /// placement mirrors `ItemDetailView` (title is the first field) and `ItemRowView` (title and two
-/// summary lines from the role-less fields; status chip and flags trailing) — keep it in step.
+/// summary lines from the `isSummaryField`s; status chip and icon badges trailing) — keep it in step.
 struct FieldPreviewSection: View {
     let name: String
     let fieldType: FieldType
@@ -58,6 +58,16 @@ struct FieldPreviewSection: View {
     private var label: String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? String(localized: "Field Name") : trimmed
+    }
+
+    /// Set when the field shows its icon, as for `FieldDefinitionDraft.showsIconBadge`.
+    private var badgeIcon: String? {
+        guard fieldType == .boolean, displayRole != .statusTabs else { return nil }
+        return trimmedLabel(booleanOptions.flagIconName)
+    }
+
+    private var isSummaryField: Bool {
+        displayRole == .none && badgeIcon == nil
     }
 
     var body: some View {
@@ -136,6 +146,9 @@ struct FieldPreviewSection: View {
                 fieldType: fieldType,
                 numberOptions: numberOptions,
                 optionListOptions: optionListOptions,
+                booleanOptions: booleanOptions,
+                booleanIcon: badgeIcon,
+                booleanIconColor: flagColor,
                 textValue: $textValue,
                 numberValue: $numberValue,
                 dateValue: $dateValue,
@@ -229,23 +242,21 @@ struct FieldPreviewSection: View {
 
     /// Where `ItemRowView` puts the field, if anywhere.
     private enum ListPlacement {
-        case title, summaryLine, statusChip, flag, hidden
+        case title, summaryLine, statusChip, badge, iconlessFlag, hidden
     }
 
     private var listPlacement: ListPlacement {
-        switch displayRole {
-        case .statusTabs: return .statusChip
-        case .flagFilter: return .flag
-        case .none:
-            let index = context.fieldsBefore.count(where: { $0.displayRole == .none })
-            if index == 0 { return .title }
-            return index <= Self.summaryLineCount ? .summaryLine : .hidden
-        }
+        if displayRole == .statusTabs { return .statusChip }
+        if badgeIcon != nil { return .badge }
+        if displayRole == .flagFilter { return .iconlessFlag }
+        let index = context.fieldsBefore.count(where: \.isSummaryField)
+        if index == 0 { return .title }
+        return index <= Self.summaryLineCount ? .summaryLine : .hidden
     }
 
     private var itemListScreen: some View {
         VStack(alignment: .leading, spacing: AppConstants.ItemCard.rowSpacing) {
-            if listPlacement == .flag {
+            if displayRole == .flagFilter {
                 toolbarPreview
             }
             sampleListRow
@@ -262,8 +273,10 @@ struct FieldPreviewSection: View {
         switch listPlacement {
         case .hidden:
             "Only the first three fields show in the list. Move \(label) higher in the catalogue's fields to show it."
-        case .flag where !boolValue:
+        case .badge where !boolValue:
             "The icon shows on items where \(label) is on."
+        case .iconlessFlag:
+            "Choose an icon to mark \(label) items in the list."
         default:
             nil
         }
@@ -300,7 +313,7 @@ struct FieldPreviewSection: View {
             }
             .frame(minHeight: AppConstants.ThumbnailSize.list, alignment: .leading)
             Spacer(minLength: 0)
-            if listPlacement == .flag, boolValue {
+            if listPlacement == .badge, boolValue {
                 flagIcon
                     .font(.caption)
             }
@@ -314,9 +327,9 @@ struct FieldPreviewSection: View {
 
     /// `nil` stands for the field being edited.
     private var summaryLineFields: [FieldDefinitionDraft?] {
-        let before: [FieldDefinitionDraft?] = context.fieldsBefore.filter { $0.displayRole == .none }
-        let own: [FieldDefinitionDraft?] = displayRole == .none ? [nil] : []
-        let after: [FieldDefinitionDraft?] = context.fieldsAfter.filter { $0.displayRole == .none }
+        let before: [FieldDefinitionDraft?] = context.fieldsBefore.filter(\.isSummaryField)
+        let own: [FieldDefinitionDraft?] = isSummaryField ? [nil] : []
+        let after: [FieldDefinitionDraft?] = context.fieldsAfter.filter(\.isSummaryField)
         return Array((before + own + after).dropFirst().prefix(Self.summaryLineCount))
     }
 
@@ -367,7 +380,7 @@ struct FieldPreviewSection: View {
         case .date:
             dateValue.map { FieldValueFormatter.date($0) } ?? ""
         case .boolean:
-            displayRole == .statusTabs ? booleanStatusLabel : FieldValueFormatter.boolean(boolValue)
+            booleanOptions.label(for: boolValue)
         }
     }
 
@@ -375,6 +388,8 @@ struct FieldPreviewSection: View {
     private var displayedValue: some View {
         if displayRole == .statusTabs {
             statusChip
+        } else if let badgeIcon {
+            BooleanValueLabel(icon: badgeIcon, color: flagColor, isOn: boolValue, text: titleText)
         } else if titleText.isEmpty {
             emptyPlaceholder
         } else {
@@ -386,7 +401,7 @@ struct FieldPreviewSection: View {
     private var statusChip: some View {
         switch fieldType {
         case .boolean:
-            FieldChipView(text: booleanStatusLabel, tint: StatusChipPalette.booleanTint(isTrue: boolValue))
+            FieldChipView(text: titleText, tint: StatusChipPalette.booleanTint(isTrue: boolValue))
         case .optionList where !textValue.isEmpty:
             FieldChipView(
                 text: textValue,
@@ -395,12 +410,6 @@ struct FieldPreviewSection: View {
         default:
             emptyPlaceholder
         }
-    }
-
-    private var booleanStatusLabel: String {
-        boolValue
-            ? trimmedLabel(booleanOptions.trueLabel) ?? String(localized: "Yes")
-            : trimmedLabel(booleanOptions.falseLabel) ?? String(localized: "No")
     }
 
     private var emptyPlaceholder: some View {
@@ -430,8 +439,8 @@ struct FieldPreviewSection: View {
         textValue = ""
         numberValue = nil
         dateValue = nil
-        // A flag's icon only shows when set, so start there whatever the default.
-        boolValue = displayRole == .flagFilter || booleanOptions.defaultValue
+        // An icon only shows when set, so start there whatever the default.
+        boolValue = badgeIcon != nil || displayRole == .flagFilter || booleanOptions.defaultValue
 
         switch fieldType {
         case .text:

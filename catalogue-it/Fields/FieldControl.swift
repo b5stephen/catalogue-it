@@ -14,6 +14,10 @@ struct FieldControl: View {
     let fieldType: FieldType
     var numberOptions: NumberOptions = NumberOptions()
     var optionListOptions: OptionListOptions = OptionListOptions()
+    var booleanOptions: BooleanOptions = BooleanOptions()
+    /// Set only where the field shows its icon (`showsIconBadge`); `nil` keeps the switch.
+    var booleanIcon: String? = nil
+    var booleanIconColor: Color? = nil
 
     @Binding var textValue: String
     @Binding var numberValue: Double?
@@ -79,8 +83,14 @@ struct FieldControl: View {
         }
     }
 
+    @ViewBuilder
     private var booleanInput: some View {
-        Toggle(label, isOn: $boolValue)
+        if let booleanIcon {
+            Toggle(label, isOn: $boolValue)
+                .toggleStyle(IconToggleStyle(icon: booleanIcon, color: booleanIconColor, options: booleanOptions))
+        } else {
+            Toggle(label, isOn: $boolValue)
+        }
     }
 
     private var optionListInput: some View {

@@ -19,7 +19,9 @@ extension FieldValue {
         case .date:
             return dateValue.map { FieldValueFormatter.date($0) } ?? ""
         case .boolean:
-            return FieldValueFormatter.boolean(boolValue == true)
+            let opts: BooleanOptions
+            if case .boolean(let o) = options { opts = o } else { opts = BooleanOptions() }
+            return opts.label(for: boolValue == true)
         case .optionList:
             return textValue ?? ""
         }

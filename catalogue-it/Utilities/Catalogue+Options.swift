@@ -24,6 +24,12 @@ extension Catalogue {
             .sorted(by: FieldDefinition.isOrderedBefore)
     }
 
+    var iconBadgeFields: [FieldDefinition] {
+        fieldDefinitions
+            .filter(\.showsIconBadge)
+            .sorted(by: FieldDefinition.isOrderedBefore)
+    }
+
     /// Empty without a status field, where the tab bar should be hidden.
     var statusTabDescriptors: [StatusTabDescriptor] {
         guard let field = statusField else { return [] }

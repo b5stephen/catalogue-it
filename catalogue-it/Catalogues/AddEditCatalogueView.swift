@@ -89,7 +89,6 @@ struct AddEditCatalogueView: View {
                             field: $field,
                             otherFieldNames: otherFieldNames(excluding: field.id),
                             previewContext: fieldPreviewContext(for: field.id),
-                            isFirstField: field.id == fieldDefinitions.first?.id,
                             onDelete: { deleteField(withID: field.id) }
                         )
                     }

@@ -58,6 +58,16 @@ extension FieldDefinitionDraft {
         return name
     }
 
+    /// As for `FieldDefinition.showsIconBadge`.
+    var showsIconBadge: Bool {
+        fieldType == .boolean && displayRole != .statusTabs && flagIconName != nil
+    }
+
+    /// As for `FieldDefinition.isSummaryField`.
+    var isSummaryField: Bool {
+        displayRole == .none && !showsIconBadge
+    }
+
     /// Currency shows a sample, whose symbol says more than words. A sample of a plain number
     /// reads as a real value ("Year · 1,249"), so those describe the format instead.
     private var numberSummary: String {

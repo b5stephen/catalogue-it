@@ -22,9 +22,9 @@ struct ItemRowView: View {
         catalogue.sortedFieldDefinitions
     }
 
-    /// Status and flags show as chip and badges, so they're left out of the summary lines.
+    /// Status and icon fields show as chip and badges, so they're left out of the summary lines.
     private var summaryFields: [FieldDefinition] {
-        sortedFields.filter { $0.displayRole == .none }
+        sortedFields.filter(\.isSummaryField)
     }
 
     private var statusChip: (label: String, tint: Color)? {
@@ -34,8 +34,9 @@ struct ItemRowView: View {
         return (label, statusField.statusChipTint(for: item.statusValue))
     }
 
+    /// Read from the values, not `flagKeys`, which only mirrors filter fields.
     private var setFlagFields: [FieldDefinition] {
-        catalogue.flagFields.filter { item.flagKeys.contains(ItemFacetBuilder.flagToken(for: $0.fieldID)) }
+        catalogue.iconBadgeFields.filter { item.value(for: $0)?.boolValue == true }
     }
 
     private var primaryValue: String {

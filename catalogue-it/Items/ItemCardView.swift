@@ -15,10 +15,10 @@ struct ItemCardView: View {
     var showStatusChip: Bool = false
 
     private var primaryValue: String {
-        // Status and flag fields render as chips and badges, never as the name.
+        // Status and icon fields render as chips and badges, never as the name.
         guard let catalogue = item.catalogue,
               let first = catalogue.fieldDefinitions
-                  .filter({ $0.displayRole == .none })
+                  .filter(\.isSummaryField)
                   .sorted(by: FieldDefinition.isOrderedBefore)
                   .first,
               let fv = item.value(for: first),
@@ -35,11 +35,11 @@ struct ItemCardView: View {
         return (label, statusField.statusChipTint(for: item.statusValue))
     }
 
-    /// Iconless flags are dropped before the cap so they don't take a slot.
+    /// Read from the values, not `flagKeys`, which only mirrors filter fields.
     private var setFlagFields: [FieldDefinition] {
         guard let catalogue = item.catalogue else { return [] }
-        return catalogue.flagFields
-            .filter { $0.flagIconName != nil && item.flagKeys.contains(ItemFacetBuilder.flagToken(for: $0.fieldID)) }
+        return catalogue.iconBadgeFields
+            .filter { item.value(for: $0)?.boolValue == true }
             .prefix(3)
             .map { $0 }
     }

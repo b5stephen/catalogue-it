@@ -23,4 +23,15 @@ extension FieldDefinition {
         guard let hex, !hex.isEmpty else { return nil }
         return Color(hex: hex)
     }
+
+    /// A Yes/No field with an icon is a badge on rows and cards rather than a summary line, and a
+    /// tappable tile in the edit sheet. The tab bar's chips stand in for it on a status field.
+    var showsIconBadge: Bool {
+        fieldType == .boolean && displayRole != .statusTabs && flagIconName != nil
+    }
+
+    /// Eligible for an item row's title and summary lines.
+    var isSummaryField: Bool {
+        displayRole == .none && !showsIconBadge
+    }
 }

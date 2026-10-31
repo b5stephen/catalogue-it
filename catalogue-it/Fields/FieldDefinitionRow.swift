@@ -13,6 +13,8 @@ import SwiftUI
 struct FieldDefinitionRow: View {
     @Binding var field: FieldDefinitionDraft
     var otherFieldNames: [String] = []
+    /// The first field is each item's display name.
+    var isFirstField = false
     /// The parent owns the "this field holds data" confirmation.
     var onDelete: () -> Void
 
@@ -33,20 +35,54 @@ struct FieldDefinitionRow: View {
         field.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private var displayName: String {
-        let trimmed = field.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? String(localized: "Untitled Field") : trimmed
+    private var displayName: String { field.displayName }
+
+    private var roleBadge: FieldBadge? {
+        switch field.displayRole {
+        case .none:
+            nil
+        case .statusTabs:
+            FieldBadge(title: String(localized: "Tab Bar"), systemImage: nil, tint: .blue)
+        case .flagFilter:
+            FieldBadge(
+                title: String(localized: "Filter"),
+                systemImage: field.flagIconName ?? BooleanOptions.fallbackFilterIconName,
+                tint: .orange
+            )
+        }
+    }
+
+    private var badges: [FieldBadge] {
+        var result: [FieldBadge] = []
+        if isFirstField {
+            result.append(FieldBadge(title: String(localized: "Item Name"), systemImage: nil, tint: .secondary))
+        }
+        if let roleBadge { result.append(roleBadge) }
+        return result
+    }
+
+    private var accessibilitySummary: String {
+        ([displayName] + badges.map(\.title) + [field.summary]).joined(separator: ", ")
     }
 
     var body: some View {
         HStack(spacing: 12) {
+            FieldTypeTile(symbol: field.tileSymbol, color: field.fieldType.color)
+
             VStack(alignment: .leading, spacing: 2) {
-                Text(displayName)
-                    .foregroundStyle(isUnnamed ? .secondary : .primary)
-                    .lineLimit(1)
-                Text(field.fieldType.rawValue)
+                HStack(spacing: 6) {
+                    Text(displayName)
+                        .foregroundStyle(isUnnamed ? .secondary : .primary)
+                        .lineLimit(1)
+                    ForEach(badges, id: \.title) { badge in
+                        badge
+                    }
+                }
+                Text(field.summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
             Spacer(minLength: 0)
         }
@@ -85,7 +121,7 @@ struct FieldDefinitionRow: View {
         }
 #endif
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(displayName), \(field.fieldType.rawValue)")
+        .accessibilityLabel(accessibilitySummary)
         .accessibilityHint("Opens the field editor")
         .sheet(isPresented: $showingEditor) {
             FieldEditorView(editing: field, existingNames: otherFieldNames) { edited in

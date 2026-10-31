@@ -9,7 +9,7 @@ import SwiftUI
 
 // MARK: - Field Editor View
 
-/// Editing locks the type picker, since stored values are typed, and records option renames
+/// Editing locks the type, since stored values are typed, and records option renames
 /// and deletions on the draft for `AddEditCatalogueView` to cascade on save.
 struct FieldEditorView: View {
     @Environment(\.dismiss) private var dismiss
@@ -22,8 +22,7 @@ struct FieldEditorView: View {
     @State private var draft: FieldDefinitionDraft
     private let initialDraft: FieldDefinitionDraft
     @State private var newOptionText: String = ""
-    @State private var renamingOption: String? = nil
-    @State private var renameText: String = ""
+    @FocusState private var isAddOptionFocused: Bool
 
     init(existingNames: [String] = [], onAdd: @escaping (FieldDefinitionDraft) -> Void) {
         self.existingNames = existingNames
@@ -48,7 +47,7 @@ struct FieldEditorView: View {
     }
 
     private var trimmedNew: String { newOptionText.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var canAddOption: Bool { !trimmedNew.isEmpty && !draft.optionListOptions.options.contains(trimmedNew) }
+    private var sortedOptions: [String] { draft.optionListOptions.options.sorted() }
 
     private var trimmedFieldName: String { draft.name.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var isDuplicateName: Bool {
@@ -58,32 +57,14 @@ struct FieldEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    TextField("Field Name", text: $draft.name)
-#if os(iOS)
-                        .textInputAutocapitalization(.words)
-#endif
-                        .accessibilityIdentifier("add-field-name")
+                if isEditing {
+                    previewSection
+                }
 
-                    if isDuplicateName {
-                        Text("A field with this name already exists.")
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                    }
+                nameSection
 
-                    Picker("Type", selection: $draft.fieldType) {
-                        ForEach(FieldType.allCases, id: \.self) { type in
-                            Label(type.rawValue, systemImage: type.icon)
-                                .tag(type)
-                        }
-                    }
-                    .disabled(isEditing)
-                } header: {
-                    Text("Field Details")
-                } footer: {
-                    if isEditing {
-                        Text("A field's type can't be changed once it holds data. Delete the field and add a new one to change it.")
-                    }
+                if !isEditing {
+                    typeSection
                 }
 
                 if draft.fieldType == .number {
@@ -108,99 +89,30 @@ struct FieldEditorView: View {
                 }
 
                 if draft.fieldType == .optionList {
-                    Section {
-                        ForEach(draft.optionListOptions.options.sorted(), id: \.self) { option in
-                            HStack {
-                                Text(option)
-                                Spacer()
-                                if option == draft.optionListOptions.defaultValue {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(.blue)
-                                }
-                                Button {
-                                    renamingOption = option
-                                    renameText = option
-                                } label: {
-                                    Image(systemName: "pencil.circle.fill")
-                                        .foregroundStyle(.blue)
-                                }
-                                .buttonStyle(.plain)
-                                Button(role: .destructive) {
-                                    deleteOption(option)
-                                } label: {
-                                    Image(systemName: "minus.circle.fill")
-                                        .foregroundStyle(.red)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                draft.optionListOptions.defaultValue = (draft.optionListOptions.defaultValue == option) ? nil : option
-                            }
-                        }
-
-                        HStack {
-                            TextField("New option", text: $newOptionText)
-#if os(iOS)
-                                .textInputAutocapitalization(.words)
-#endif
-                            Button {
-                                draft.optionListOptions.options.append(trimmedNew)
-                                newOptionText = ""
-                            } label: {
-                                Image(systemName: "plus.circle.fill")
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(!canAddOption)
-                        }
-                    } header: {
-                        Text("Options")
-                    } footer: {
-                        Text("Tap an option to set it as the default. Tap again to clear.")
+                    optionsSection
+                    if !draft.optionListOptions.options.isEmpty {
+                        defaultOptionSection
                     }
                 }
 
                 if draft.fieldType == .boolean {
-                    BooleanOptionsSection(options: $draft.booleanOptions)
+                    BooleanOptionsSection(draft: $draft)
                 }
 
-                FieldPreviewSection(
-                    name: draft.name,
-                    fieldType: draft.fieldType,
-                    numberOptions: draft.numberOptions,
-                    optionListOptions: draft.optionListOptions,
-                    booleanOptions: draft.booleanOptions,
-                    displayRole: draft.displayRole
-                )
-                .id(draft.fieldType)
-            }
-            .alert("Rename Option", isPresented: Binding(get: { renamingOption != nil }, set: { if !$0 { renamingOption = nil } })) {
-                TextField("Option name", text: $renameText)
-#if os(iOS)
-                    .textInputAutocapitalization(.words)
-#endif
-                Button("Cancel", role: .cancel) { renamingOption = nil }
-                Button("Rename") {
-                    if let old = renamingOption {
-                        let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !trimmed.isEmpty, !draft.optionListOptions.options.contains(trimmed) || trimmed == old else { return }
-                        renameOption(old, to: trimmed)
-                        renamingOption = nil
-                    }
+                if !isEditing {
+                    previewSection
                 }
-            } message: {
-                Text("Enter a new name for \"\(renamingOption ?? "")\".")
             }
             .onChange(of: draft.numberOptions.format) {
                 if draft.numberOptions.format == .currency { draft.numberOptions.precision = 2 }
             }
             .onChange(of: draft.fieldType) {
-                // Only reachable while adding — the picker is locked when editing.
+                // Only reachable while adding — the type is locked when editing.
                 draft.numberOptions = NumberOptions()
                 draft.optionListOptions = OptionListOptions()
                 draft.booleanOptions = BooleanOptions()
+                draft.displayRole = .none
                 newOptionText = ""
-                renamingOption = nil
             }
             .navigationTitle(isEditing ? "Edit Field" : "Add Field")
 #if os(iOS)
@@ -232,36 +144,210 @@ struct FieldEditorView: View {
         .interactiveDismissDisabled(hasChanges)
     }
 
-    // MARK: - Option Edits
+    // MARK: - Sections
 
-    /// Chains collapse (A→B then B→C records A→C), so the cascade only looks for stored names.
-    private func renameOption(_ old: String, to new: String) {
-        if let index = draft.optionListOptions.options.firstIndex(of: old) {
-            draft.optionListOptions.options[index] = new
-        }
-        if draft.optionListOptions.defaultValue == old {
-            draft.optionListOptions.defaultValue = new
-        }
-        guard new != old, draft.existingDefinition != nil else { return }
-        if let originalName = draft.pendingOptionRenames.first(where: { $0.value == old })?.key {
-            draft.pendingOptionRenames[originalName] = new
-        } else {
-            draft.pendingOptionRenames[old] = new
+    private var nameSection: some View {
+        Section {
+            TextField("Field Name", text: $draft.name)
+                .font(.system(.title3, weight: .semibold))
+#if os(iOS)
+                .textInputAutocapitalization(.words)
+#endif
+                .accessibilityIdentifier("add-field-name")
+
+            if isDuplicateName {
+                Text("A field with this name already exists.")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            if isEditing {
+                lockedTypeRow
+            }
+        } footer: {
+            if isEditing {
+                Text("A field's type can't be changed once it holds data.")
+            }
         }
     }
 
-    private func deleteOption(_ option: String) {
-        draft.optionListOptions.options.removeAll { $0 == option }
-        if draft.optionListOptions.defaultValue == option {
-            draft.optionListOptions.defaultValue = nil
+    private var lockedTypeRow: some View {
+        HStack(spacing: 8) {
+            Text("Type")
+            Spacer()
+            FieldTypeTile(draft.fieldType)
+            Text(draft.fieldType.rawValue)
+            Image(systemName: "lock.fill")
+                .imageScale(.small)
+                .accessibilityHidden(true)
         }
-        guard draft.existingDefinition != nil else { return }
-        // Stored values still carry the original name, so delete by that.
-        if let originalName = draft.pendingOptionRenames.first(where: { $0.value == option })?.key {
-            draft.pendingOptionRenames.removeValue(forKey: originalName)
-            draft.pendingOptionDeletions.insert(originalName)
-        } else {
-            draft.pendingOptionDeletions.insert(option)
+        .foregroundStyle(.secondary)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Type, \(draft.fieldType.rawValue), can't be changed")
+    }
+
+    private var typeSection: some View {
+        Section {
+            ForEach(FieldType.allCases, id: \.self) { type in
+                Button {
+                    draft.fieldType = type
+                } label: {
+                    HStack(spacing: 12) {
+                        FieldTypeTile(type)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(type.rawValue)
+                                .foregroundStyle(.primary)
+                            Text(type.pickerDescription)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        if draft.fieldType == type {
+                            Image(systemName: "checkmark")
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.tint)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(type.rawValue)
+                .accessibilityValue(type.pickerDescription)
+                .accessibilityAddTraits(draft.fieldType == type ? .isSelected : [])
+                .accessibilityIdentifier("field-type-\(type.rawValue)")
+            }
+        } header: {
+            Text("Type")
+        } footer: {
+            Text("The type can't be changed once the field is saved.")
         }
+    }
+
+    private var previewSection: some View {
+        FieldPreviewSection(
+            name: draft.name,
+            fieldType: draft.fieldType,
+            numberOptions: draft.numberOptions,
+            optionListOptions: draft.optionListOptions,
+            booleanOptions: draft.booleanOptions,
+            displayRole: draft.displayRole
+        )
+        .id(draft.fieldType)
+    }
+
+    // MARK: - Option List
+
+    private var optionsSection: some View {
+        Section {
+            ForEach(sortedOptions, id: \.self) { option in
+                OptionNameRow(
+                    option: option,
+                    isDefault: option == draft.optionListOptions.defaultValue
+                ) { newName in
+                    commitRename(of: option, to: newName)
+                }
+            }
+            .onDelete { offsets in
+                let doomed = offsets.map { sortedOptions[$0] }
+                for option in doomed { draft.deleteOption(option) }
+            }
+
+            HStack(spacing: 12) {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundStyle(.white, .green)
+                    .accessibilityHidden(true)
+                TextField("Add Option", text: $newOptionText)
+                    .focused($isAddOptionFocused)
+                    .submitLabel(.next)
+                    .onSubmit(addOption)
+#if os(iOS)
+                    .textInputAutocapitalization(.words)
+#endif
+                    .accessibilityIdentifier("add-option-field")
+            }
+        } header: {
+            Text("Options")
+        } footer: {
+            Text(optionsFooter)
+        }
+    }
+
+    private var optionsFooter: LocalizedStringKey {
+        draft.existingDefinition == nil
+            ? "Press Return to add the next one. Swipe an option to delete it."
+            : "Press Return to add the next one. Renaming an option updates every item that uses it. Swipe an option to delete it."
+    }
+
+    private var defaultOptionSection: some View {
+        Section {
+            Picker("New Items Start As", selection: $draft.optionListOptions.defaultValue) {
+                Text("None").tag(String?.none)
+                ForEach(sortedOptions, id: \.self) { option in
+                    Text(option).tag(String?.some(option))
+                }
+            }
+            .pickerStyle(.menu)
+        }
+    }
+
+    private func addOption() {
+        let option = trimmedNew
+        if !option.isEmpty, !draft.optionListOptions.options.contains(option) {
+            draft.optionListOptions.options.append(option)
+            newOptionText = ""
+        }
+        // Submitting dismisses the keyboard, so focus is asked for again once that settles.
+        Task { isAddOptionFocused = true }
+    }
+
+    /// An empty or duplicate name is dropped; the row reverts itself.
+    private func commitRename(of old: String, to new: String) {
+        guard !new.isEmpty, new != old, !draft.optionListOptions.options.contains(new) else { return }
+        draft.renameOption(old, to: new)
+    }
+}
+
+// MARK: - Option Name Row
+
+/// Edits a local copy of the name, so the sorted list doesn't reshuffle while typing.
+private struct OptionNameRow: View {
+    let option: String
+    let isDefault: Bool
+    let onCommit: (String) -> Void
+
+    @State private var text: String
+    @FocusState private var isFocused: Bool
+
+    init(option: String, isDefault: Bool, onCommit: @escaping (String) -> Void) {
+        self.option = option
+        self.isDefault = isDefault
+        self.onCommit = onCommit
+        _text = State(initialValue: option)
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            TextField("Option", text: $text)
+                .focused($isFocused)
+                .submitLabel(.done)
+                .onSubmit(commit)
+#if os(iOS)
+                .textInputAutocapitalization(.words)
+#endif
+            if isDefault {
+                FieldBadge(title: String(localized: "Default"), systemImage: nil, tint: .secondary)
+            }
+        }
+        .onChange(of: isFocused) { _, focused in
+            if !focused { commit() }
+        }
+    }
+
+    private func commit() {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // A rejected name leaves this row alive, so it reverts here.
+        text = option
+        onCommit(trimmed)
     }
 }

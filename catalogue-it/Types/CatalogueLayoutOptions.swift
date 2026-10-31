@@ -45,8 +45,8 @@ nonisolated enum DetailLabelLayout: String, Codable, CaseIterable, Identifiable,
 
     var title: String {
         switch self {
-        case .beside: String(localized: "Labels Beside Values")
-        case .above: String(localized: "Labels Above Values")
+        case .beside: String(localized: "Labels Beside")
+        case .above: String(localized: "Labels Above")
         }
     }
 }

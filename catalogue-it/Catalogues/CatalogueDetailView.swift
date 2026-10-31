@@ -168,7 +168,7 @@ struct CatalogueDetailView: View {
                 ) {
                     // The tabs ride up with the band, then stay on its strip.
                     if !statusTabs.isEmpty {
-                        StatusTabBar(tabs: statusTabs, catalogue: catalogue, selection: $selectedTab, onFill: true)
+                        StatusTabBar(tabs: statusTabs, colorHex: catalogue.colorHex, selection: $selectedTab, onFill: true)
                             .padding(.horizontal)
                             .padding(.bottom, 12)
                     }
@@ -178,7 +178,7 @@ struct CatalogueDetailView: View {
         .safeAreaBar(edge: .top) {
             // macOS has no band to carry the tabs.
             if !usesBand && !sharesGlowWithDetail && !statusTabs.isEmpty {
-                StatusTabBar(tabs: statusTabs, catalogue: catalogue, selection: $selectedTab)
+                StatusTabBar(tabs: statusTabs, colorHex: catalogue.colorHex, selection: $selectedTab)
                     .padding(.horizontal)
                     .padding(.vertical, 8)
             }
@@ -374,7 +374,7 @@ private struct ListHeader: View {
             .accessibilityAddTraits(.isHeader)
 
             if !statusTabs.isEmpty {
-                StatusTabBar(tabs: statusTabs, catalogue: catalogue, selection: $selectedTab)
+                StatusTabBar(tabs: statusTabs, colorHex: catalogue.colorHex, selection: $selectedTab)
                     .padding(.horizontal)
             }
         }

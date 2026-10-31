@@ -16,21 +16,27 @@ struct IconPickerView: View {
     @Binding private var selectedIcon: String?
     private let allowsNoIcon: Bool
     private let allowsEmoji: Bool
+    private let tint: Color
     @State private var mode: IconMode
     @State private var customEmoji: String = ""
+    @State private var emojiKeyboardRequest = 0
+#if os(macOS)
+    @FocusState private var emojiFieldFocused: Bool
+#endif
 
     private enum IconMode: Hashable {
         case symbol
         case emoji
     }
 
-    init(selectedIcon: Binding<String>) {
+    init(selectedIcon: Binding<String>, tint: Color = .accentColor) {
         self._selectedIcon = Binding(
             get: { selectedIcon.wrappedValue },
             set: { if let newValue = $0 { selectedIcon.wrappedValue = newValue } }
         )
         self.allowsNoIcon = false
         self.allowsEmoji = true
+        self.tint = tint
         // Open on the tab the current icon came from.
         let isEmoji = CatalogueIcon(storedValue: selectedIcon.wrappedValue).isEmoji
         self._mode = State(initialValue: isEmoji ? .emoji : .symbol)
@@ -40,6 +46,7 @@ struct IconPickerView: View {
         self._selectedIcon = optionalIcon
         self.allowsNoIcon = true
         self.allowsEmoji = false
+        self.tint = .accentColor
         self._mode = State(initialValue: .symbol)
     }
 
@@ -158,22 +165,8 @@ struct IconPickerView: View {
 
     @ViewBuilder
     private var emojiSection: some View {
-        // The escape hatch for a collection no shortlist would guess.
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Any Emoji")
-                .font(.headline)
-                .padding(.horizontal)
-
-            TextField("Type or paste an emoji", text: $customEmoji)
-                .textFieldStyle(.roundedBorder)
-                .onChange(of: customEmoji) { _, newValue in
-                    // On change, not submit: the emoji keyboard has no return key.
-                    guard let emoji = newValue.first(where: { $0.isEmoji }) else { return }
-                    selectedIcon = String(emoji)
-                    dismiss()
-                }
-                .padding(.horizontal)
-        }
+        anyEmojiButton
+            .padding(.horizontal)
 
         ForEach(emojiCategories, id: \.0) { category, emoji in
             VStack(alignment: .leading, spacing: 12) {
@@ -199,6 +192,71 @@ struct IconPickerView: View {
         }
     }
 
+    // The escape hatch for a collection no shortlist would guess.
+    private var anyEmojiButton: some View {
+        Button(action: openEmojiKeyboard) {
+            HStack(spacing: 12) {
+                Image(systemName: "face.smiling")
+                    .font(.title2)
+                    .foregroundStyle(tint)
+                    .frame(width: 40, height: 40)
+                    .background(
+                        .background,
+                        in: .rect(cornerRadius: AppConstants.ItemCard.thumbnailCornerRadius, style: .continuous)
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Any Emoji")
+                    Text("Opens the emoji keyboard")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(AppConstants.ItemCard.contentPadding)
+            .frame(maxWidth: .infinity)
+            .background(
+                Color.secondary.opacity(0.1),
+                in: .rect(cornerRadius: AppConstants.CornerRadius.card, style: .continuous)
+            )
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .background { emojiInput }
+        // On change, not submit: the emoji keyboard has no return key.
+        .onChange(of: customEmoji) { _, newValue in
+            guard let emoji = newValue.first(where: { $0.isEmoji }) else { return }
+            selectedIcon = String(emoji)
+            dismiss()
+        }
+    }
+
+    private func openEmojiKeyboard() {
+#if os(iOS)
+        emojiKeyboardRequest += 1
+#else
+        emojiFieldFocused = true
+        NSApp.orderFrontCharacterPalette(nil)
+#endif
+    }
+
+    /// Receives the emoji chosen in the system keyboard (iOS) or Character Viewer (macOS).
+    @ViewBuilder
+    private var emojiInput: some View {
+#if os(iOS)
+        EmojiKeyboardInput(text: $customEmoji, focusRequest: emojiKeyboardRequest)
+            .frame(width: 1, height: 1)
+            .opacity(0)
+            .accessibilityHidden(true)
+#else
+        TextField("", text: $customEmoji)
+            .focused($emojiFieldFocused)
+            .frame(width: 1, height: 1)
+            .opacity(0)
+            .accessibilityHidden(true)
+#endif
+    }
+
     // MARK: - Cell
 
     private func cell(systemImage: String, isSelected: Bool) -> some View {
@@ -210,16 +268,63 @@ struct IconPickerView: View {
     private func cell(isSelected: Bool, @ViewBuilder content: () -> some View) -> some View {
         content()
             .frame(width: 60, height: 60)
-            .background(isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.1))
+            .background(isSelected ? tint.opacity(0.2) : Color.secondary.opacity(0.1))
             .clipShape(.rect(cornerRadius: 12))
             .overlay {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.accentColor, lineWidth: 2)
+                        .stroke(tint, lineWidth: 2)
                 }
             }
     }
 }
+
+#if os(iOS)
+// MARK: - Emoji Keyboard Input
+
+/// There is no public API to request the emoji keyboard, so the field overrides `textInputMode`
+/// to ask for it. If the user has removed the emoji keyboard the override returns nil and the
+/// default keyboard shows instead; typed or pasted emoji are picked up the same way.
+private struct EmojiKeyboardInput: UIViewRepresentable {
+    @Binding var text: String
+    /// Each increment focuses the field.
+    let focusRequest: Int
+
+    func makeUIView(context: Context) -> EmojiTextField {
+        let field = EmojiTextField()
+        field.addTarget(context.coordinator, action: #selector(Coordinator.textChanged(_:)), for: .editingChanged)
+        context.coordinator.handledRequest = focusRequest
+        return field
+    }
+
+    func updateUIView(_ field: EmojiTextField, context: Context) {
+        context.coordinator.text = $text
+        if field.text != text { field.text = text }
+        guard context.coordinator.handledRequest != focusRequest else { return }
+        context.coordinator.handledRequest = focusRequest
+        field.becomeFirstResponder()
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+    final class Coordinator: NSObject {
+        var text: Binding<String>
+        var handledRequest = 0
+
+        init(text: Binding<String>) { self.text = text }
+
+        @objc func textChanged(_ field: UITextField) {
+            text.wrappedValue = field.text ?? ""
+        }
+    }
+
+    final class EmojiTextField: UITextField {
+        override var textInputMode: UITextInputMode? {
+            UITextInputMode.activeInputModes.first { $0.primaryLanguage == "emoji" }
+        }
+    }
+}
+#endif
 
 #Preview("Icon Picker") {
     IconPickerView(selectedIcon: .constant("star.fill"))

@@ -27,27 +27,12 @@ extension Catalogue {
     /// Empty without a status field, where the tab bar should be hidden.
     var statusTabDescriptors: [StatusTabDescriptor] {
         guard let field = statusField else { return [] }
-
-        var tabs: [StatusTabDescriptor] = []
-        if showAllTab {
-            tabs.append(StatusTabDescriptor(tab: .all, label: String(localized: "All"), systemImage: "tray.2.fill"))
-        }
-
-        switch field.fieldType {
-        case .optionList:
-            // The user's option order is the tab order.
-            let options = field.optionListOptions?.options ?? []
-            tabs += options.map {
-                StatusTabDescriptor(tab: .option($0), label: $0, systemImage: "circle.fill")
-            }
-        case .boolean:
-            let labels = field.statusTabLabels
-            tabs.append(StatusTabDescriptor(tab: .boolTrue, label: labels.trueLabel, systemImage: "checkmark.circle.fill"))
-            tabs.append(StatusTabDescriptor(tab: .boolFalse, label: labels.falseLabel, systemImage: "circle"))
-        case .text, .number, .date:
-            break
-        }
-        return tabs
+        return StatusTabDescriptor.tabs(
+            fieldType: field.fieldType,
+            options: field.optionListOptions?.options ?? [],
+            booleanLabels: field.statusTabLabels,
+            showAllTab: showAllTab
+        )
     }
 
     /// "All" when shown, else the status field's default, else the first tab.

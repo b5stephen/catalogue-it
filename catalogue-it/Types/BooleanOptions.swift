@@ -24,4 +24,14 @@ nonisolated struct BooleanOptions: Codable, Equatable {
 
     /// The multi-flag menu's symbol, so an unconfigured flag reads as "a filter".
     static let fallbackFilterIconName = "line.3.horizontal.decrease.circle"
+
+    /// Blank labels fall back to the same "Yes"/"No" the field editor shows as placeholders.
+    var resolvedLabels: (trueLabel: String, falseLabel: String) {
+        let trueLabel = trueLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let falseLabel = falseLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (
+            trueLabel: (trueLabel?.isEmpty == false ? trueLabel! : String(localized: "Yes")),
+            falseLabel: (falseLabel?.isEmpty == false ? falseLabel! : String(localized: "No"))
+        )
+    }
 }

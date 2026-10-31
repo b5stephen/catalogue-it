@@ -87,15 +87,8 @@ extension FieldDefinition {
         displayRole == .flagFilter && fieldType == .boolean
     }
 
-    /// Falls back to the same "Yes"/"No" the field editor shows as placeholders.
     var statusTabLabels: (trueLabel: String, falseLabel: String) {
-        let opts = booleanOptions
-        let trueLabel = opts?.trueLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let falseLabel = opts?.falseLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (
-            trueLabel: (trueLabel?.isEmpty == false ? trueLabel! : String(localized: "Yes")),
-            falseLabel: (falseLabel?.isEmpty == false ? falseLabel! : String(localized: "No"))
-        )
+        (booleanOptions ?? BooleanOptions()).resolvedLabels
     }
 }
 

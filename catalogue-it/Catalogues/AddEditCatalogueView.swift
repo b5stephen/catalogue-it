@@ -75,30 +75,12 @@ struct AddEditCatalogueView: View {
     var body: some View {
         NavigationStack {
             Form {
-                // MARK: - Basic Info Section
-                Section("Catalogue Details") {
-                    TextField("Name", text: $name)
-#if os(iOS)
-                        .textInputAutocapitalization(.words)
-#endif
-                        .accessibilityIdentifier("catalogue-name-field")
-
-                    Button {
-                        showingIconPicker = true
-                    } label: {
-                        HStack {
-                            Text("Icon")
-                            Spacer()
-                            CatalogueIconView(iconName: selectedIcon, color: selectedColor, size: 22)
-                                .frame(width: 32, height: 32)
-                                .background(selectedColor.opacity(0.15))
-                                .clipShape(.rect(cornerRadius: 6))
-                        }
-                    }
-                    .foregroundStyle(.primary)
-
-                    ColorPicker("Color", selection: $selectedColor, supportsOpacity: false)
-                }
+                CatalogueHeaderSection(
+                    name: $name,
+                    iconName: selectedIcon,
+                    color: $selectedColor,
+                    onChangeIcon: { showingIconPicker = true }
+                )
 
                 // MARK: - Field Definitions Section
                 Section {
@@ -106,6 +88,7 @@ struct AddEditCatalogueView: View {
                         FieldDefinitionRow(
                             field: $field,
                             otherFieldNames: otherFieldNames(excluding: field.id),
+                            isFirstField: field.id == fieldDefinitions.first?.id,
                             onDelete: { deleteField(withID: field.id) }
                         )
                     }
@@ -121,7 +104,7 @@ struct AddEditCatalogueView: View {
                     }
                 } header: {
                     HStack {
-                        Text("Custom Fields")
+                        Text("Fields")
                         Spacer()
                         // A mode, not the resting state: edit mode suppresses the rows' swipe actions. Stays
                         // visible with one field left, so there's always a way out.
@@ -140,22 +123,16 @@ struct AddEditCatalogueView: View {
                     } else if isReorderingFields {
                         Text("Drag fields to reorder. The first field is used as each item's display name.")
                     } else {
-                        Text("Tap a field to edit it, or swipe it for more. The first field is used as each item's display name.")
+                        Text("The first field is each item's name. Tap a field to change its settings, or swipe it for more.")
                     }
                 }
 
-                // MARK: - Layout Section
-                Section("Layout") {
-                    Picker("Item Details", selection: $layoutOptions.detailLabelLayout) {
-                        ForEach(DetailLabelLayout.allCases) { layout in
-                            Text(layout.title).tag(layout)
-                        }
-                    }
-                    Toggle("Photos in Item List", isOn: $layoutOptions.showPhotosInList)
-                }
-
-                // MARK: - Options Section
-                CatalogueOptionsSection(fields: $fieldDefinitions, showAllTab: $showAllTab)
+                ItemListSettingsSection(
+                    fields: $fieldDefinitions,
+                    showAllTab: $showAllTab,
+                    layoutOptions: $layoutOptions,
+                    colorHex: selectedColor.toHex()
+                )
             }
 #if os(iOS)
             .environment(\.editMode, .constant(isReorderingFields ? .active : .inactive))
@@ -184,7 +161,7 @@ struct AddEditCatalogueView: View {
 #endif
             }
             .sheet(isPresented: $showingIconPicker) {
-                IconPickerView(selectedIcon: $selectedIcon)
+                IconPickerView(selectedIcon: $selectedIcon, tint: selectedColor)
             }
             .sheet(isPresented: $showingAddField) {
                 FieldEditorView(existingNames: fieldDefinitions.map(\.name)) { field in

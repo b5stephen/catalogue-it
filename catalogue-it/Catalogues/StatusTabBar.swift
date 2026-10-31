@@ -19,7 +19,7 @@ struct StatusTabBar: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     let tabs: [StatusTabDescriptor]
-    let catalogue: Catalogue
+    let colorHex: String
     @Binding var selection: StatusTab
     var onFill = false
 
@@ -27,8 +27,10 @@ struct StatusTabBar: View {
     @State private var overflow = ShelfOverflow()
 
     var body: some View {
-        let palette = catalogue.palette(
-            for: colorScheme,
+        let palette = CataloguePalette(
+            hex: colorHex,
+            scheme: colorScheme,
+            isSelected: false,
             increasedContrast: colorSchemeContrast == .increased
         )
 
@@ -159,7 +161,7 @@ private struct ShelfOverflow: Equatable {
                 StatusTabDescriptor(tab: .option("Owned"), label: "Owned", systemImage: "circle.fill"),
                 StatusTabDescriptor(tab: .option("Wishlist"), label: "Wishlist", systemImage: "circle.fill"),
             ],
-            catalogue: Catalogue(name: "Model Planes", iconName: "airplane", colorHex: "#007AFF"),
+            colorHex: "#007AFF",
             selection: $selection
         )
         .padding()
@@ -175,7 +177,7 @@ private struct ShelfOverflow: Equatable {
                 + ["Owned", "Wishlist", "Ordered", "Restoring", "Sold", "On Loan"].map {
                     StatusTabDescriptor(tab: .option($0), label: $0, systemImage: "circle.fill")
                 },
-            catalogue: Catalogue(name: "Vintage Wine", iconName: "wineglass", colorHex: "#5C1A22"),
+            colorHex: "#5C1A22",
             selection: $selection
         )
         .padding()

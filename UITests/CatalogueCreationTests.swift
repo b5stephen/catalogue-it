@@ -83,25 +83,12 @@ final class CatalogueCreationTests: XCTestCase {
         fieldNameField.tap()
         fieldNameField.typeText(name)
 
-        // Open the type picker and select the option.
-        // Tap the cell containing the "Type" label (the static text itself is not
-        // hittable — the interactive area is its parent cell).
+        // Text is the default selection; any other type is a row in the Type list.
         if type != "Text" {
-            let typeCell = app.cells.containing(.staticText, identifier: "Type").firstMatch
-            XCTAssertTrue(typeCell.waitForExistence(timeout: 3),
-                          "Type picker cell should be visible")
-            typeCell.tap()
-
-            // Works for both navigation-link and menu picker styles.
-            let typeOption = app.buttons[type].firstMatch
-            XCTAssertTrue(typeOption.waitForExistence(timeout: 3),
-                          "'\(type)' option should appear after tapping picker")
-            typeOption.tap()
-
-            // Navigation-style pickers auto-pop back on selection;
-            // wait for the Add Field form to return.
-            XCTAssertTrue(app.navigationBars["Add Field"].waitForExistence(timeout: 3),
-                          "Should return to Add Field form after picking type")
+            let typeRow = app.buttons["field-type-\(type)"]
+            XCTAssertTrue(typeRow.waitForExistence(timeout: 3),
+                          "'\(type)' type row should be visible")
+            typeRow.tap()
         }
 
         // Confirm the field.

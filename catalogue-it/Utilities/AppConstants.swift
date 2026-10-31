@@ -32,6 +32,19 @@ nonisolated enum AppConstants {
         /// Inner radius = outer − padding (see the card-design skill).
         static let iconTileCornerRadius: CGFloat = CornerRadius.card - contentPadding
     }
+    /// The Add/Edit Catalogue form's header card.
+    enum CatalogueHeader {
+        static let iconTile: CGFloat = 76
+        static let iconTileCornerRadius: CGFloat = 22
+        static let swatch: CGFloat = 30
+        static let swatchTapSize: CGFloat = 44
+        /// Uniform, or the name field's corners can't be concentric with the card's.
+        static let contentPadding: CGFloat = 12
+        /// Approximates the Form section card's corner radius, which the system doesn't expose.
+        static let sectionCornerRadius: CGFloat = 26
+        /// Inner radius = outer − padding (see the card-design skill).
+        static let nameFieldCornerRadius: CGFloat = sectionCornerRadius - contentPadding
+    }
     /// The catalogue cards' inset, so the screens line up; a tighter gap, as there are more.
     enum ItemCard {
         static let horizontalInset: CGFloat = 16

@@ -59,6 +59,10 @@ struct FieldPreviewSection: View {
                 }
             }
             .padding(.vertical, 2)
+
+            if showsToolbarButton {
+                toolbarPreview
+            }
         } header: {
             Text("Preview")
         } footer: {
@@ -68,6 +72,27 @@ struct FieldPreviewSection: View {
         .onChange(of: fieldType) { seedSample() }
         .onChange(of: optionListOptions) { seedOptionListSampleIfNeeded() }
         .onChange(of: booleanOptions.defaultValue) { boolValue = booleanOptions.defaultValue }
+    }
+
+    // MARK: - Toolbar Button
+
+    private var showsToolbarButton: Bool {
+        fieldType == .boolean && displayRole == .flagFilter
+    }
+
+    /// A lone flag is a toolbar button of its own, labelled with the field's icon.
+    private var toolbarPreview: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("In the item list")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Image(systemName: trimmedLabel(booleanOptions.flagIconName) ?? BooleanOptions.fallbackFilterIconName)
+                .font(.body)
+                .frame(width: 44, height: 36)
+                .background(.fill.tertiary, in: .capsule)
+                .accessibilityLabel(label)
+        }
+        .padding(.vertical, 2)
     }
 
     // MARK: - Display Line

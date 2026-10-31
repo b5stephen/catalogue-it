@@ -27,4 +27,15 @@ extension FieldType {
         case .optionList: .teal
         }
     }
+
+    /// What the type picker shows beneath the name.
+    var pickerDescription: String {
+        switch self {
+        case .text:       String(localized: "Any words, e.g. Notes or Kit Number")
+        case .number:     String(localized: "Amounts, years and prices")
+        case .date:       String(localized: "A day, e.g. Acquired")
+        case .boolean:    String(localized: "On or off, e.g. Built")
+        case .optionList: String(localized: "One choice from a list you make")
+        }
+    }
 }

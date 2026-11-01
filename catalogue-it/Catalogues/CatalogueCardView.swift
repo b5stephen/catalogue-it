@@ -36,8 +36,8 @@ struct CatalogueCardView: View {
             increasedContrast: colorSchemeContrast == .increased
         )
 
-        HStack(spacing: 14) {
-            iconTile(palette)
+        HStack(spacing: AppConstants.CatalogueCard.contentPadding) {
+            iconPanel(palette)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(catalogue.name)
@@ -49,25 +49,28 @@ struct CatalogueCardView: View {
                     .font(.subheadline)
                     .foregroundStyle(palette.secondaryText)
             }
+            .padding(.vertical, AppConstants.CatalogueCard.contentPadding)
 
             Spacer(minLength: 0)
         }
-        .padding(AppConstants.CatalogueCard.contentPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: AppConstants.CatalogueCard.iconPanel, alignment: .leading)
+        // The panel's corners come from this clip.
+        .clipShape(shape)
         // Duotone — see `CataloguePalette`. The neutral base matters for near-grey catalogues and
         // keeps the corners from showing through during the insert animation.
         .background {
             shape
                 .fill(.background.secondary)
                 .overlay { shape.fill(palette.fill) }
-                .overlay {
-                    // Inset, so a selected card isn't a different size from its neighbours.
-                    shape
-                        .inset(by: palette.isSelected ? 2 : 0)
-                        .strokeBorder(palette.border, lineWidth: palette.borderWidth)
-                }
                 .compositingGroup()
                 .shadow(color: palette.shadow, radius: palette.shadowRadius, y: 3)
+        }
+        // Over the content, so it rings a photo panel too. Inset, so a selected card isn't a
+        // different size from its neighbours.
+        .overlay {
+            shape
+                .inset(by: palette.isSelected ? 2 : 0)
+                .strokeBorder(palette.border, lineWidth: palette.borderWidth)
         }
         .contentShape(shape)
         .accessibilityElement(children: .combine)
@@ -75,22 +78,13 @@ struct CatalogueCardView: View {
         .accessibilityIdentifier("catalogue-\(catalogue.name)")
     }
 
-    /// Translucent rather than a colour, so it reads anywhere on the ramp.
-    private func iconTile(_ palette: CataloguePalette) -> some View {
-        CatalogueIconView(
-            icon: catalogue.icon,
-            color: palette.iconGlyph,
-            size: 28,
-            tileCornerRadius: AppConstants.CatalogueCard.iconTileCornerRadius
-        )
-            .frame(
-                width: AppConstants.CatalogueCard.iconTile,
-                height: AppConstants.CatalogueCard.iconTile
-            )
-            .background(
-                palette.iconTint,
-                in: RoundedRectangle(cornerRadius: AppConstants.CatalogueCard.iconTileCornerRadius, style: .continuous)
-            )
+    /// Full height, so it grows with the text at larger sizes. Translucent rather than a colour,
+    /// so it reads anywhere on the ramp; a photo covers it.
+    private func iconPanel(_ palette: CataloguePalette) -> some View {
+        CatalogueIconView(icon: catalogue.icon, color: palette.iconGlyph, size: 36)
+            .frame(width: AppConstants.CatalogueCard.iconPanel)
+            .frame(maxHeight: .infinity)
+            .background(palette.iconTint)
             .accessibilityHidden(true)
     }
 }

@@ -25,12 +25,12 @@ nonisolated enum AppConstants {
     }
     /// Roomier than a standard row: catalogues are the entry point, and few.
     enum CatalogueCard {
-        static let iconTile: CGFloat = 52
         static let contentPadding: CGFloat = 14
         static let horizontalInset: CGFloat = 16
         static let rowSpacing: CGFloat = 12
-        /// Inner radius = outer − padding (see the card-design skill).
-        static let iconTileCornerRadius: CGFloat = CornerRadius.card - contentPadding
+        /// Square at the card's minimum height; flush with the card, so it takes the card's own
+        /// corners rather than a nested radius.
+        static let iconPanel: CGFloat = 80
     }
     /// The Add/Edit Catalogue form's header card.
     enum CatalogueHeader {

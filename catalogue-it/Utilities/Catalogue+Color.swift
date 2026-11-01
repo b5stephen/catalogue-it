@@ -30,8 +30,8 @@ extension Catalogue {
 
 /// The pick is treated as a hue, not a literal fill: the card is a duotone gradient with
 /// saturation and brightness pulled into a band where a full-bleed fill looks lit, and the two
-/// stops rotated slightly either way around the hue (a blue runs cyan to indigo). Near-greys
-/// don't rotate. The foreground flips to near-black on bright picks rather than holding the
+/// stops rotated slightly either way around the hue (a blue runs cyan to indigo, an orange gold
+/// to burnt orange). Near-greys don't rotate. The foreground flips to near-black on bright picks rather than holding the
 /// fill back for white text.
 nonisolated struct CataloguePalette {
     /// One representative colour for tint and tinted labels. Brighter and less saturated than
@@ -77,16 +77,29 @@ nonisolated struct CataloguePalette {
         // A saturated yellow and a navy can't share a foreground.
         let wantsDarkText = luminance > 0.55
 
+        // The deep stop turns away from yellow, the lightest hue, so the card reads as lit from
+        // one side. Cool hues get there going up the wheel (blue to indigo); warm ones going down
+        // (orange to red), since a yellower deep stop is olive or brown. Eases through zero
+        // between the two, so neighbouring picks don't jump.
+        let warmth = Self.closeness(of: base.hue, to: 0.06, full: 0.08, none: 0.16)
+        let direction = 1 - 2 * warmth
+
         // Scaled down in the yellow-to-green band, where the eye reads rotation as a different
-        // colour: unscaled, pale yellow ran orange to olive.
+        // colour. A warm deep stop keeps a floor, since turning towards red is what keeps it out
+        // of brown; the bright stop doesn't, or a yellow starts out lime.
         let bandOffset = abs(base.hue - 0.22)
         let bandDistance = min(bandOffset, 1 - bandOffset)
         let shiftScale = min(max((bandDistance - 0.08) / 0.12, 0.3), 1)
         let shift = isNeutral ? 0 : 0.055 * shiftScale
+        let deepShift = isNeutral ? 0 : max(shift, 0.04 * warmth)
+        let startHue = Self.wrapped(base.hue - shift * direction)
+        let endHue = Self.wrapped(base.hue + deepShift * direction)
 
-        // Bright stop warm, deep stop cool: reads as light falling across the card.
-        let startHue = (base.hue - shift + 1).truncatingRemainder(dividingBy: 1)
-        let endHue = (base.hue + shift).truncatingRemainder(dividingBy: 1)
+        // Dark orange and yellow are brown and olive whatever the hue, so those take their depth
+        // from the rotation rather than the brightness drop.
+        let yellowness = Self.closeness(of: base.hue, to: 0.12, full: 0.05, none: 0.1)
+        let depth = (increasedContrast ? 0.55 : 0.62) + 0.2 * yellowness
+
         let start = Color(
             hue: startHue,
             saturation: max(saturation - 0.1, 0),
@@ -95,7 +108,7 @@ nonisolated struct CataloguePalette {
         let end = Color(
             hue: endHue,
             saturation: min(saturation + 0.08, 1),
-            brightness: brightness * (increasedContrast ? 0.55 : 0.62)
+            brightness: brightness * depth
         )
         fill = LinearGradient(colors: [start, end], startPoint: .topLeading, endPoint: .bottomTrailing)
         fillDeepStop = end
@@ -111,7 +124,8 @@ nonisolated struct CataloguePalette {
             secondaryText = .white.opacity(increasedContrast ? 0.95 : 0.78)
         }
 
-        iconTint = wantsDarkText ? .black.opacity(0.16) : .white.opacity(0.22)
+        // The deep stop rather than black on bright picks: black over yellow is olive.
+        iconTint = wantsDarkText ? end.opacity(0.35) : .white.opacity(0.22)
         iconGlyph = wantsDarkText ? Color(hue: base.hue, saturation: 0.95, brightness: 0.18) : .white
 
         let contrastColor = wantsDarkText ? Color.black : Color.white
@@ -121,6 +135,17 @@ nonisolated struct CataloguePalette {
         shadow = Color(hue: base.hue, saturation: saturation, brightness: brightness)
             .opacity(isSelected ? 0.5 : (isDark ? 0.35 : 0.3))
         shadowRadius = isSelected ? 12 : 8
+    }
+
+    /// 1 within `full` of `centre` around the hue wheel, 0 beyond `none`, linear between.
+    static func closeness(of hue: Double, to centre: Double, full: Double, none: Double) -> Double {
+        let offset = abs(hue - centre)
+        let distance = min(offset, 1 - offset)
+        return min(max((none - distance) / (none - full), 0), 1)
+    }
+
+    static func wrapped(_ hue: Double) -> Double {
+        (hue.truncatingRemainder(dividingBy: 1) + 1).truncatingRemainder(dividingBy: 1)
     }
 }
 

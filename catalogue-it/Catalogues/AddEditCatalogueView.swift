@@ -18,7 +18,7 @@ struct AddEditCatalogueView: View {
     let existingColorHexes: [String]
 
     @State private var name: String = ""
-    @State private var selectedIcon: String = "square.grid.2x2"
+    @State private var selectedIcon: CatalogueIcon = .symbol(CatalogueIcon.defaultSymbol)
     @State private var selectedColor: Color = .blue
     @State private var fieldDefinitions: [FieldDefinitionDraft] = []
     @State private var showAllTab: Bool = false
@@ -31,7 +31,7 @@ struct AddEditCatalogueView: View {
 
     private struct Baseline {
         var name: String
-        var iconName: String
+        var icon: CatalogueIcon
         var color: Color
         var showAllTab: Bool
         var layoutOptions: CatalogueLayoutOptions
@@ -41,7 +41,7 @@ struct AddEditCatalogueView: View {
     private var hasChanges: Bool {
         guard let baseline else { return false }
         return name != baseline.name
-            || selectedIcon != baseline.iconName
+            || selectedIcon != baseline.icon
             || selectedColor != baseline.color
             || showAllTab != baseline.showAllTab
             || layoutOptions != baseline.layoutOptions
@@ -79,7 +79,7 @@ struct AddEditCatalogueView: View {
             Form {
                 CatalogueHeaderSection(
                     name: $name,
-                    iconName: selectedIcon,
+                    icon: selectedIcon,
                     color: $selectedColor,
                     onChangeIcon: { showingIconPicker = true }
                 )
@@ -156,7 +156,8 @@ struct AddEditCatalogueView: View {
 
 #if os(iOS)
                 ToolbarItem(placement: .principal) {
-                    CatalogueIconView(iconName: selectedIcon, color: selectedColor, size: 17)
+                    CatalogueIconView(icon: selectedIcon, color: selectedColor, size: 17, tileCornerRadius: 6)
+                        .frame(width: 28, height: 28)
                 }
 #endif
             }
@@ -217,7 +218,7 @@ struct AddEditCatalogueView: View {
         defer {
             baseline = Baseline(
                 name: name,
-                iconName: selectedIcon,
+                icon: selectedIcon,
                 color: selectedColor,
                 showAllTab: showAllTab,
                 layoutOptions: layoutOptions,
@@ -235,7 +236,7 @@ struct AddEditCatalogueView: View {
 
         previewItems = CataloguePreviewItem.recent(in: catalogue, context: modelContext)
         name = catalogue.name
-        selectedIcon = catalogue.iconName
+        selectedIcon = catalogue.icon
         selectedColor = catalogue.color
         showAllTab = catalogue.showAllTab
         layoutOptions = catalogue.layoutOptions
@@ -267,7 +268,7 @@ struct AddEditCatalogueView: View {
 
         if let existingCatalogue = catalogue {
             existingCatalogue.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            existingCatalogue.iconName = selectedIcon
+            existingCatalogue.icon = selectedIcon
             existingCatalogue.colorHex = selectedColor.toHex()
             existingCatalogue.showAllTab = showAllTab
             existingCatalogue.layoutOptions = layoutOptions
@@ -346,7 +347,8 @@ struct AddEditCatalogueView: View {
             facetChange = Self.facetSignature(ofDrafts: fieldDefinitions) != originalFacetSignature
             catalogueForRecompute = existingCatalogue
         } else {
-            let newCatalogue = Catalogue(name: name.trimmingCharacters(in: .whitespacesAndNewlines), iconName: selectedIcon, colorHex: selectedColor.toHex(), priority: nextPriority)
+            let newCatalogue = Catalogue(name: name.trimmingCharacters(in: .whitespacesAndNewlines), colorHex: selectedColor.toHex(), priority: nextPriority)
+            newCatalogue.icon = selectedIcon
             newCatalogue.showAllTab = showAllTab
             newCatalogue.layoutOptions = layoutOptions
             modelContext.insert(newCatalogue)

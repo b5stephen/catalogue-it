@@ -6,48 +6,65 @@
 //
 
 import SwiftUI
+import PhotosUI
 
 // MARK: - Icon Picker View
 
 /// `init(optionalIcon:)` is for flags, where no icon is a real choice. Only catalogues offer
-/// emoji: a flag icon is small, tinted and beside text, where an emoji reads as clutter.
+/// emoji, Genmoji and photos: a flag icon is small, tinted and beside text, where they read as
+/// clutter.
 struct IconPickerView: View {
     @Environment(\.dismiss) private var dismiss
-    @Binding private var selectedIcon: String?
+    @Binding private var selection: CatalogueIcon?
     private let allowsNoIcon: Bool
-    private let allowsEmoji: Bool
+    private let allowsImages: Bool
     private let tint: Color
     @State private var mode: IconMode
-    @State private var customEmoji: String = ""
     @State private var emojiKeyboardRequest = 0
-#if os(macOS)
-    @FocusState private var emojiFieldFocused: Bool
+    @State private var photoItem: PhotosPickerItem?
+    @State private var isLoadingPhoto = false
+    @State private var photoLoadFailed = false
+#if os(iOS)
+    @State private var cameraCoordinator: CameraCoordinator?
 #endif
 
     private enum IconMode: Hashable {
         case symbol
         case emoji
+        case photo
     }
 
-    init(selectedIcon: Binding<String>, tint: Color = .accentColor) {
-        self._selectedIcon = Binding(
+    init(selectedIcon: Binding<CatalogueIcon>, tint: Color = .accentColor) {
+        self._selection = Binding(
             get: { selectedIcon.wrappedValue },
             set: { if let newValue = $0 { selectedIcon.wrappedValue = newValue } }
         )
         self.allowsNoIcon = false
-        self.allowsEmoji = true
+        self.allowsImages = true
         self.tint = tint
         // Open on the tab the current icon came from.
-        let isEmoji = CatalogueIcon(storedValue: selectedIcon.wrappedValue).isEmoji
-        self._mode = State(initialValue: isEmoji ? .emoji : .symbol)
+        let mode: IconMode = switch selectedIcon.wrappedValue {
+        case .symbol: .symbol
+        case .emoji, .genmoji: .emoji
+        case .photo: .photo
+        }
+        self._mode = State(initialValue: mode)
     }
 
     init(optionalIcon: Binding<String?>) {
-        self._selectedIcon = optionalIcon
+        self._selection = Binding(
+            get: { optionalIcon.wrappedValue.map(CatalogueIcon.symbol) },
+            set: { optionalIcon.wrappedValue = $0?.iconName }
+        )
         self.allowsNoIcon = true
-        self.allowsEmoji = false
+        self.allowsImages = false
         self.tint = .accentColor
         self._mode = State(initialValue: .symbol)
+    }
+
+    private func choose(_ icon: CatalogueIcon?) {
+        selection = icon
+        dismiss()
     }
 
     let iconCategories: [(String, [String])] = [
@@ -85,26 +102,41 @@ struct IconPickerView: View {
                 // Not lazy: the tabs' categories share names, so a LazyVStack reuses their rows when the
                 // sections swap and the switch appears to do nothing. `id(mode)` forces a fresh identity.
                 VStack(alignment: .leading, spacing: 20) {
-                    if allowsEmoji {
+                    if allowsImages {
                         Picker("Icon Style", selection: $mode) {
                             Text("Symbols").tag(IconMode.symbol)
                             Text("Emoji").tag(IconMode.emoji)
+                            Text("Photo").tag(IconMode.photo)
                         }
                         .pickerStyle(.segmented)
                         .padding(.horizontal)
                     }
 
                     Group {
-                        if mode == .emoji {
-                            emojiSection
-                        } else {
-                            symbolSection
+                        switch mode {
+                        case .symbol: symbolSection
+                        case .emoji: emojiSection
+                        case .photo: photoSection
                         }
                     }
                     .id(mode)
                 }
                 .padding(.vertical)
+#if os(iOS)
+                // With scrolling, the only ways out of the emoji keyboard on iPhone, which has no
+                // dismiss key: the view it types into is hidden, so there's nothing to tap away from.
+                .background {
+                    Color.clear
+                        .contentShape(.rect)
+                        .onTapGesture {
+                            UIApplication.shared.sendAction(
+                                #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil
+                            )
+                        }
+                }
+#endif
             }
+            .scrollDismissesKeyboard(.immediately)
             .navigationTitle("Choose Icon")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -128,10 +160,9 @@ struct IconPickerView: View {
                     .padding(.horizontal)
 
                 Button {
-                    selectedIcon = nil
-                    dismiss()
+                    choose(nil)
                 } label: {
-                    cell(systemImage: "slash.circle", isSelected: selectedIcon == nil)
+                    cell(systemImage: "slash.circle", isSelected: selection == nil)
                 }
                 .foregroundStyle(.secondary)
                 .accessibilityLabel("No Icon")
@@ -148,10 +179,9 @@ struct IconPickerView: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 60))], spacing: 12) {
                     ForEach(icons, id: \.self) { icon in
                         Button {
-                            selectedIcon = icon
-                            dismiss()
+                            choose(.symbol(icon))
                         } label: {
-                            cell(systemImage: icon, isSelected: selectedIcon == icon)
+                            cell(systemImage: icon, isSelected: selection == .symbol(icon))
                         }
                         .foregroundStyle(.primary)
                     }
@@ -177,10 +207,9 @@ struct IconPickerView: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 60))], spacing: 12) {
                     ForEach(emoji, id: \.self) { item in
                         Button {
-                            selectedIcon = item
-                            dismiss()
+                            choose(.emoji(item))
                         } label: {
-                            cell(isSelected: selectedIcon == item) {
+                            cell(isSelected: selection == .emoji(item)) {
                                 Text(item).font(.largeTitle)
                             }
                         }
@@ -192,70 +221,121 @@ struct IconPickerView: View {
         }
     }
 
-    // The escape hatch for a collection no shortlist would guess.
+    // The escape hatch for a collection no shortlist would guess, and the way in for Genmoji.
     private var anyEmojiButton: some View {
-        Button(action: openEmojiKeyboard) {
-            HStack(spacing: 12) {
-                Image(systemName: "face.smiling")
-                    .font(.title2)
-                    .foregroundStyle(tint)
-                    .frame(width: 40, height: 40)
-                    .background(
-                        .background,
-                        in: .rect(cornerRadius: AppConstants.ItemCard.thumbnailCornerRadius, style: .continuous)
-                    )
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Any Emoji")
-                    Text("Opens the emoji keyboard")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        Button { emojiKeyboardRequest += 1 } label: {
+            ActionCard(
+                systemImage: "face.smiling",
+                title: "Any Emoji",
+                subtitle: currentGenmoji == nil ? "Opens the emoji keyboard, including Genmoji" : nil,
+                tint: tint
+            ) {
+                if let currentGenmoji {
+                    CatalogueIconView(icon: currentGenmoji, color: tint, size: 24)
                 }
-                Spacer(minLength: 0)
             }
-            .padding(AppConstants.ItemCard.contentPadding)
-            .frame(maxWidth: .infinity)
-            .background(
-                Color.secondary.opacity(0.1),
-                in: .rect(cornerRadius: AppConstants.CornerRadius.card, style: .continuous)
-            )
-            .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .background { emojiInput }
-        // On change, not submit: the emoji keyboard has no return key.
-        .onChange(of: customEmoji) { _, newValue in
-            guard let emoji = newValue.first(where: { $0.isEmoji }) else { return }
-            selectedIcon = String(emoji)
-            dismiss()
+        .background {
+            EmojiInput(focusRequest: emojiKeyboardRequest, onPick: choose)
+                .frame(width: 1, height: 1)
+                .opacity(0)
+                .accessibilityHidden(true)
         }
     }
 
-    private func openEmojiKeyboard() {
-#if os(iOS)
-        emojiKeyboardRequest += 1
-#else
-        emojiFieldFocused = true
-        NSApp.orderFrontCharacterPalette(nil)
-#endif
+    /// Shown in the Any Emoji card, as the shortlist can't show it.
+    private var currentGenmoji: CatalogueIcon? {
+        if case .genmoji = selection { return selection }
+        return nil
     }
 
-    /// Receives the emoji chosen in the system keyboard (iOS) or Character Viewer (macOS).
+    // MARK: - Photo
+
     @ViewBuilder
-    private var emojiInput: some View {
+    private var photoSection: some View {
+        if case .photo = selection, let selection {
+            CatalogueIconView(icon: selection, color: tint, size: 0, tileCornerRadius: 24)
+                .frame(width: 120, height: 120)
+                .frame(maxWidth: .infinity)
+                .accessibilityLabel("Current Photo")
+        }
+
+        // Read out here: the label closure is nonisolated.
+        let loading = isLoadingPhoto
+        let tint = tint
+        VStack(spacing: 12) {
+            PhotosPicker(selection: $photoItem, matching: .images) {
+                ActionCard(
+                    systemImage: loading ? "hourglass" : "photo.on.rectangle",
+                    title: loading ? "Loading…" : "Choose Photo",
+                    subtitle: "Cropped to a square",
+                    tint: tint
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(isLoadingPhoto)
+            .onChange(of: photoItem) { _, item in
+                guard let item else { return }
+                Task { await loadPhoto(item) }
+            }
+
 #if os(iOS)
-        EmojiKeyboardInput(text: $customEmoji, focusRequest: emojiKeyboardRequest)
-            .frame(width: 1, height: 1)
-            .opacity(0)
-            .accessibilityHidden(true)
-#else
-        TextField("", text: $customEmoji)
-            .focused($emojiFieldFocused)
-            .frame(width: 1, height: 1)
-            .opacity(0)
-            .accessibilityHidden(true)
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button(action: openCamera) {
+                    ActionCard(systemImage: "camera", title: "Take Photo", tint: tint)
+                }
+                .buttonStyle(.plain)
+                .disabled(isLoadingPhoto)
+                .background(CameraPresentationAnchor(coordinator: cameraCoordinator))
+            }
 #endif
+        }
+        .padding(.horizontal)
+        .alert("Couldn't Use Photo", isPresented: $photoLoadFailed) {
+            Button("OK") {}
+        }
     }
+
+    private func loadPhoto(_ item: PhotosPickerItem) async {
+        isLoadingPhoto = true
+        defer {
+            isLoadingPhoto = false
+            photoItem = nil
+        }
+        guard let data = try? await item.loadTransferable(type: Data.self) else {
+            photoLoadFailed = true
+            return
+        }
+        await usePhoto(data)
+    }
+
+    /// Off the main actor: a camera original can be tens of megapixels.
+    private func usePhoto(_ data: Data) async {
+        let icon = await Task.detached { makeSquareIconData(from: data) }.value
+        guard let icon else {
+            photoLoadFailed = true
+            return
+        }
+        choose(.photo(icon))
+    }
+
+#if os(iOS)
+    private func openCamera() {
+        // The button's CameraPresentationAnchor presents it.
+        cameraCoordinator = CameraCoordinator(
+            onCapture: { image in
+                guard let data = image.jpegData(compressionQuality: 0.9) else { return }
+                isLoadingPhoto = true
+                Task {
+                    await usePhoto(data)
+                    isLoadingPhoto = false
+                }
+            },
+            onDismiss: { cameraCoordinator = nil }
+        )
+    }
+#endif
 
     // MARK: - Cell
 
@@ -279,55 +359,164 @@ struct IconPickerView: View {
     }
 }
 
+// MARK: - Action Card
+
+// Nonisolated: the photo picker builds it in its nonisolated label closure.
+nonisolated private struct ActionCard<Trailing: View>: View {
+    let systemImage: String
+    let title: LocalizedStringKey
+    var subtitle: LocalizedStringKey?
+    let tint: Color
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.title2)
+                .foregroundStyle(tint)
+                .frame(width: 40, height: 40)
+                .background(
+                    .background,
+                    in: .rect(cornerRadius: AppConstants.ItemCard.thumbnailCornerRadius, style: .continuous)
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+            trailing
+        }
+        .padding(AppConstants.ItemCard.contentPadding)
+        .frame(maxWidth: .infinity)
+        .background(
+            Color.secondary.opacity(0.1),
+            in: .rect(cornerRadius: AppConstants.CornerRadius.card, style: .continuous)
+        )
+        .contentShape(.rect)
+    }
+}
+
+nonisolated extension ActionCard where Trailing == EmptyView {
+    init(systemImage: String, title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil, tint: Color) {
+        self.init(systemImage: systemImage, title: title, subtitle: subtitle, tint: tint) { EmptyView() }
+    }
+}
+
+// MARK: - Emoji Input
+
+/// The first Genmoji in the text, else the first emoji. A Genmoji is U+FFFC carrying the glyph
+/// as an attribute, which the emoji check skips.
+private func pickedIcon(in text: NSAttributedString) -> CatalogueIcon? {
+    var genmoji: NSAdaptiveImageGlyph?
+    text.enumerateAttribute(.adaptiveImageGlyph, in: NSRange(location: 0, length: text.length)) { value, _, stop in
+        if let glyph = value as? NSAdaptiveImageGlyph {
+            genmoji = glyph
+            stop.pointee = true
+        }
+    }
+    if let genmoji { return .genmoji(genmoji.imageContent) }
+    return text.string.first(where: \.isEmoji).map { .emoji(String($0)) }
+}
+
 #if os(iOS)
-// MARK: - Emoji Keyboard Input
-
-/// There is no public API to request the emoji keyboard, so the field overrides `textInputMode`
+/// There is no public API to request the emoji keyboard, so the view overrides `textInputMode`
 /// to ask for it. If the user has removed the emoji keyboard the override returns nil and the
-/// default keyboard shows instead; typed or pasted emoji are picked up the same way.
-private struct EmojiKeyboardInput: UIViewRepresentable {
-    @Binding var text: String
-    /// Each increment focuses the field.
+/// default keyboard shows instead; typed or pasted emoji are picked up the same way. A text
+/// view, not a field: only rich text accepts Genmoji.
+private struct EmojiInput: UIViewRepresentable {
+    /// Each increment focuses the view.
     let focusRequest: Int
+    let onPick: (CatalogueIcon) -> Void
 
-    func makeUIView(context: Context) -> EmojiTextField {
-        let field = EmojiTextField()
-        field.addTarget(context.coordinator, action: #selector(Coordinator.textChanged(_:)), for: .editingChanged)
+    func makeUIView(context: Context) -> EmojiTextView {
+        let view = EmojiTextView()
+        view.supportsAdaptiveImageGlyph = true
+        view.delegate = context.coordinator
         context.coordinator.handledRequest = focusRequest
-        return field
+        return view
     }
 
-    func updateUIView(_ field: EmojiTextField, context: Context) {
-        context.coordinator.text = $text
-        if field.text != text { field.text = text }
+    func updateUIView(_ view: EmojiTextView, context: Context) {
+        context.coordinator.onPick = onPick
         guard context.coordinator.handledRequest != focusRequest else { return }
         context.coordinator.handledRequest = focusRequest
-        field.becomeFirstResponder()
+        view.becomeFirstResponder()
     }
 
-    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
 
-    final class Coordinator: NSObject {
-        var text: Binding<String>
+    final class Coordinator: NSObject, UITextViewDelegate {
+        var onPick: (CatalogueIcon) -> Void
         var handledRequest = 0
 
-        init(text: Binding<String>) { self.text = text }
+        init(onPick: @escaping (CatalogueIcon) -> Void) { self.onPick = onPick }
 
-        @objc func textChanged(_ field: UITextField) {
-            text.wrappedValue = field.text ?? ""
+        // On change, not submit: the emoji keyboard has no return key.
+        func textViewDidChange(_ textView: UITextView) {
+            guard let icon = pickedIcon(in: textView.attributedText) else { return }
+            textView.text = ""
+            textView.resignFirstResponder()
+            onPick(icon)
         }
     }
 
-    final class EmojiTextField: UITextField {
+    final class EmojiTextView: UITextView {
         override var textInputMode: UITextInputMode? {
             UITextInputMode.activeInputModes.first { $0.primaryLanguage == "emoji" }
+        }
+    }
+}
+#else
+/// Receives what the Character Viewer inserts. A text view, not a field: only rich text
+/// accepts Genmoji.
+private struct EmojiInput: NSViewRepresentable {
+    /// Each increment focuses the view and opens the Character Viewer.
+    let focusRequest: Int
+    let onPick: (CatalogueIcon) -> Void
+
+    func makeNSView(context: Context) -> NSTextView {
+        let view = NSTextView()
+        view.isRichText = true
+        view.supportsAdaptiveImageGlyph = true
+        view.drawsBackground = false
+        view.delegate = context.coordinator
+        context.coordinator.handledRequest = focusRequest
+        return view
+    }
+
+    func updateNSView(_ view: NSTextView, context: Context) {
+        context.coordinator.onPick = onPick
+        guard context.coordinator.handledRequest != focusRequest else { return }
+        context.coordinator.handledRequest = focusRequest
+        view.window?.makeFirstResponder(view)
+        NSApp.orderFrontCharacterPalette(nil)
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var onPick: (CatalogueIcon) -> Void
+        var handledRequest = 0
+
+        init(onPick: @escaping (CatalogueIcon) -> Void) { self.onPick = onPick }
+
+        func textDidChange(_ notification: Notification) {
+            guard let view = notification.object as? NSTextView,
+                  let icon = pickedIcon(in: view.attributedString()) else { return }
+            view.string = ""
+            onPick(icon)
         }
     }
 }
 #endif
 
 #Preview("Icon Picker") {
-    IconPickerView(selectedIcon: .constant("star.fill"))
+    IconPickerView(selectedIcon: .constant(.symbol("star.fill")))
 }
 
 #Preview("Optional Icon Picker") {

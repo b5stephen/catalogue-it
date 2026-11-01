@@ -77,7 +77,12 @@ struct CatalogueCardView: View {
 
     /// Translucent rather than a colour, so it reads anywhere on the ramp.
     private func iconTile(_ palette: CataloguePalette) -> some View {
-        CatalogueIconView(iconName: catalogue.iconName, color: palette.iconGlyph, size: 28)
+        CatalogueIconView(
+            icon: catalogue.icon,
+            color: palette.iconGlyph,
+            size: 28,
+            tileCornerRadius: AppConstants.CatalogueCard.iconTileCornerRadius
+        )
             .frame(
                 width: AppConstants.CatalogueCard.iconTile,
                 height: AppConstants.CatalogueCard.iconTile

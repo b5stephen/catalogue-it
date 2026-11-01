@@ -10,13 +10,13 @@ import SwiftData
 
 /// The live model classes belong to the newest version; older versions keep frozen copies so
 /// each change has a baseline to migrate from. For the next model change: add
-/// `CatalogueSchemaV4` pointing at the live classes, turn this into a frozen copy of the V3
+/// `CatalogueSchemaV5` pointing at the live classes, turn this into a frozen copy of the V4
 /// shape, and add a stage to `CatalogueMigrationPlan`.
 ///
 /// Every version needs its CloudKit schema deployed to Production before the build ships —
 /// see "Deploying the CloudKit schema" in CLAUDE.md.
-enum CatalogueSchemaV3: VersionedSchema {
-    static let versionIdentifier = Schema.Version(3, 0, 0)
+enum CatalogueSchemaV4: VersionedSchema {
+    static let versionIdentifier = Schema.Version(4, 0, 0)
 
     static var models: [any PersistentModel.Type] {
         [
@@ -29,17 +29,17 @@ enum CatalogueSchemaV3: VersionedSchema {
     }
 }
 
-typealias CatalogueSchemaCurrent = CatalogueSchemaV3
+typealias CatalogueSchemaCurrent = CatalogueSchemaV4
 
 // MARK: - Migration Plan
 
 enum CatalogueMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [CatalogueSchemaV1.self, CatalogueSchemaV2.self, CatalogueSchemaV3.self]
+        [CatalogueSchemaV1.self, CatalogueSchemaV2.self, CatalogueSchemaV3.self, CatalogueSchemaV4.self]
     }
 
     static var stages: [MigrationStage] {
-        [v1ToV2, v2ToV3]
+        [v1ToV2, v2ToV3, v3ToV4]
     }
 
     /// Backfills the new `CatalogueItem.modifiedDate` from `createdDate`: the attribute default
@@ -62,5 +62,11 @@ enum CatalogueMigrationPlan: SchemaMigrationPlan {
     static let v2ToV3 = MigrationStage.lightweight(
         fromVersion: CatalogueSchemaV2.self,
         toVersion: CatalogueSchemaV3.self
+    )
+
+    /// Adds `Catalogue.iconImageData` and `iconImageKind`; nil means the icon is `iconName`.
+    static let v3ToV4 = MigrationStage.lightweight(
+        fromVersion: CatalogueSchemaV3.self,
+        toVersion: CatalogueSchemaV4.self
     )
 }

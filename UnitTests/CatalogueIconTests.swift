@@ -5,6 +5,7 @@
 
 import Testing
 import Foundation
+import SwiftData
 @testable import catalogue_it
 
 // MARK: - Catalogue Icon Tests
@@ -23,7 +24,7 @@ struct CatalogueIconTests {
     @Test("Emoji are classified as emoji and survive a round trip")
     func emojiValues() {
         #expect(CatalogueIcon(storedValue: "✈️") == .emoji("✈️"))
-        #expect(CatalogueIcon(storedValue: "✈️").storedValue == "✈️")
+        #expect(CatalogueIcon(storedValue: "✈️").iconName == "✈️")
         #expect(CatalogueIcon(storedValue: "✈️").isEmoji)
         #expect(CatalogueIcon(storedValue: "airplane").isEmoji == false)
     }
@@ -56,5 +57,54 @@ struct CatalogueIconTests {
         #expect(Character("a").isEmoji == false)
         #expect(Character("1️⃣").isEmoji)
         #expect(Character("🎲").isEmoji)
+    }
+
+    // MARK: - Image Icons
+
+    @Test("Image data and kind select a photo or Genmoji icon")
+    func imageIcons() {
+        let data = Data([1, 2, 3])
+        #expect(CatalogueIcon(iconName: "star", imageData: data, imageKind: "photo") == .photo(data))
+        #expect(CatalogueIcon(iconName: "star", imageData: data, imageKind: "genmoji") == .genmoji(data))
+    }
+
+    @Test("Missing data, a missing kind or an unknown kind falls back to iconName")
+    func imageIconFallbacks() {
+        let data = Data([1, 2, 3])
+        #expect(CatalogueIcon(iconName: "star", imageData: nil, imageKind: "photo") == .symbol("star"))
+        #expect(CatalogueIcon(iconName: "star", imageData: data, imageKind: nil) == .symbol("star"))
+        #expect(CatalogueIcon(iconName: "🎸", imageData: data, imageKind: "sticker") == .emoji("🎸"))
+    }
+
+    @Test("Setting an image icon keeps iconName as its fallback")
+    func imageIconKeepsFallback() {
+        let catalogue = Catalogue(name: "Planes", iconName: "airplane")
+        let data = Data([1, 2, 3])
+        catalogue.icon = .photo(data)
+        #expect(catalogue.iconName == "airplane")
+        #expect(catalogue.iconImageData == data)
+        #expect(catalogue.iconImageKind == "photo")
+
+        catalogue.icon = .emoji("✈️")
+        #expect(catalogue.iconName == "✈️")
+        #expect(catalogue.iconImageData == nil)
+        #expect(catalogue.iconImageKind == nil)
+    }
+
+    @Test("Assigning the current icon writes nothing, so nothing exports")
+    @MainActor
+    func equalIconIsNotRewritten() throws {
+        let container = try ModelContainer(
+            for: Catalogue.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+        )
+        let context = container.mainContext
+        let catalogue = Catalogue(name: "Planes", iconName: "airplane")
+        catalogue.icon = .photo(Data([1, 2, 3]))
+        context.insert(catalogue)
+        try context.save()
+
+        catalogue.icon = .photo(Data([1, 2, 3]))
+        #expect(catalogue.hasChanges == false)
     }
 }

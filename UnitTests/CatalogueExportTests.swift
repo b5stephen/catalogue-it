@@ -206,6 +206,7 @@ struct CatalogueExportTests {
         let container = try makeContainer()
         let ctx = container.mainContext
         let (original, _, _) = makeSampleCatalogue(in: ctx)
+        original.icon = .photo(Data([0xFF, 0xD8, 0xFF, 0x01]))
 
         let data = try CatalogueExporter.jsonData(for: original)
         let imported = try await CatalogueImporter.importCatalogues(
@@ -217,6 +218,7 @@ struct CatalogueExportTests {
         let copy = try #require(imported.first)
         #expect(copy.name == original.name)
         #expect(copy.iconName == original.iconName)
+        #expect(copy.icon == original.icon)
         #expect(copy.colorHex == original.colorHex)
         #expect(copy.priority == original.priority + 1, "Priority offset appends after existing catalogues")
         #expect(copy.fieldDefinitions.count == 2)

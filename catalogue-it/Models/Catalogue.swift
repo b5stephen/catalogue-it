@@ -17,7 +17,12 @@ final class Catalogue {
     // non-optional attributes that have none, and the container fails to build.
     var name: String = ""
     var createdDate: Date = Date.now
-    var iconName: String = "square.grid.2x2" // SF Symbol name
+    /// An SF Symbol name or one emoji. Kept while an image icon is set, as the icon on builds
+    /// that predate image icons and the fallback if the image fails to decode.
+    var iconName: String = "square.grid.2x2"
+    /// Read through `icon`. A photo (square JPEG) or a Genmoji's `imageContent`, per `iconImageKind`.
+    @Attribute(.externalStorage) var iconImageData: Data?
+    var iconImageKind: String?
     var colorHex: String = "#007AFF"
     var priority: Int = 0
 
@@ -72,6 +77,23 @@ extension Catalogue {
             // An equal value rewritten still exports, and can bounce between devices.
             guard newValue != layoutOptions else { return }
             layoutOptionsData = try? JSONEncoder().encode(newValue)
+        }
+    }
+}
+
+// MARK: - Icon
+
+extension Catalogue {
+    /// Setting an image icon leaves `iconName` alone, as its fallback. Each column is compared
+    /// before it is written: an equal value rewritten still exports.
+    var icon: CatalogueIcon {
+        get { CatalogueIcon(iconName: iconName, imageData: iconImageData, imageKind: iconImageKind) }
+        set {
+            if let name = newValue.iconName, name != iconName { iconName = name }
+            let data = newValue.imageData
+            if data != iconImageData { iconImageData = data }
+            let kind = newValue.imageKind?.rawValue
+            if kind != iconImageKind { iconImageKind = kind }
         }
     }
 }

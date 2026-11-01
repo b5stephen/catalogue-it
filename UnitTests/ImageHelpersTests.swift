@@ -113,4 +113,29 @@ struct ImageHelpersTests {
         #expect(source.asImage() != nil)
         #expect(Data("not an image".utf8).asImage() == nil)
     }
+
+    // MARK: - makeSquareIconData
+
+    @Test("Icon photos are cropped to a centred square at the icon size")
+    func squareIconCropsAndScales() throws {
+        let source = try makePNGData(width: 2000, height: 1000)
+        let icon = try #require(makeSquareIconData(from: source, pixelSize: 512))
+        let size = try pixelSize(of: icon)
+        #expect(size.width == 512)
+        #expect(size.height == 512)
+    }
+
+    @Test("Icon photos smaller than the icon size are squared but not upscaled")
+    func squareIconNeverUpscales() throws {
+        let source = try makePNGData(width: 300, height: 200)
+        let icon = try #require(makeSquareIconData(from: source, pixelSize: 512))
+        let size = try pixelSize(of: icon)
+        #expect(size.width == 200)
+        #expect(size.height == 200)
+    }
+
+    @Test("Garbage data makes no icon")
+    func squareIconFromGarbageIsNil() {
+        #expect(makeSquareIconData(from: Data([0, 1, 2, 3])) == nil)
+    }
 }

@@ -208,7 +208,12 @@ struct CatalogueBand<Accessory: View>: View {
 
     private func titleRow(_ palette: CataloguePalette) -> some View {
         HStack(spacing: 12) {
-            CatalogueIconView(iconName: catalogue.iconName, color: palette.iconGlyph, size: 24)
+            CatalogueIconView(
+                icon: catalogue.icon,
+                color: palette.iconGlyph,
+                size: 24,
+                tileCornerRadius: AppConstants.CornerRadius.medium
+            )
                 .frame(width: 44, height: 44)
                 .background(
                     palette.iconTint,

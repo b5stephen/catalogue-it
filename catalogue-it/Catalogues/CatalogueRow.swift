@@ -25,7 +25,12 @@ struct CatalogueRow: View {
 
         HStack(spacing: 12) {
             // The card's duotone as a tile, so a catalogue looks like itself on either platform.
-            CatalogueIconView(iconName: catalogue.iconName, color: palette.iconGlyph, size: 22)
+            CatalogueIconView(
+                icon: catalogue.icon,
+                color: palette.iconGlyph,
+                size: 22,
+                tileCornerRadius: AppConstants.CornerRadius.small
+            )
                 .frame(width: 40, height: 40)
                 .background(palette.fill)
                 .clipShape(.rect(cornerRadius: AppConstants.CornerRadius.small))

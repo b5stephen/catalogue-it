@@ -27,6 +27,10 @@ struct CatalogueExportFile: Codable {
 struct CatalogueDTO: Codable {
     var name: String
     var iconName: String
+    /// Optional, and absent from older files: a photo or Genmoji icon, with `iconName` as its
+    /// fallback. Exported even without photos, as it is small.
+    var iconImageData: Data?
+    var iconImageKind: String?
     var colorHex: String
     var createdDate: Date
     var priority: Int
@@ -91,6 +95,8 @@ extension CatalogueDTO {
     init(_ catalogue: Catalogue, includePhotos: Bool = true) {
         name = catalogue.name
         iconName = catalogue.iconName
+        iconImageData = catalogue.iconImageData
+        iconImageKind = catalogue.iconImageKind
         colorHex = catalogue.colorHex
         createdDate = catalogue.createdDate
         priority = catalogue.priority
@@ -188,6 +194,8 @@ extension CatalogueDTO {
             priority: priority + priorityOffset
         )
         catalogue.createdDate = createdDate
+        catalogue.iconImageData = iconImageData
+        catalogue.iconImageKind = iconImageKind
         catalogue.sortFieldKey = sortFieldKey
         catalogue.sortDirection = sortDirection
         // v1 always had an "All" tab; reproduce the file's UI rather than drop a tab in use.

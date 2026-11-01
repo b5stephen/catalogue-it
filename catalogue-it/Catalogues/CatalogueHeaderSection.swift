@@ -11,7 +11,7 @@ import SwiftUI
 /// current colour isn't a palette one.
 struct CatalogueHeaderSection: View {
     @Binding var name: String
-    let iconName: String
+    let icon: CatalogueIcon
     @Binding var color: Color
     let onChangeIcon: () -> Void
 
@@ -63,7 +63,7 @@ struct CatalogueHeaderSection: View {
 
     private var iconButton: some View {
         Button(action: onChangeIcon) {
-            CatalogueIconView(iconName: iconName, color: color, size: 36)
+            CatalogueIconView(icon: icon, color: color, size: 36, tileCornerRadius: Metrics.iconTileCornerRadius)
                 .frame(width: Metrics.iconTile, height: Metrics.iconTile)
                 .background(
                     color.opacity(0.15),

@@ -182,7 +182,9 @@ struct SchemaMigrationTests {
 
     @Test func schemaVersionsAreOrderedAndTheCurrentOneIsLast() {
         let versions = CatalogueMigrationPlan.schemas.map { $0.versionIdentifier }
-        #expect(versions == [Schema.Version(1, 0, 0), Schema.Version(2, 0, 0), Schema.Version(3, 0, 0)])
+        #expect(versions == [
+            Schema.Version(1, 0, 0), Schema.Version(2, 0, 0), Schema.Version(3, 0, 0), Schema.Version(4, 0, 0),
+        ])
         #expect(CatalogueSchemaCurrent.versionIdentifier == versions.last)
         #expect(CatalogueMigrationPlan.stages.count == versions.count - 1)
     }
@@ -190,8 +192,32 @@ struct SchemaMigrationTests {
     @Test func frozenSchemasAndCurrentSchemaShareEntityNames() {
         let v1 = Set(CatalogueSchemaV1.models.map { String(describing: $0) })
         let v2 = Set(CatalogueSchemaV2.models.map { String(describing: $0) })
+        let v3 = Set(CatalogueSchemaV3.models.map { String(describing: $0) })
         let current = Set(CatalogueSchemaCurrent.models.map { String(describing: $0) })
         #expect(v1 == current, "a migration stage can only map entities that exist on both sides")
         #expect(v2 == current, "a migration stage can only map entities that exist on both sides")
+        #expect(v3 == current, "a migration stage can only map entities that exist on both sides")
+    }
+
+    @Test func v3StoreOpensWithLayoutOptionsKeptAndNoImageIcon() throws {
+        let url = makeStoreURL()
+        defer { removeStore(at: url) }
+        let layout = CatalogueLayoutOptions(showPhotosInList: false)
+        do {
+            let container = try ModelContainer(
+                for: Schema(versionedSchema: CatalogueSchemaV3.self),
+                configurations: ModelConfiguration(url: url, cloudKitDatabase: .none)
+            )
+            let catalogue = CatalogueSchemaV3.Catalogue(name: "Stamps", iconName: "✉️", colorHex: "#112233")
+            catalogue.layoutOptionsData = try JSONEncoder().encode(layout)
+            container.mainContext.insert(catalogue)
+            try container.mainContext.save()
+        }
+
+        let container = try openCurrent(at: url)
+        let catalogue = try #require(try container.mainContext.fetch(FetchDescriptor<Catalogue>()).first)
+        #expect(catalogue.layoutOptions == layout)
+        #expect(catalogue.iconImageData == nil)
+        #expect(catalogue.icon == .emoji("✉️"))
     }
 }

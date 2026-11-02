@@ -58,14 +58,14 @@ struct FieldPreviewSection: View {
         return trimmed.isEmpty ? String(localized: "Field Name") : trimmed
     }
 
-    /// Set when the field shows its icon, as for `FieldDefinitionDraft.showsIconBadge`.
+    /// Set when the field shows its icon.
     private var badgeIcon: String? {
-        guard fieldType == .boolean, displayRole != .statusTabs else { return nil }
-        return trimmedLabel(booleanOptions.flagIconName)
+        let icon = booleanOptions.resolvedFlagIconName
+        return displayRole.showsIconBadge(fieldType: fieldType, flagIconName: icon) ? icon : nil
     }
 
     private var isSummaryField: Bool {
-        displayRole == .none && badgeIcon == nil
+        displayRole.isSummaryField(fieldType: fieldType, flagIconName: booleanOptions.resolvedFlagIconName)
     }
 
     var body: some View {
@@ -207,13 +207,12 @@ struct FieldPreviewSection: View {
 
     /// Where `ItemRowView` puts the field, if anywhere.
     private enum ListPlacement {
-        case title, summaryLine, statusChip, badge, iconlessFlag, hidden
+        case title, summaryLine, statusChip, badge, hidden
     }
 
     private var listPlacement: ListPlacement {
         if displayRole == .statusTabs { return .statusChip }
         if badgeIcon != nil { return .badge }
-        if displayRole == .flagFilter { return .iconlessFlag }
         let index = context.fieldsBefore.count(where: \.isSummaryField)
         if index == 0 { return .title }
         return index <= Self.summaryLineCount ? .summaryLine : .hidden
@@ -240,8 +239,6 @@ struct FieldPreviewSection: View {
             "Only the first three fields show in the list. Move \(label) higher in the catalogue's fields to show it."
         case .badge where !boolValue:
             "The icon shows on items where \(label) is on."
-        case .iconlessFlag:
-            "Choose an icon to mark \(label) items in the list."
         default:
             nil
         }
@@ -307,7 +304,7 @@ struct FieldPreviewSection: View {
     }
 
     private var flagIcon: some View {
-        Image(systemName: trimmedLabel(booleanOptions.flagIconName) ?? BooleanOptions.fallbackFilterIconName)
+        Image(systemName: booleanOptions.resolvedFlagIconName ?? BooleanOptions.fallbackFilterIconName)
             .symbolVariant(.fill)
             .foregroundStyle(flagColor ?? .accentColor)
             .accessibilityLabel(label)
@@ -374,7 +371,7 @@ struct FieldPreviewSection: View {
         numberValue = nil
         dateValue = nil
         // An icon only shows when set, so start there whatever the default.
-        boolValue = badgeIcon != nil || displayRole == .flagFilter || booleanOptions.defaultValue
+        boolValue = badgeIcon != nil || booleanOptions.defaultValue
 
         switch fieldType {
         case .text:

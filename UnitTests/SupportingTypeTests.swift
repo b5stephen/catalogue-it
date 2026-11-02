@@ -112,6 +112,35 @@ struct DisplayRoleTests {
     func flagFilterSupportedTypes() {
         #expect(DisplayRole.flagFilter.supportedFieldTypes == [.boolean])
     }
+
+    @Test("A flag filter displays exactly as no role", arguments: [nil, "star"])
+    func flagFilterDisplaysAsNone(icon: String?) {
+        for type in FieldType.allCases {
+            #expect(DisplayRole.flagFilter.isSummaryField(fieldType: type, flagIconName: icon)
+                == DisplayRole.none.isSummaryField(fieldType: type, flagIconName: icon))
+            #expect(DisplayRole.flagFilter.showsIconBadge(fieldType: type, flagIconName: icon)
+                == DisplayRole.none.showsIconBadge(fieldType: type, flagIconName: icon))
+        }
+    }
+
+    @Test("An icon-less Yes/No field is a summary field; with an icon it is a badge")
+    func booleanIconDecidesBadge() {
+        #expect(DisplayRole.flagFilter.isSummaryField(fieldType: .boolean, flagIconName: nil))
+        #expect(!DisplayRole.flagFilter.isSummaryField(fieldType: .boolean, flagIconName: "star"))
+        #expect(DisplayRole.flagFilter.showsIconBadge(fieldType: .boolean, flagIconName: "star"))
+    }
+
+    @Test("A status field is neither a summary field nor a badge")
+    func statusTabsHidesValue() {
+        #expect(!DisplayRole.statusTabs.isSummaryField(fieldType: .boolean, flagIconName: "star"))
+        #expect(!DisplayRole.statusTabs.showsIconBadge(fieldType: .boolean, flagIconName: "star"))
+    }
+
+    @Test("A blank icon name resolves to no icon")
+    func blankIconResolvesToNil() {
+        #expect(BooleanOptions(flagIconName: "  ").resolvedFlagIconName == nil)
+        #expect(BooleanOptions(flagIconName: " star ").resolvedFlagIconName == "star")
+    }
 }
 
 // MARK: - Status Tab Tests

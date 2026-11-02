@@ -5,6 +5,7 @@
 
 import Testing
 import Foundation
+import SwiftData
 @testable import catalogue_it
 
 // MARK: - Field Value Display Tests
@@ -132,5 +133,66 @@ struct FieldValueDisplayTests {
 
         let missing = makeFieldValue(type: .optionList)
         #expect(missing.displayValue().isEmpty)
+    }
+}
+
+// MARK: - Item Field Display Tests
+
+/// A Yes/No field is two-state: no value, or no row at all, reads as No.
+@MainActor
+struct ItemFieldDisplayTests {
+
+    private func makeContainer() throws -> ModelContainer {
+        try ModelContainer(
+            for: Catalogue.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+        )
+    }
+
+    @Test("A Yes/No field with no row reads as off, with the field's false label")
+    func booleanWithoutRow() throws {
+        let ctx = try makeContainer().mainContext
+        let catalogue = Catalogue(name: "Films")
+        ctx.insert(catalogue)
+        let field = FieldDefinition(name: "Watched", fieldType: .boolean, priority: 0)
+        field.fieldOptions = .boolean(BooleanOptions(falseLabel: "Not yet"))
+        field.catalogue = catalogue
+        ctx.insert(field)
+        let item = CatalogueItem()
+        item.catalogue = catalogue
+        ctx.insert(item)
+
+        #expect(!item.isOn(field))
+        #expect(item.displayValue(for: field) == "Not yet")
+    }
+
+    @Test("A Yes/No row with a nil value reads as off")
+    func booleanWithNilValue() throws {
+        let ctx = try makeContainer().mainContext
+        let field = FieldDefinition(name: "Watched", fieldType: .boolean, priority: 0)
+        ctx.insert(field)
+        let item = CatalogueItem()
+        ctx.insert(item)
+        let value = FieldValue(fieldDefinition: field, fieldType: .boolean)
+        value.item = item
+        ctx.insert(value)
+
+        #expect(!item.isOn(field))
+        #expect(item.displayValue(for: field) == "No")
+
+        value.boolValue = true
+        #expect(item.isOn(field))
+        #expect(item.displayValue(for: field) == "Yes")
+    }
+
+    @Test("Other field types with no row stay empty")
+    func textWithoutRow() throws {
+        let ctx = try makeContainer().mainContext
+        let field = FieldDefinition(name: "Title", fieldType: .text, priority: 0)
+        ctx.insert(field)
+        let item = CatalogueItem()
+        ctx.insert(item)
+
+        #expect(item.displayValue(for: field).isEmpty)
     }
 }

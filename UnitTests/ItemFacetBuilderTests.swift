@@ -114,6 +114,25 @@ struct ItemFacetBuilderTests {
         #expect(item.statusValue == ItemFacetBuilder.boolFalseToken)
     }
 
+    @Test("A boolean status with no FieldValue row at all falls to the false side")
+    func booleanStatusWithoutRowDefaultsToFalse() throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let catalogue = Catalogue(name: "Films")
+        ctx.insert(catalogue)
+        let status = FieldDefinition(name: "Wishlist", fieldType: .boolean, priority: 0, displayRole: .statusTabs)
+        status.catalogue = catalogue
+        ctx.insert(status)
+
+        // An item that predates the field has no row for it.
+        let item = CatalogueItem()
+        item.catalogue = catalogue
+        ctx.insert(item)
+
+        ItemFacetBuilder.apply(to: item, fieldValues: item.fieldValues, definitions: catalogue.fieldDefinitions)
+        #expect(item.statusValue == ItemFacetBuilder.boolFalseToken)
+    }
+
     @Test("An item with no value for the status field has no status")
     func missingStatusValue() throws {
         let container = try makeContainer()

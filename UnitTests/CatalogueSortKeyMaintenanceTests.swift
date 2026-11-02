@@ -159,10 +159,29 @@ struct CatalogueSortKeyMaintenanceTests {
         await DerivedDataBackfill.runIfNeeded(in: ctx, defaults: defaults)
         #expect(item.searchText == "qantas a380")
         #expect(defaults.integer(forKey: DerivedDataBackfill.searchTextVersionKey) == SearchTextBuilder.formatVersion)
+        #expect(defaults.integer(forKey: DerivedDataBackfill.sortKeyVersionKey) == SortKeyEncoder.formatVersion)
 
         item.searchText = "stale again"
         try ctx.save()
         await DerivedDataBackfill.runIfNeeded(in: ctx, defaults: defaults)
         #expect(item.searchText == "stale again", "an up-to-date device must not sweep again")
+    }
+
+    @Test("A device behind only on the sort-key format still sweeps")
+    func backfillRunsForSortKeyFormatAlone() async throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let (_, item, _, _) = makeCatalogue(in: ctx)
+        item.searchText = "stale"
+        try ctx.save()
+
+        let suiteName = "DerivedDataBackfillTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(SearchTextBuilder.formatVersion, forKey: DerivedDataBackfill.searchTextVersionKey)
+
+        await DerivedDataBackfill.runIfNeeded(in: ctx, defaults: defaults)
+        #expect(item.searchText == "qantas a380")
+        #expect(defaults.integer(forKey: DerivedDataBackfill.sortKeyVersionKey) == SortKeyEncoder.formatVersion)
     }
 }

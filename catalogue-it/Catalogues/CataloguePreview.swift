@@ -29,7 +29,10 @@ struct CataloguePreviewItem: Identifiable {
         self.item = item
         var values: [PersistentIdentifier: PreviewFieldValue] = [:]
         for definition in definitions {
-            guard let fieldValue = item.value(for: definition) else { continue }
+            guard let fieldValue = item.value(for: definition) else {
+                if definition.fieldType == .boolean { values[definition.persistentModelID] = .bool(false) }
+                continue
+            }
             let value: PreviewFieldValue? = switch fieldValue.fieldType {
             case .text, .optionList:
                 fieldValue.textValue.flatMap { $0.isEmpty ? nil : .text($0) }
@@ -182,7 +185,7 @@ struct CataloguePreviewModel {
             return option.map { .text($0) }
         case .boolean:
             // An icon only shows when set.
-            return .bool(field.showsIconBadge || field.displayRole == .flagFilter || field.booleanOptions.defaultValue)
+            return .bool(field.showsIconBadge || field.booleanOptions.defaultValue)
         }
     }
 }

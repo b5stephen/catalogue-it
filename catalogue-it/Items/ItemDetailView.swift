@@ -27,31 +27,25 @@ struct ItemDetailView: View {
     // MARK: - Computed
 
     private var primaryValue: String {
-        guard let firstDef = catalogue.sortedFieldDefinitions
-            .first,
-              let val = item.value(for: firstDef),
-              !val.displayValue(options: firstDef.fieldOptions).isEmpty
-        else { return "Untitled Item" }
-        return val.displayValue(options: firstDef.fieldOptions)
+        guard let firstDef = catalogue.sortedFieldDefinitions.first else { return "Untitled Item" }
+        let text = item.displayValue(for: firstDef)
+        return text.isEmpty ? "Untitled Item" : text
     }
 
     private var sortedPhotos: [ItemPhoto] {
         item.photos.sorted { $0.priority < $1.priority }
     }
 
-    private var displayFields: [(FieldDefinition, FieldValue)] {
-        catalogue.sortedFieldDefinitions
-            .compactMap { def in
-                guard let val = item.value(for: def), !val.displayValue(options: def.fieldOptions).isEmpty else { return nil }
-                return (def, val)
-            }
+    private var displayFields: [FieldDefinition] {
+        catalogue.sortedFieldDefinitions.filter { !item.displayValue(for: $0).isEmpty }
     }
 
     private var shareText: String {
         var lines: [String] = []
         for def in catalogue.sortedFieldDefinitions {
-            if let val = item.value(for: def) {
-                lines.append("\(def.name): \(val.displayValue(options: def.fieldOptions))")
+            let text = item.displayValue(for: def)
+            if !text.isEmpty {
+                lines.append("\(def.name): \(text)")
             }
         }
         if let notes = item.notes, !notes.isEmpty {
@@ -86,7 +80,7 @@ struct ItemDetailView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     if !displayFields.isEmpty {
                         CatalogueSectionCard(title: "Details", catalogue: catalogue) {
-                            ItemFieldsSection(fields: displayFields, layout: catalogue.layoutOptions.detailLabelLayout)
+                            ItemFieldsSection(item: item, fields: displayFields, layout: catalogue.layoutOptions.detailLabelLayout)
                         }
                     }
 

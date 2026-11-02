@@ -55,19 +55,17 @@ extension FieldDefinitionDraft {
 
     /// `nil` means no custom icon, as for `FieldDefinition.flagIconName`.
     var flagIconName: String? {
-        let name = booleanOptions.flagIconName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let name, !name.isEmpty else { return nil }
-        return name
+        booleanOptions.resolvedFlagIconName
     }
 
-    /// As for `FieldDefinition.showsIconBadge`.
+    /// See `DisplayRole.showsIconBadge`.
     var showsIconBadge: Bool {
-        fieldType == .boolean && displayRole != .statusTabs && flagIconName != nil
+        displayRole.showsIconBadge(fieldType: fieldType, flagIconName: flagIconName)
     }
 
-    /// As for `FieldDefinition.isSummaryField`.
+    /// See `DisplayRole.isSummaryField`.
     var isSummaryField: Bool {
-        displayRole == .none && !showsIconBadge
+        displayRole.isSummaryField(fieldType: fieldType, flagIconName: flagIconName)
     }
 
     /// Currency shows a sample, whose symbol says more than words. A sample of a plain number

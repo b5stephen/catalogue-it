@@ -50,7 +50,7 @@ enum CatalogueExporter {
                         cell = fv.textValue ?? ""
                     }
                 } else {
-                    cell = ""
+                    cell = field.fieldType == .boolean ? "No" : ""
                 }
                 cells.append(cell)
             }

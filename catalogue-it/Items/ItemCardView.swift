@@ -20,11 +20,10 @@ struct ItemCardView: View {
               let first = catalogue.fieldDefinitions
                   .filter(\.isSummaryField)
                   .sorted(by: FieldDefinition.isOrderedBefore)
-                  .first,
-              let fv = item.value(for: first),
-              !fv.displayValue(options: first.fieldOptions).isEmpty
+                  .first
         else { return "Untitled Item" }
-        return fv.displayValue(options: first.fieldOptions)
+        let text = item.displayValue(for: first)
+        return text.isEmpty ? "Untitled Item" : text
     }
 
     private var statusChip: (label: String, tint: Color)? {
@@ -39,7 +38,7 @@ struct ItemCardView: View {
     private var setFlagFields: [FieldDefinition] {
         guard let catalogue = item.catalogue else { return [] }
         return catalogue.iconBadgeFields
-            .filter { item.value(for: $0)?.boolValue == true }
+            .filter { item.isOn($0) }
             .prefix(3)
             .map { $0 }
     }

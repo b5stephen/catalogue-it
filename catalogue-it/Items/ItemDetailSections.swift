@@ -82,26 +82,27 @@ private func copyToClipboard(_ string: String) {
 // MARK: - Item Fields Section
 
 struct ItemFieldsSection: View {
-    let fields: [(FieldDefinition, FieldValue)]
+    let item: CatalogueItem
+    let fields: [FieldDefinition]
     let layout: DetailLabelLayout
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(fields, id: \.0.id) { def, val in
-                let isLast = def.id == fields.last?.0.id
+            ForEach(fields) { def in
+                let isLast = def.id == fields.last?.id
                 if def.isStatusField {
-                    StatusFieldRowView(field: def, value: val, layout: layout, isLast: isLast)
+                    StatusFieldRowView(field: def, item: item, layout: layout, isLast: isLast)
                 } else if def.showsIconBadge, let icon = def.flagIconName {
                     ViewFieldRowView(label: def.name, layout: layout, isLast: isLast) {
                         BooleanValueLabel(
                             icon: icon,
                             color: def.flagColor,
-                            isOn: val.boolValue == true,
-                            text: val.displayValue(options: def.fieldOptions)
+                            isOn: item.isOn(def),
+                            text: item.displayValue(for: def)
                         )
                     }
                 } else {
-                    FieldRowView(label: def.name, value: val.displayValue(options: def.fieldOptions), layout: layout, isLast: isLast)
+                    FieldRowView(label: def.name, value: item.displayValue(for: def), layout: layout, isLast: isLast)
                 }
             }
         }
@@ -112,13 +113,13 @@ struct ItemFieldsSection: View {
 
 private struct StatusFieldRowView: View {
     let field: FieldDefinition
-    let value: FieldValue
+    let item: CatalogueItem
     let layout: DetailLabelLayout
     var isLast: Bool = false
 
-    /// From the field value, not `statusValue`, so it shows what is actually stored.
+    /// From the field values, not `statusValue`, so it shows what is actually stored.
     private var storedValue: String {
-        ItemFacetBuilder.statusValue(from: [value], definitions: [field])
+        ItemFacetBuilder.statusValue(from: item.fieldValues, definitions: [field])
     }
 
     var body: some View {

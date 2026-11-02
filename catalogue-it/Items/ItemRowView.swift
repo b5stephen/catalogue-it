@@ -36,15 +36,13 @@ struct ItemRowView: View {
 
     /// Read from the values, not `flagKeys`, which only mirrors filter fields.
     private var setFlagFields: [FieldDefinition] {
-        catalogue.iconBadgeFields.filter { item.value(for: $0)?.boolValue == true }
+        catalogue.iconBadgeFields.filter { item.isOn($0) }
     }
 
     private var primaryValue: String {
-        guard let first = summaryFields.first,
-              let fv = item.value(for: first),
-              !fv.displayValue(options: first.fieldOptions).isEmpty
-        else { return "Untitled Item" }
-        return fv.displayValue(options: first.fieldOptions)
+        guard let first = summaryFields.first else { return "Untitled Item" }
+        let text = item.displayValue(for: first)
+        return text.isEmpty ? "Untitled Item" : text
     }
 
     private var fieldSummaries: [(name: String, value: String)] {
@@ -52,9 +50,8 @@ struct ItemRowView: View {
             .dropFirst()
             .prefix(2)
             .compactMap { field in
-                guard let fv = item.value(for: field),
-                      !fv.displayValue(options: field.fieldOptions).isEmpty else { return nil }
-                return (name: field.name, value: fv.displayValue(options: field.fieldOptions))
+                let text = item.displayValue(for: field)
+                return text.isEmpty ? nil : (name: field.name, value: text)
             }
     }
 

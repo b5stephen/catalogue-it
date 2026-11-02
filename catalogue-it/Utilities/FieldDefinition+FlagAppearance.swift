@@ -12,9 +12,7 @@ import SwiftUI
 extension FieldDefinition {
 
     var flagIconName: String? {
-        let name = booleanOptions?.flagIconName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let name, !name.isEmpty else { return nil }
-        return name
+        booleanOptions?.resolvedFlagIconName
     }
 
     /// `nil` leaves it in the accent colour.
@@ -24,15 +22,13 @@ extension FieldDefinition {
         return Color(hex: hex)
     }
 
-    /// A Yes/No field with an icon is a badge on rows and cards rather than a summary line, and a
-    /// tappable tile in the edit sheet. The tab bar's chips stand in for it on a status field.
+    /// See `DisplayRole.showsIconBadge`.
     var showsIconBadge: Bool {
-        fieldType == .boolean && displayRole != .statusTabs && flagIconName != nil
+        displayRole.showsIconBadge(fieldType: fieldType, flagIconName: flagIconName)
     }
 
-    /// Eligible for an item row's title and summary lines. A flag filter without an icon stays
-    /// eligible: its role only adds a filter, it doesn't change how the value displays.
+    /// See `DisplayRole.isSummaryField`.
     var isSummaryField: Bool {
-        displayRole != .statusTabs && !showsIconBadge
+        displayRole.isSummaryField(fieldType: fieldType, flagIconName: flagIconName)
     }
 }

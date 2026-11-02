@@ -25,4 +25,25 @@ extension DisplayRole {
         case .flagFilter: [.boolean]
         }
     }
+
+    /// A flag filter only adds a toolbar filter, so it displays exactly as `.none`; only the tab
+    /// bar's chips stand in for a field's value on items. Every display rule below goes through
+    /// this, so saved fields, drafts and the editor's preview can't disagree.
+    var displaysValueOnItems: Bool {
+        switch self {
+        case .none, .flagFilter: true
+        case .statusTabs: false
+        }
+    }
+
+    /// A Yes/No field with an icon is a badge on rows and cards rather than a summary line, and a
+    /// tappable tile in the edit sheet. Pass `BooleanOptions.resolvedFlagIconName`.
+    func showsIconBadge(fieldType: FieldType, flagIconName: String?) -> Bool {
+        displaysValueOnItems && fieldType == .boolean && flagIconName != nil
+    }
+
+    /// Eligible for an item row's title and summary lines.
+    func isSummaryField(fieldType: FieldType, flagIconName: String?) -> Bool {
+        displaysValueOnItems && !showsIconBadge(fieldType: fieldType, flagIconName: flagIconName)
+    }
 }

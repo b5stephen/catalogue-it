@@ -58,14 +58,14 @@ struct FieldPreviewSection: View {
         return trimmed.isEmpty ? String(localized: "Field Name") : trimmed
     }
 
-    /// Set when the field shows its icon, as for `FieldDefinitionDraft.showsIconBadge`.
+    /// Set when the field shows its icon.
     private var badgeIcon: String? {
-        guard fieldType == .boolean, displayRole != .statusTabs else { return nil }
-        return trimmedLabel(booleanOptions.flagIconName)
+        let icon = booleanOptions.resolvedFlagIconName
+        return displayRole.showsIconBadge(fieldType: fieldType, flagIconName: icon) ? icon : nil
     }
 
     private var isSummaryField: Bool {
-        displayRole != .statusTabs && badgeIcon == nil
+        displayRole.isSummaryField(fieldType: fieldType, flagIconName: booleanOptions.resolvedFlagIconName)
     }
 
     var body: some View {
@@ -304,7 +304,7 @@ struct FieldPreviewSection: View {
     }
 
     private var flagIcon: some View {
-        Image(systemName: trimmedLabel(booleanOptions.flagIconName) ?? BooleanOptions.fallbackFilterIconName)
+        Image(systemName: booleanOptions.resolvedFlagIconName ?? BooleanOptions.fallbackFilterIconName)
             .symbolVariant(.fill)
             .foregroundStyle(flagColor ?? .accentColor)
             .accessibilityLabel(label)

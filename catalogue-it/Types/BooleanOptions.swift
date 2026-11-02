@@ -39,6 +39,13 @@ nonisolated struct BooleanOptions: Codable, Equatable {
         )
     }
 
+    /// `nil` when blank, meaning no icon.
+    var resolvedFlagIconName: String? {
+        let name = flagIconName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let name, !name.isEmpty else { return nil }
+        return name
+    }
+
     func label(for value: Bool) -> String {
         let labels = resolvedLabels
         return value ? labels.trueLabel : labels.falseLabel

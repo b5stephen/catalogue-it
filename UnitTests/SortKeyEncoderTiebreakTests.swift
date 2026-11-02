@@ -116,6 +116,38 @@ struct SortKeyEncoderTiebreakTests {
         #expect(key == expected)
     }
 
+    @Test("tiebreakKey reads a Yes/No field with no FieldValue row as No")
+    func missingBooleanSiblingValue() throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+
+        let catalogue = Catalogue(name: "Test", iconName: "star", colorHex: "#000000")
+        ctx.insert(catalogue)
+        let fieldA = FieldDefinition(name: "A", fieldType: .text, priority: 0)
+        let fieldB = FieldDefinition(name: "B", fieldType: .boolean, priority: 1)
+        fieldA.catalogue = catalogue
+        fieldB.catalogue = catalogue
+        ctx.insert(fieldA)
+        ctx.insert(fieldB)
+
+        let item = CatalogueItem()
+        item.catalogue = catalogue
+        ctx.insert(item)
+
+        let fvA = FieldValue(fieldDefinition: fieldA, fieldType: .text)
+        fvA.textValue = "X"
+        fvA.item = item
+        ctx.insert(fvA)
+
+        let key = SortKeyEncoder.tiebreakKey(
+            for: fvA,
+            allFieldValuesOnItem: [fvA],
+            fieldDefinitionsByPriority: [fieldA, fieldB],
+            itemCreatedDate: item.createdDate
+        )
+        #expect(key == "0" + SortKeyEncoder.tiebreakSeparator + iso8601.string(from: item.createdDate))
+    }
+
     // MARK: - Screenshot scenario: Airline tie broken by Aircraft
 
     @Test("Airline tie is broken by Aircraft, matching the reported bug's expected order")

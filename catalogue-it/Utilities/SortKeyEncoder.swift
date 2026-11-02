@@ -11,10 +11,21 @@ import Foundation
 /// - Text: lowercased, byte order (not locale-aware).
 /// - Number: offset by `1e12` and formatted `%021.6f`, so practical values are positive and
 ///   zero-padded strings sort numerically.
-/// - Date: ISO 8601. Boolean: "0"/"1". Missing: `missingValueSentinel`, sorting last.
+/// - Date: ISO 8601. Boolean: "0"/"1", with a missing value as "0" (see `CatalogueItem.isOn`).
+/// - Any other missing value: `missingValueSentinel`, sorting last.
+///
+/// Changing a rule: bump `formatVersion` so `DerivedDataBackfill` rewrites the keys once per
+/// device.
 nonisolated enum SortKeyEncoder {
 
+    static let formatVersion = 1
+
     static let missingValueSentinel = "\u{FFFF}"
+
+    /// The key of an item with no `FieldValue` for `definition`.
+    static func absentKey(for definition: FieldDefinition) -> String {
+        definition.fieldType == .boolean ? "0" : missingValueSentinel
+    }
 
     private static let numberOffset: Double = 1e12
 
@@ -47,10 +58,7 @@ nonisolated enum SortKeyEncoder {
             return iso8601.string(from: date)
 
         case .boolean:
-            guard let bool = fieldValue.boolValue else {
-                return missingValueSentinel
-            }
-            return bool ? "1" : "0"
+            return fieldValue.boolValue == true ? "1" : "0"
 
         case .optionList:
             guard let text = fieldValue.textValue, !text.isEmpty else {
@@ -80,7 +88,7 @@ nonisolated extension SortKeyEncoder {
         let ownFieldID = fieldValue.fieldDefinition?.fieldID
         var parts: [String] = []
         for def in fieldDefinitionsByPriority where def.fieldID != ownFieldID {
-            parts.append(preferredValue(for: def, among: allFieldValuesOnItem).map(sortKey(for:)) ?? missingValueSentinel)
+            parts.append(preferredValue(for: def, among: allFieldValuesOnItem).map(sortKey(for:)) ?? absentKey(for: def))
         }
         parts.append(iso8601.string(from: itemCreatedDate))
         let key = parts.joined(separator: tiebreakSeparator)

@@ -52,11 +52,13 @@ nonisolated enum ItemFacetBuilder {
 
     // MARK: - Components
 
-    /// `""` without a valid status field or a value for it.
+    /// `""` without a valid status field or a value for it. A Yes/No status always has one: an
+    /// absent value is false, so the item lands in a tab rather than none.
     static func statusValue(from fieldValues: [FieldValue], definitions: [FieldDefinition]) -> String {
         guard let statusField = definitions.first(where: { $0.isStatusField }) else { return "" }
-        guard let value = SortKeyEncoder.preferredValue(for: statusField, among: fieldValues)
-        else { return "" }
+        guard let value = SortKeyEncoder.preferredValue(for: statusField, among: fieldValues) else {
+            return statusField.fieldType == .boolean ? boolFalseToken : ""
+        }
 
         switch statusField.fieldType {
         case .optionList:
@@ -66,7 +68,6 @@ nonisolated enum ItemFacetBuilder {
             else { return "" }
             return text
         case .boolean:
-            // Exhaustive: an absent value is false, so the item lands in a tab rather than none.
             return value.boolValue == true ? boolTrueToken : boolFalseToken
         case .text, .number, .date:
             return ""

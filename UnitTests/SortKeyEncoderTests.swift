@@ -110,7 +110,7 @@ struct SortKeyEncoderTests {
 
     // MARK: - Boolean
 
-    @Test("Booleans encode as 0 and 1, with nil as the sentinel")
+    @Test("Booleans encode as 0 and 1, with nil as 0 so it sorts among the No values")
     func booleanEncoding() {
         let falseValue = makeFieldValue(type: .boolean)
         falseValue.boolValue = false
@@ -121,7 +121,7 @@ struct SortKeyEncoderTests {
         #expect(SortKeyEncoder.sortKey(for: trueValue) == "1")
 
         let nilValue = makeFieldValue(type: .boolean)
-        #expect(SortKeyEncoder.sortKey(for: nilValue) == SortKeyEncoder.missingValueSentinel)
+        #expect(SortKeyEncoder.sortKey(for: nilValue) == "0")
     }
 
     // MARK: - Option List

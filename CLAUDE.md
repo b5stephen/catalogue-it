@@ -15,6 +15,9 @@ All code files must be placed in the catalogue-it subfolder. Never place files i
 - `FieldValue` denormalizes field name and type to prevent data loss if definitions change
 - Photos stored as `Data` directly in SwiftData
 - All ordered collections use an explicit `sortOrder: Int` field
+- Yes/No fields are two-state: a nil value, or no `FieldValue` at all (an item that predates the
+  field), is No everywhere — display, status tabs, sort keys. Read them on an item through
+  `CatalogueItem.isOn` / `displayValue(for:)`
 
 ## Code Comments
 
@@ -126,8 +129,8 @@ because of three rules every write path must keep:
   `Catalogue.sortedFieldDefinitions` / `FieldDefinition.isOrderedBefore` (equal priorities
   happen when two devices add a field before a merge); and duplicate `FieldValue`s for one
   definition are read through `SortKeyEncoder.preferredValue`, never `first(where:)`. Bump
-  `SearchTextBuilder.formatVersion` when the blob rules change; `DerivedDataBackfill`
-  rewrites the column once per device.
+  `SearchTextBuilder.formatVersion` when the blob rules change, or `SortKeyEncoder.formatVersion`
+  when the sort-key rules do; `DerivedDataBackfill` rewrites the columns once per device.
 - **Compare before assign.** All recomputation goes through `ItemDerivedColumns.refresh`, which
   writes only what differs, so an already-correct item stays clean and the round trip stops.
   Never bump `modifiedDate` from a recompute.

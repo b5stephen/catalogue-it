@@ -16,7 +16,7 @@ nonisolated enum DisplayRole: String, Codable, CaseIterable {
     case flagFilter = "flagFilter"
 }
 
-extension DisplayRole {
+nonisolated extension DisplayRole {
     /// `.optionList` also needs 2+ options — see `FieldDefinitionValidation`.
     var supportedFieldTypes: Set<FieldType> {
         switch self {

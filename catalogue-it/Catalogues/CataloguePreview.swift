@@ -182,7 +182,7 @@ struct CataloguePreviewModel {
             return option.map { .text($0) }
         case .boolean:
             // An icon only shows when set.
-            return .bool(field.showsIconBadge || field.displayRole == .flagFilter || field.booleanOptions.defaultValue)
+            return .bool(field.showsIconBadge || field.booleanOptions.defaultValue)
         }
     }
 }

@@ -30,8 +30,9 @@ extension FieldDefinition {
         fieldType == .boolean && displayRole != .statusTabs && flagIconName != nil
     }
 
-    /// Eligible for an item row's title and summary lines.
+    /// Eligible for an item row's title and summary lines. A flag filter without an icon stays
+    /// eligible: its role only adds a filter, it doesn't change how the value displays.
     var isSummaryField: Bool {
-        displayRole == .none && !showsIconBadge
+        displayRole != .statusTabs && !showsIconBadge
     }
 }

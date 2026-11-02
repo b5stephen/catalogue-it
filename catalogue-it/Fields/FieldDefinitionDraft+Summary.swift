@@ -67,7 +67,7 @@ extension FieldDefinitionDraft {
 
     /// As for `FieldDefinition.isSummaryField`.
     var isSummaryField: Bool {
-        displayRole == .none && !showsIconBadge
+        displayRole != .statusTabs && !showsIconBadge
     }
 
     /// Currency shows a sample, whose symbol says more than words. A sample of a plain number

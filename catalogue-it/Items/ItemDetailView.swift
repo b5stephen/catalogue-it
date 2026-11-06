@@ -11,7 +11,6 @@ import SwiftData
 // MARK: - Item Detail View
 
 struct ItemDetailView: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.hasDetailColumn) private var hasDetailColumn
 
@@ -138,7 +137,6 @@ struct ItemDetailView: View {
                     Button("Delete", role: .destructive) {
                         selectedItem = nil
                         item.deletedDate = Date.now
-                        dismiss()
                     }
                     Button("Cancel", role: .cancel) {}
                 } message: {
@@ -173,7 +171,6 @@ struct ItemDetailView: View {
                     Button("Delete", role: .destructive) {
                         selectedItem = nil
                         item.deletedDate = Date.now
-                        dismiss()
                     }
                     Button("Cancel", role: .cancel) {}
                 } message: {

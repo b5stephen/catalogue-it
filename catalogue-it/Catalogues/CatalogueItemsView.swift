@@ -29,6 +29,10 @@ struct CatalogueItemsView<Header: View>: View {
     @State private var scrollPosition = ScrollPosition()
     // The most recently tapped item, to restore the scroll position after a force reset.
     @State private var scrollAnchorID: PersistentIdentifier?
+    @State private var itemToEdit: CatalogueItem?
+    @State private var itemToDuplicate: CatalogueItem?
+    /// Offered for undo until the toast times out or another item is deleted.
+    @State private var lastDeletedItem: CatalogueItem?
 
     private var filterFingerprint: FilterFingerprint {
         FilterFingerprint(
@@ -74,6 +78,7 @@ struct CatalogueItemsView<Header: View>: View {
                         hasMore: pagination.hasMore,
                         isLoadingMore: pagination.isLoadingMore,
                         onLoadMore: { pagination.loadMore(context: modelContext) },
+                        actions: cardActions,
                         header: { header }
                     )
                 case .list:
@@ -86,6 +91,7 @@ struct CatalogueItemsView<Header: View>: View {
                         hasMore: pagination.hasMore,
                         isLoadingMore: pagination.isLoadingMore,
                         onLoadMore: { pagination.loadMore(context: modelContext) },
+                        actions: cardActions,
                         header: { header }
                     )
                 }
@@ -133,5 +139,53 @@ struct CatalogueItemsView<Header: View>: View {
         .onDisappear {
             pagination.stopObservingStoreChanges()
         }
+        .sheet(item: $itemToEdit) { item in
+            AddEditItemView(catalogue: catalogue, item: item)
+        }
+        .sheet(item: $itemToDuplicate) { item in
+            AddEditItemView(catalogue: catalogue, duplicateSource: item)
+        }
+        .overlay(alignment: .bottom) {
+            if lastDeletedItem != nil {
+                ItemDeletedToast { undoDelete() }
+                    .padding(.bottom, 12)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.snappy, value: lastDeletedItem)
+        .task(id: lastDeletedItem) {
+            guard lastDeletedItem != nil else { return }
+            try? await Task.sleep(for: .seconds(5))
+            if !Task.isCancelled { lastDeletedItem = nil }
+        }
+    }
+
+    // MARK: - Card Actions
+
+    private var cardActions: ItemCardActions {
+        ItemCardActions(
+            edit: { itemToEdit = $0 },
+            duplicate: { itemToDuplicate = $0 },
+            delete: { softDelete($0) }
+        )
+    }
+
+    /// Saved at once: the list reloads on a save, so the row would otherwise linger until autosave.
+    private func softDelete(_ item: CatalogueItem) {
+        if selectedItem == item {
+            selectedItem = nil
+        }
+        item.deletedDate = Date.now
+        try? modelContext.save()
+        lastDeletedItem = item
+    }
+
+    private func undoDelete() {
+        guard let item = lastDeletedItem else { return }
+        lastDeletedItem = nil
+        // Purged from Recently Deleted while the toast was up.
+        guard item.modelContext != nil else { return }
+        item.deletedDate = nil
+        try? modelContext.save()
     }
 }

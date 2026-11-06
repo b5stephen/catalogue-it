@@ -21,11 +21,14 @@ struct ItemListView<Header: View>: View {
     let hasMore: Bool
     let isLoadingMore: Bool
     let onLoadMore: () -> Void
+    let actions: ItemCardActions
     @ViewBuilder let header: Header
 
 #if !os(macOS)
     @Environment(\.hasDetailColumn) private var hasDetailColumn
 #endif
+
+    private let cardShape = RoundedRectangle(cornerRadius: AppConstants.CornerRadius.card, style: .continuous)
 
     private var headerRow: some View {
         header
@@ -47,6 +50,8 @@ struct ItemListView<Header: View>: View {
                 ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip, showPhoto: showPhotos)
                     .itemCard(in: catalogue, isSelected: hasDetailColumn && selectedItem == item)
                     .onTapGesture { selectedItem = item }
+                    .itemCardContextMenu(item, actions: actions, shape: cardShape)
+                    .itemCardSwipeActions(item, actions: actions)
                     .tag(item)
                     .cardRow()
             }
@@ -70,6 +75,8 @@ struct ItemListView<Header: View>: View {
             ForEach(items) { item in
                 ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip, showPhoto: showPhotos)
                     .itemCard(in: catalogue, isSelected: selectedItem == item)
+                    .itemCardContextMenu(item, actions: actions, shape: cardShape)
+                    .itemCardSwipeActions(item, actions: actions)
                     .tag(item)
                     .cardRow()
             }

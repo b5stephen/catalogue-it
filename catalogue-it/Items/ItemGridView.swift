@@ -19,6 +19,7 @@ struct ItemGridView<Header: View>: View {
     let hasMore: Bool
     let isLoadingMore: Bool
     let onLoadMore: () -> Void
+    let actions: ItemCardActions
     @ViewBuilder let header: Header
 
     // Pushed, the border would flash for a frame before the push covers it.
@@ -48,6 +49,7 @@ struct ItemGridView<Header: View>: View {
             ForEach(items) { item in
                 ItemCardView(item: item, showStatusChip: showStatusChip)
                     .onTapGesture { selectedItem = item }
+                    .itemCardContextMenu(item, actions: actions, shape: RoundedRectangle(cornerRadius: AppConstants.CornerRadius.medium))
                     .overlay {
                         if showsSelectionBorder && selectedItem == item {
                             RoundedRectangle(cornerRadius: AppConstants.CornerRadius.medium)
@@ -136,6 +138,7 @@ struct ItemGridView<Header: View>: View {
         hasMore: false,
         isLoadingMore: false,
         onLoadMore: {},
+        actions: .none,
         header: { Text("Model Planes").font(.title2.bold()).padding() }
     )
     .modelContainer(container)

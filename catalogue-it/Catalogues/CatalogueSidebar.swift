@@ -57,11 +57,14 @@ struct CatalogueSidebar: View {
                 }
                 .tint(.blue)
 
-                Button(role: .destructive) {
+                // Not `role: .destructive`: in a swipe action that removes the row at once, before the
+                // confirmation dialog is answered.
+                Button {
                     onDelete(catalogue)
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
+                .tint(.red)
             }
     }
 }

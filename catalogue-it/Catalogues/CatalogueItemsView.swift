@@ -184,7 +184,7 @@ struct CatalogueItemsView<Header: View>: View {
         guard let item = lastDeletedItem else { return }
         lastDeletedItem = nil
         // Purged from Recently Deleted while the toast was up.
-        guard !item.isDeleted, item.modelContext != nil else { return }
+        guard item.modelContext != nil else { return }
         item.deletedDate = nil
         try? modelContext.save()
     }

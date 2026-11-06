@@ -52,7 +52,7 @@ struct ItemGridView<Header: View>: View {
                     .itemCardContextMenu(item, actions: actions, shape: RoundedRectangle(cornerRadius: AppConstants.CornerRadius.medium))
                     .overlay {
                         if showsSelectionBorder && selectedItem == item {
-                            RoundedRectangle(shape: RoundedRectangle(cornerRadius: AppConstants.CornerRadius.medium))
+                            RoundedRectangle(cornerRadius: AppConstants.CornerRadius.medium)
                                 .strokeBorder(.tint, lineWidth: 2.5)
                         }
                     }

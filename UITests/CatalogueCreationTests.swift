@@ -24,8 +24,10 @@ final class CatalogueCreationTests: XCTestCase {
     }
 
     func testCreateCatalogueWithAllFieldTypes() throws {
+        // The app sits at 0% CPU throughout, so this is a UIKit animation whose completion never
+        // fires (it follows the swipe on the form sheet), not work a user would notice.
         try XCTSkipIf(UIDevice.current.userInterfaceIdiom == .pad,
-                      "On iPad the app stops reporting idle once a second field is typed, so every step waits out XCTest's 2-minute timeout")
+                      "On iPad, after the form sheet is swiped, the app never reports its animations complete, so every later step waits out XCTest's 2-minute idle timeout")
 
         // Open the new catalogue sheet.
         let addButton = app.buttons["Add Catalogue"]

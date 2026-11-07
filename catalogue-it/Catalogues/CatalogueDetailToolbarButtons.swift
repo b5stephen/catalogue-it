@@ -50,10 +50,31 @@ struct AddItemButton: View {
     }
 }
 
+// MARK: - Flag Filter Toggles
+
+/// One toggle per flag, for placing inside a menu, where a toggle shows its state as a checkmark.
+struct FlagFilterToggles: View {
+    let flagFields: [FieldDefinition]
+    @Binding var activeFlagIDs: Set<UUID>
+
+    var body: some View {
+        ForEach(flagFields) { flag in
+            Toggle(isOn: Binding(
+                get: { activeFlagIDs.contains(flag.fieldID) },
+                set: { isOn in
+                    if isOn { activeFlagIDs.insert(flag.fieldID) } else { activeFlagIDs.remove(flag.fieldID) }
+                }
+            )) {
+                Label(flag.name, systemImage: flag.flagIconName ?? BooleanOptions.fallbackFilterIconName)
+            }
+        }
+    }
+}
+
 // MARK: - Flag Filter Button
 
-/// One flag gets a direct toggle; several collapse into a menu of toggles rather than crowding
-/// the bar. Renders nothing without flags.
+/// For a bar with room for it: one flag gets a direct toggle; several collapse into a menu of
+/// toggles rather than crowding the bar. Renders nothing without flags.
 struct FlagFilterButton: View {
     let flagFields: [FieldDefinition]
     @Binding var activeFlagIDs: Set<UUID>
@@ -63,32 +84,17 @@ struct FlagFilterButton: View {
     var body: some View {
         if flagFields.count == 1, let flag = flagFields.first {
             let isActive = activeFlagIDs.contains(flag.fieldID)
-#if os(iOS)
-            // A `.secondaryAction` always lands in the overflow menu, where a toggle gets a checkmark
-            // and a filled symbol says nothing.
-            Toggle(isOn: Binding(get: { isActive }, set: { _ in toggle(flag.fieldID) })) {
-                Label(flag.name, systemImage: flag.flagIconName ?? BooleanOptions.fallbackFilterIconName)
-            }
-#else
             Button {
-                toggle(flag.fieldID)
+                if isActive { activeFlagIDs.remove(flag.fieldID) } else { activeFlagIDs.insert(flag.fieldID) }
             } label: {
                 Label(flag.name, systemImage: flag.flagIconName ?? BooleanOptions.fallbackFilterIconName)
             }
             // `.symbolVariant` rather than a ".fill" name, so a symbol with no filled form still renders.
             .symbolVariant(isActive ? .fill : .none)
             .tint(isActive ? flag.flagColor : nil)
-#endif
         } else if flagFields.count > 1 {
             Menu {
-                ForEach(flagFields) { flag in
-                    Toggle(isOn: Binding(
-                        get: { activeFlagIDs.contains(flag.fieldID) },
-                        set: { _ in toggle(flag.fieldID) }
-                    )) {
-                        Label(flag.name, systemImage: flag.flagIconName ?? BooleanOptions.fallbackFilterIconName)
-                    }
-                }
+                FlagFilterToggles(flagFields: flagFields, activeFlagIDs: $activeFlagIDs)
                 if isAnyActive {
                     Divider()
                     Button("Clear Filters", systemImage: "xmark.circle") {
@@ -103,14 +109,6 @@ struct FlagFilterButton: View {
                         : "line.3.horizontal.decrease.circle"
                 )
             }
-        }
-    }
-
-    private func toggle(_ fieldID: UUID) {
-        if activeFlagIDs.contains(fieldID) {
-            activeFlagIDs.remove(fieldID)
-        } else {
-            activeFlagIDs.insert(fieldID)
         }
     }
 }

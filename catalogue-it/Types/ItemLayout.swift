@@ -5,11 +5,15 @@
 //  Created by Stephen Denekamp on 17/03/2026.
 //
 
+import Foundation
+
 // MARK: - Item Layout
 
-enum ItemLayout: String, CaseIterable {
+enum ItemLayout: String, CaseIterable, Identifiable {
     case grid  = "grid"
     case list  = "list"
+
+    var id: Self { self }
 
     var next: ItemLayout {
         switch self {
@@ -18,12 +22,21 @@ enum ItemLayout: String, CaseIterable {
         }
     }
 
-    var nextLayoutIcon: String {
+    var title: LocalizedStringResource {
         switch self {
-        case .grid: "list.bullet"
-        case .list: "square.grid.2x2"
+        case .grid: "Gallery"
+        case .list: "List"
         }
     }
+
+    var icon: String {
+        switch self {
+        case .grid: "square.grid.2x2"
+        case .list: "list.bullet"
+        }
+    }
+
+    var nextLayoutIcon: String { next.icon }
 
     var nextLayoutLabel: String {
         switch self {

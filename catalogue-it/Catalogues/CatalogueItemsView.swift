@@ -19,6 +19,8 @@ struct CatalogueItemsView<Header: View>: View {
     @Binding var sortDirection: String
     @Binding var selectedItem: CatalogueItem?
     @Binding var displayedCount: Int
+    /// `displayedCount` without the flag filters.
+    @Binding var unflaggedCount: Int
     let scrollState: BandScrollState
     /// Scrolling past this is of no interest to `scrollState`'s reader; zero stops the reports.
     let trackedScrollRange: CGFloat
@@ -148,6 +150,9 @@ struct CatalogueItemsView<Header: View>: View {
         }
         .onChange(of: pagination.totalCount) {
             displayedCount = pagination.totalCount
+        }
+        .onChange(of: pagination.unflaggedCount) {
+            unflaggedCount = pagination.unflaggedCount
         }
         .onDisappear {
             pagination.stopObservingStoreChanges()

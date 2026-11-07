@@ -157,17 +157,13 @@ struct CatalogueBand<Accessory: View>: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     let catalogue: Catalogue
-    let itemCount: Int
+    let countLabel: String
     let scrollState: BandScrollState
     @Binding var height: CGFloat
     @Binding var isTitleCollapsed: Bool
     @ViewBuilder let accessory: Accessory
 
     @State private var titleHeight: CGFloat = 0
-
-    private var countLabel: String {
-        itemCount == 1 ? "1 item" : "\(itemCount) items"
-    }
 
     var body: some View {
         let palette = catalogue.palette(

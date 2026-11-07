@@ -320,10 +320,11 @@ nonisolated struct ItemQuery {
     static func matchingCount(
         fingerprint: FilterFingerprint,
         context: ModelContext,
-        ignoreSearch: Bool = false
+        ignoreSearch: Bool = false,
+        ignoreFlags: Bool = false
     ) throws -> Int {
         let predicate = makePredicate(fingerprint: fingerprint, ignoreSearch: ignoreSearch)
-        let tokens = fingerprint.flagTokens
+        let tokens = ignoreFlags ? [] : fingerprint.flagTokens
         guard !tokens.isEmpty else {
             return try context.fetchCount(FetchDescriptor<CatalogueItem>(predicate: predicate))
         }

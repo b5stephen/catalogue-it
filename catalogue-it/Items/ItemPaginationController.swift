@@ -27,6 +27,8 @@ final class ItemPaginationController {
     private(set) var isLoadingMore = false
     private(set) var hasMore = false
     private(set) var totalCount = 0
+    /// `totalCount` without the flag filters, which hide items with no other sign on screen.
+    private(set) var unflaggedCount = 0
     /// Tells "catalogue is empty" from "search found nothing".
     private(set) var hasAnyItems = false
 
@@ -72,6 +74,7 @@ final class ItemPaginationController {
         do {
             let query = try ItemQuery(fingerprint: fingerprint, context: context)
             totalCount = query.totalCount
+            unflaggedCount = (try? Self.countWithoutFlags(fingerprint: fingerprint, context: context, matching: totalCount)) ?? totalCount
             hasAnyItems = query.hasAnyItems
             hasMore = query.hasMore
             self.query = query
@@ -177,7 +180,18 @@ final class ItemPaginationController {
             return
         }
 
-        guard (try? ItemQuery.matchingCount(fingerprint: fp, context: ctx)) != totalCount else { return }
-        reset(fingerprint: fp, context: ctx, force: true)
+        guard (try? ItemQuery.matchingCount(fingerprint: fp, context: ctx)) == totalCount else {
+            reset(fingerprint: fp, context: ctx, force: true)
+            return
+        }
+        // A save the flag filters hide leaves the list as it is but changes what they hide.
+        if let unflagged = try? Self.countWithoutFlags(fingerprint: fp, context: ctx, matching: totalCount) {
+            unflaggedCount = unflagged
+        }
+    }
+
+    private static func countWithoutFlags(fingerprint: FilterFingerprint, context: ModelContext, matching: Int) throws -> Int {
+        guard !fingerprint.flagTokens.isEmpty else { return matching }
+        return try ItemQuery.matchingCount(fingerprint: fingerprint, context: context, ignoreFlags: true)
     }
 }

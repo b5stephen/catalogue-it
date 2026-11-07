@@ -133,7 +133,71 @@ struct ItemFilterCompositionTests {
         return (titles.sorted(), controller.totalCount)
     }
 
+    private func controller(
+        _ fixture: Fixture,
+        statusTab: StatusTab,
+        flags: [UUID] = []
+    ) -> ItemPaginationController {
+        let controller = ItemPaginationController()
+        controller.reset(
+            fingerprint: FilterFingerprint(
+                catalogueID: fixture.catalogue.persistentModelID,
+                statusTab: statusTab,
+                activeFlagIDs: flags,
+                searchText: "",
+                sortFieldKey: ItemSortField.dateAdded.rawValue,
+                sortDirection: ItemSortDirection.ascending.rawValue
+            ),
+            context: fixture.container.mainContext
+        )
+        return controller
+    }
+
     // MARK: - Tests
+
+    @Test("Without flags, the unflagged count is the total")
+    func unflaggedCountWithoutFlags() throws {
+        let fixture = try makeFixture()
+        let controller = controller(fixture, statusTab: .option("Owned"))
+        #expect(controller.totalCount == 4)
+        #expect(controller.unflaggedCount == 4)
+    }
+
+    @Test("With flags, the unflagged count keeps the tab but drops every flag")
+    func unflaggedCountWithFlags() throws {
+        let fixture = try makeFixture()
+        let controller = controller(
+            fixture,
+            statusTab: .option("Owned"),
+            flags: [fixture.favourite.fieldID, fixture.forSale.fieldID]
+        )
+        #expect(controller.totalCount == 1)
+        #expect(controller.unflaggedCount == 4)
+    }
+
+    @Test("A saved item the flags hide updates the unflagged count")
+    func unflaggedCountFollowsHiddenSave() async throws {
+        let fixture = try makeFixture()
+        let controller = controller(fixture, statusTab: .all, flags: [fixture.favourite.fieldID])
+        controller.startObservingStoreChanges()
+        defer { controller.stopObservingStoreChanges() }
+        #expect(controller.totalCount == 4)
+        #expect(controller.unflaggedCount == 8)
+
+        // No FieldValue for Favourite, so the filter hides it and totalCount stays put.
+        let ctx = fixture.container.mainContext
+        let item = CatalogueItem()
+        ctx.insert(item)
+        item.catalogue = fixture.catalogue
+        try ctx.save()
+
+        // The save notification is delivered through a main-actor Task.
+        for _ in 0..<20 where controller.unflaggedCount != 9 {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        #expect(controller.totalCount == 4)
+        #expect(controller.unflaggedCount == 9)
+    }
 
     @Test("The All tab returns every item")
     func allTabReturnsEverything() throws {

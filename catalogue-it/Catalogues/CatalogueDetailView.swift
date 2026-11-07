@@ -38,6 +38,7 @@ struct CatalogueDetailView: View {
     @State private var searchText: String = ""
     @State private var appliedSearchText: String = ""
     @State private var displayedCount: Int = 0
+    @State private var unflaggedCount: Int = 0
     @State private var isBandScrolledAway = false
     @State private var bandScroll = BandScrollState()
     @State private var bandHeight: CGFloat = 0
@@ -93,8 +94,18 @@ struct CatalogueDetailView: View {
         String(localized: "\(selectedCount) Selected")
     }
 
+    /// Names the flag filters: the tab and the search field show themselves, a flag otherwise
+    /// shows only as a checkmark in the menu.
     private var itemCountLabel: String {
-        displayedCount == 1 ? "1 item" : "\(displayedCount) items"
+        let activeFlags = flagFields.filter { activeFlagIDs.contains($0.fieldID) }
+        guard !activeFlags.isEmpty else {
+            return displayedCount == 1 ? String(localized: "1 item") : String(localized: "\(displayedCount) items")
+        }
+        // Past two, the names don't fit the iPhone's bar title.
+        let filters = activeFlags.count <= 2
+            ? activeFlags.map(\.name).formatted(.list(type: .and, width: .narrow))
+            : String(localized: "\(activeFlags.count) filters")
+        return String(localized: "\(displayedCount) of \(unflaggedCount) items · \(filters)")
     }
 
     private var statusTabs: [StatusTabDescriptor] {
@@ -166,6 +177,51 @@ struct CatalogueDetailView: View {
                 .accessibilityIdentifier("selectDoneButton")
         }
     }
+
+    /// Grouped by what each entry does: what the list shows, getting items out, the catalogue
+    /// itself. "More" is the label UI tests look for.
+    private var moreMenu: some View {
+        Menu("More", systemImage: "ellipsis") {
+            Section {
+                ControlGroup {
+                    Button("Select", systemImage: "checkmark.circle") { selection.begin() }
+                        .accessibilityIdentifier("selectButton")
+                        .disabled(displayedCount == 0)
+                    // Both layouts, with the current one marked, rather than a button naming the other.
+                    ForEach([ItemLayout.list, .grid]) { layout in
+                        Toggle(isOn: Binding(
+                            get: { catalogue.itemLayout == layout },
+                            set: { if $0 { catalogue.itemLayout = layout } }
+                        )) {
+                            Label(String(localized: layout.title), systemImage: layout.icon)
+                        }
+                    }
+                }
+            }
+            Section {
+                FlagFilterToggles(flagFields: flagFields, activeFlagIDs: $activeFlagIDs)
+                if activeFlagIDs.count > 1 {
+                    Button("Clear Filters", systemImage: "xmark.circle") { activeFlagIDs.removeAll() }
+                }
+                SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
+            }
+            Section {
+                Button("Export…", systemImage: "square.and.arrow.up") { exportCatalogue() }
+                    .keyboardShortcut("e")
+                    .accessibilityIdentifier("exportButton")
+                    .disabled(displayedCount == 0)
+                BackUpMenuItems(catalogue: catalogue) { format in
+                    pendingBackup = [format.itemProvider(for: catalogue)]
+                }
+            }
+            Section {
+                CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
+                if hasRecentlyDeletedItems {
+                    Button("Recently Deleted", systemImage: "trash.circle") { showingRecentlyDeleted = true }
+                }
+            }
+        }
+    }
 #endif
 
     // MARK: - Body
@@ -180,6 +236,7 @@ struct CatalogueDetailView: View {
             sortDirection: $catalogue.sortDirection,
             selectedItem: $selectedItem,
             displayedCount: $displayedCount,
+            unflaggedCount: $unflaggedCount,
             scrollState: bandScroll,
             trackedScrollRange: usesBand ? bandHeight : 0,
             selection: selection,
@@ -202,7 +259,7 @@ struct CatalogueDetailView: View {
         // Inside the tabs' `safeAreaBar`, so the fade runs under them too.
         .washFadeEdge(sharesGlowWithDetail)
 #if os(iOS)
-        // Under the Back Up menu (or the overflow holding it), so the popover points at it.
+        // Under the More menu holding Back Up, so the popover points at it.
         .overlay(alignment: .topTrailing) {
             ShareSheetAnchor(itemProviders: $pendingBackup)
                 .frame(width: 1, height: 1)
@@ -214,7 +271,7 @@ struct CatalogueDetailView: View {
             if usesBand {
                 CatalogueBand(
                     catalogue: catalogue,
-                    itemCount: displayedCount,
+                    countLabel: itemCountLabel,
                     scrollState: bandScroll,
                     height: $bandHeight,
                     isTitleCollapsed: $isBandScrolledAway
@@ -336,57 +393,25 @@ struct CatalogueDetailView: View {
             if selection.isSelecting {
                 selectionToolbar
             } else {
-                // The rest are `.secondaryAction`, kept in the bar while there's room and folded into the
-                // system's overflow when not.
-                ToolbarItem(placement: .primaryAction) {
-                    AddItemButton(showingAddItem: $showingAddItem)
-                }
-                // See `drawsOwnSearchButton`.
+                // Search leads beside a detail column, in the order declared. `.topBarTrailing`, not
+                // `.primaryAction`: under the latter the system search item stays last whatever its
+                // position here. See `drawsOwnSearchButton`.
                 if drawsOwnSearchButton {
-                    ToolbarItem(placement: .primaryAction) {
+                    ToolbarItem(placement: .topBarTrailing) {
                         Button("Search", systemImage: "magnifyingglass") {
                             isSearchPresented = true
                         }
                     }
+                } else if hasDetailColumn {
+                    DefaultToolbarItem(kind: .search, placement: .topBarTrailing)
                 }
-                if !flagFields.isEmpty {
-                    ToolbarItem(placement: .secondaryAction) {
-                        FlagFilterButton(flagFields: flagFields, activeFlagIDs: $activeFlagIDs)
-                    }
+                ToolbarItem(placement: .topBarTrailing) {
+                    AddItemButton(showingAddItem: $showingAddItem)
                 }
-                ToolbarItem(placement: .secondaryAction) {
-                    Button("Select", systemImage: "checkmark.circle") { selection.begin() }
-                        .accessibilityIdentifier("selectButton")
-                        .disabled(displayedCount == 0)
-                }
-                ToolbarItem(placement: .secondaryAction) {
-                    LayoutToggleButton(layout: $catalogue.itemLayout)
-                }
-                ToolbarItem(placement: .secondaryAction) {
-                    SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
-                }
-                ToolbarItem(placement: .secondaryAction) {
-                    Button("Export…", systemImage: "square.and.arrow.up") { exportCatalogue() }
-                        .keyboardShortcut("e")
-                        .accessibilityIdentifier("exportButton")
-                        .disabled(displayedCount == 0)
-                }
-                ToolbarItem(placement: .secondaryAction) {
-                    BackUpMenuItems(catalogue: catalogue) { format in
-                        pendingBackup = [format.itemProvider(for: catalogue)]
-                    }
-                }
-                ToolbarItem(placement: .secondaryAction) {
-                    CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
-                }
-                if hasRecentlyDeletedItems {
-                    ToolbarItem(placement: .secondaryAction) {
-                        Button {
-                            showingRecentlyDeleted = true
-                        } label: {
-                            Label("Recently Deleted", systemImage: "trash.circle")
-                        }
-                    }
+                // Our own menu, not `.secondaryAction` items: on iOS those always fold into the system's
+                // overflow, even with room in the bar, as one ungrouped list.
+                ToolbarItem(placement: .topBarTrailing) {
+                    moreMenu
                 }
             }
 #else

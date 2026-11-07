@@ -5,8 +5,8 @@
 
 import XCTest
 
-/// Select mode on the seeded catalogue's single item: bulk delete with undo, and sharing a
-/// selection through the export composer.
+/// Deleting the seeded catalogue's single item, in select mode and from its card menu, and
+/// sharing a selection through the export composer.
 @MainActor
 final class SelectModeTests: XCTestCase {
     var app: XCUIApplication!
@@ -22,7 +22,7 @@ final class SelectModeTests: XCTestCase {
         app = nil
     }
 
-    func testSelectAllDeleteAndUndo() throws {
+    func testSelectAllAndDelete() throws {
         openCatalogue()
         enterSelectMode()
 
@@ -30,16 +30,30 @@ final class SelectModeTests: XCTestCase {
         XCTAssertTrue(selectedCount("1").waitForExistence(timeout: 3))
 
         app.buttons["selectionDeleteButton"].tap()
-        let confirm = app.buttons["Delete"].firstMatch
-        XCTAssertTrue(confirm.waitForExistence(timeout: 3), "Delete should ask first")
+        XCTAssertTrue(app.staticTexts["Delete 1 Item?"].waitForExistence(timeout: 3), "Delete should ask first")
         app.buttons.matching(identifier: "Delete").allElementsBoundByIndex.last?.tap()
 
-        XCTAssertTrue(app.staticTexts["Moved to Recently Deleted"].waitForExistence(timeout: 5))
-        XCTAssertFalse(row.exists, "The item should leave the list")
+        XCTAssertTrue(row.waitForNonExistence(timeout: 5), "The item should leave the list")
         XCTAssertFalse(app.buttons["selectAllButton"].exists, "Select mode should end")
+    }
 
-        app.buttons["Undo"].tap()
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "Undo should bring the item back")
+    func testCardMenuDeleteAsksFirst() throws {
+        openCatalogue()
+
+        row.press(forDuration: 1)
+        let menuDelete = app.buttons["Delete"].firstMatch
+        XCTAssertTrue(menuDelete.waitForExistence(timeout: 3))
+        menuDelete.tap()
+
+        XCTAssertTrue(app.staticTexts["Delete \"Test Item\"?"].waitForExistence(timeout: 3), "Delete should ask first")
+        // On iPad the dialog is a popover without a Cancel button; tapping outside dismisses it.
+        if app.buttons["Cancel"].exists {
+            app.buttons["Cancel"].tap()
+        } else {
+            app.otherElements["PopoverDismissRegion"].firstMatch.tap()
+        }
+        XCTAssertTrue(app.staticTexts["Delete \"Test Item\"?"].waitForNonExistence(timeout: 3))
+        XCTAssertTrue(row.exists, "Cancel should keep the item")
     }
 
     func testSharingASelectionOpensTheComposer() throws {

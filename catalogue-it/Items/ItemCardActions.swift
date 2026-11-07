@@ -67,8 +67,8 @@ extension View {
             }
             .tint(.blue)
 
-            // Not `role: .destructive`, which removes the row itself; the list drops it once the
-            // soft delete is saved, and puts it back on Undo.
+            // Not `role: .destructive`, which removes the row itself before the user confirms; the
+            // list drops it once the soft delete is saved.
             Button {
                 actions.delete(item)
             } label: {
@@ -77,25 +77,6 @@ extension View {
             .tint(.red)
             }
         }
-    }
-}
-
-// MARK: - Undo Toast
-
-struct ItemDeletedToast: View {
-    let onUndo: () -> Void
-
-    var body: some View {
-        HStack(spacing: 16) {
-            Label("Moved to Recently Deleted", systemImage: "trash")
-                .font(.subheadline)
-            Button("Undo", action: onUndo)
-                .font(.subheadline.weight(.semibold))
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
-        .glassEffect(.regular.interactive(), in: .capsule)
-        .accessibilityElement(children: .contain)
     }
 }
 

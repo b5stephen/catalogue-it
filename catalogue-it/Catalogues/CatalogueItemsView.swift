@@ -35,16 +35,9 @@ struct CatalogueItemsView<Header: View>: View {
     @State private var itemToEdit: CatalogueItem?
     @State private var itemToDuplicate: CatalogueItem?
     @State private var itemToShare: CatalogueItem?
-    /// Offered for undo until the toast times out or another item is deleted.
-    @State private var lastDeleted: UndoableDelete?
+    @State private var itemToDelete: CatalogueItem?
     @State private var shareRequest: ExportRequest?
     @State private var showingDeleteConfirmation = false
-
-    /// Single deletes go through the main context, selections through `ItemTrashActor`.
-    private enum UndoableDelete: Equatable {
-        case item(CatalogueItem)
-        case items([PersistentIdentifier])
-    }
 
     private var filterFingerprint: FilterFingerprint {
         FilterFingerprint(
@@ -198,19 +191,22 @@ struct CatalogueItemsView<Header: View>: View {
                 )
             }
         }
-        .overlay(alignment: .bottom) {
-            if lastDeleted != nil {
-                ItemDeletedToast { undoDelete() }
-                    .padding(.bottom, 12)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+        .confirmationDialog(
+            itemToDelete.map(itemDeleteTitle) ?? "",
+            isPresented: Binding(get: { itemToDelete != nil }, set: { if !$0 { itemToDelete = nil } }),
+            titleVisibility: .visible,
+            presenting: itemToDelete
+        ) { item in
+            Button("Delete", role: .destructive) { softDelete(item) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("The item will be moved to Recently Deleted.")
         }
-        .animation(.snappy, value: lastDeleted)
-        .task(id: lastDeleted) {
-            guard lastDeleted != nil else { return }
-            try? await Task.sleep(for: .seconds(5))
-            if !Task.isCancelled { lastDeleted = nil }
-        }
+    }
+
+    private func itemDeleteTitle(_ item: CatalogueItem) -> String {
+        let name = catalogue.sortedFieldDefinitions.first.map { item.displayValue(for: $0) } ?? ""
+        return String(localized: "Delete \"\(name.isEmpty ? String(localized: "Untitled Item") : name)\"?")
     }
 
     // MARK: - Selection
@@ -260,7 +256,6 @@ struct CatalogueItemsView<Header: View>: View {
                 selectedItem = nil
             }
             if await selection.softDelete(ids, container: container) {
-                lastDeleted = .items(ids)
                 selection.end()
             }
         }
@@ -273,7 +268,7 @@ struct CatalogueItemsView<Header: View>: View {
             edit: { itemToEdit = $0 },
             duplicate: { itemToDuplicate = $0 },
             share: { itemToShare = $0 },
-            delete: { softDelete($0) }
+            delete: { itemToDelete = $0 }
         )
     }
 
@@ -284,21 +279,5 @@ struct CatalogueItemsView<Header: View>: View {
         }
         item.deletedDate = Date.now
         try? modelContext.save()
-        lastDeleted = .item(item)
-    }
-
-    private func undoDelete() {
-        guard let deleted = lastDeleted else { return }
-        lastDeleted = nil
-        switch deleted {
-        case .item(let item):
-            // Purged from Recently Deleted while the toast was up.
-            guard item.modelContext != nil else { return }
-            item.deletedDate = nil
-            try? modelContext.save()
-        case .items(let ids):
-            let container = modelContext.container
-            Task { await selection.restore(ids, container: container) }
-        }
     }
 }

@@ -1,0 +1,25 @@
+{
+  "configurations" : [
+    {
+      "id" : "5D15E6B3-5A3D-4E1F-A5AF-84E7E9FF1A8D",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:catalogue-it.xcodeproj",
+        "identifier" : "AABB001100000000AABB0011",
+        "name" : "UnitTests"
+      }
+    }
+  ],
+  "version" : 1
+}

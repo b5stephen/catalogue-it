@@ -92,10 +92,6 @@ final class ItemSelectionState {
         await setDeletedDate(.now, for: ids, container: container)
     }
 
-    func restore(_ ids: [PersistentIdentifier], container: ModelContainer) async {
-        _ = await setDeletedDate(nil, for: ids, container: container)
-    }
-
     private func setDeletedDate(_ date: Date?, for ids: [PersistentIdentifier], container: ModelContainer) async -> Bool {
         await run { progress -> Void in
             let task = Task.detached(priority: .userInitiated) {

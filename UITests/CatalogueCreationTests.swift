@@ -24,6 +24,9 @@ final class CatalogueCreationTests: XCTestCase {
     }
 
     func testCreateCatalogueWithAllFieldTypes() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom == .pad,
+                      "On iPad the app stops reporting idle once a second field is typed, so every step waits out XCTest's 2-minute timeout")
+
         // Open the new catalogue sheet.
         let addButton = app.buttons["Add Catalogue"]
         XCTAssertTrue(addButton.waitForExistence(timeout: 5),
@@ -40,7 +43,7 @@ final class CatalogueCreationTests: XCTestCase {
         let nameField = app.textFields["catalogue-name-field"]
         XCTAssertTrue(nameField.waitForExistence(timeout: 3))
         nameField.tap()
-        nameField.typeText("All Fields")
+        nameField.typeText("All Fields\n")
 
         // The default "Name" (Text) field is pre-seeded — Text type is covered.
         // Add a Number field.
@@ -67,7 +70,12 @@ final class CatalogueCreationTests: XCTestCase {
 
     /// Opens the Add Field sheet, enters a name, selects the given type, and confirms.
     private func addField(name: String, type: String) throws {
+        // On iPad the form is a short sheet with the button below the fold, where the lazy
+        // Form hasn't created it yet.
         let addFieldButton = app.buttons["Add Field"]
+        for _ in 0..<5 where !(addFieldButton.exists && addFieldButton.isHittable) {
+            app.swipeUp()
+        }
         XCTAssertTrue(addFieldButton.waitForExistence(timeout: 3),
                       "Add Field button should be visible")
         addFieldButton.tap()
@@ -97,8 +105,9 @@ final class CatalogueCreationTests: XCTestCase {
         XCTAssertTrue(addButton.isEnabled, "Add button should be enabled after entering a name")
         addButton.tap()
 
-        // Wait for the sheet to dismiss before proceeding.
-        XCTAssertTrue(app.navigationBars["New Catalogue"].waitForExistence(timeout: 3),
+        // The form's bar stays on screen while this sheet slides away, and a tap on Add Field
+        // during that animation is dropped, so wait for this sheet to be gone.
+        XCTAssertTrue(app.navigationBars["Add Field"].waitForNonExistence(timeout: 3),
                       "Should return to New Catalogue form after adding the field")
     }
 }

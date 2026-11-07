@@ -1,0 +1,32 @@
+{
+  "configurations" : [
+    {
+      "id" : "E4959747-D25E-46E4-BBA0-67B5E3B738B8",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:catalogue-it.xcodeproj",
+        "identifier" : "AABB001100000000AABB0011",
+        "name" : "UnitTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:catalogue-it.xcodeproj",
+        "identifier" : "AABB000600000000AABB0006",
+        "name" : "UITests"
+      }
+    }
+  ],
+  "version" : 1
+}

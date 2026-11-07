@@ -85,7 +85,8 @@ struct FieldValueDisplayTests {
     @Test("Date displays abbreviated with no time, nil date displays as empty")
     func dateDisplay() {
         let fv = makeFieldValue(type: .date)
-        fv.dateValue = Date(timeIntervalSince1970: 1_577_836_800) // 1 Jan 2020 UTC
+        // Noon UTC on 1 Jan 2020 is still in 2020 in every time zone; CI runs west of UTC.
+        fv.dateValue = Date(timeIntervalSince1970: 1_577_880_000)
         let display = fv.displayValue()
         #expect(display.contains("2020"))
         #expect(display.contains(":") == false, "Time should be omitted")

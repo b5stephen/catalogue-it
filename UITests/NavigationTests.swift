@@ -27,6 +27,9 @@ final class NavigationTests: XCTestCase {
     }
 
     func testBackButtonReturnsToItemListNotCatalogueList() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom == .pad,
+                      "iPad shows the item beside the list, so there is no back button")
+
         // Tap the seeded catalogue. Use staticTexts rather than cells — SwiftUI
         // does not reliably propagate inner-view identifiers to the cell level.
         let catalogueText = app.staticTexts["Test Catalogue"]

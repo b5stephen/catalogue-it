@@ -39,6 +39,11 @@ struct CatalogueSidebar: View {
                 NavigationLink(value: catalogue) { EmptyView() }
                     .opacity(0)
             }
+            // The reorder lift otherwise snapshots the whole row rect, insets included.
+            .contentShape(
+                .dragPreview,
+                RoundedRectangle(cornerRadius: AppConstants.CornerRadius.card, style: .continuous)
+            )
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
             .listRowInsets(

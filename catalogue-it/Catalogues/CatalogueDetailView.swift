@@ -294,7 +294,7 @@ struct CatalogueDetailView: View {
             }
             ToolbarItem(placement: .secondaryAction) {
                 ExportMenuItems(catalogue: catalogue) { format in
-                    pendingExport = [format.itemProvider(for: catalogue)]
+                    pendingExport = [format.itemProvider(for: catalogue, container: modelContext.container)]
                 }
             }
             ToolbarItem(placement: .secondaryAction) {

@@ -42,19 +42,31 @@ enum ExportFormat: CaseIterable, Identifiable {
 
 // MARK: - Export Column
 
-enum ExportColumn: Hashable {
+nonisolated enum ExportColumn: Hashable, Sendable {
     case field(UUID)
     case notes
     case dateAdded
     case photoCount
 
-    func title(in catalogue: Catalogue) -> String {
+    /// Notes, Date Added and Photo Count, listed apart from the catalogue's own fields.
+    var isItemInfo: Bool {
+        if case .field = self { false } else { true }
+    }
+
+    /// `nil` for a field, whose title is its definition's name.
+    var itemInfoTitle: String? {
         switch self {
-        case .field(let id):
-            catalogue.fieldDefinitions.first { $0.fieldID == id }?.name ?? ""
+        case .field: nil
         case .notes: String(localized: "Notes")
         case .dateAdded: String(localized: "Date Added")
         case .photoCount: String(localized: "Photo Count")
         }
+    }
+
+    func title(in catalogue: Catalogue) -> String {
+        if case .field(let id) = self {
+            return catalogue.fieldDefinitions.first { $0.fieldID == id }?.name ?? ""
+        }
+        return itemInfoTitle ?? ""
     }
 }

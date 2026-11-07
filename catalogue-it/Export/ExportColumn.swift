@@ -25,6 +25,22 @@ enum ExportFormat: CaseIterable, Identifiable {
         }
     }
 
+    /// Select mode opens on Message up to this many items.
+    static let messageDefaultLimit = 20
+
+    static func defaultFormat(forItemCount count: Int) -> ExportFormat {
+        count <= messageDefaultLimit ? .message : .spreadsheet
+    }
+
+    /// Card is for one item, Message for a short list.
+    static func available(forItemCount count: Int) -> [ExportFormat] {
+        switch count {
+        case 1: allCases
+        case 2...messageItemLimit: [.message, .spreadsheet]
+        default: [.spreadsheet]
+        }
+    }
+
     /// Fields in `sortedFieldDefinitions` order, then the Item info extras.
     func columns(for catalogue: Catalogue) -> [ExportColumn] {
         var columns = catalogue.sortedFieldDefinitions.map { ExportColumn.field($0.fieldID) }

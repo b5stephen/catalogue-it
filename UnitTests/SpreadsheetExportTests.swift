@@ -324,23 +324,6 @@ struct SpreadsheetExportTests {
         #expect(text == "Name\tYear\tNotes\nSpitfire\t1936\tline one line two and more\n")
     }
 
-    @Test("allItemIDs lists non-deleted items by date added")
-    func allItemIDs() async throws {
-        let f = try makeFixture()
-        let later = addItem(f, name: "Later", created: Date(timeIntervalSince1970: 200))
-        let earlier = addItem(f, name: "Earlier", created: Date(timeIntervalSince1970: 100))
-        let gone = addItem(f, name: "Gone", created: Date(timeIntervalSince1970: 50))
-        gone.deletedDate = .now
-        try f.context.save()
-
-        let container = f.container
-        let catalogueID = f.catalogue.persistentModelID
-        let ids = try await Task.detached {
-            try await SpreadsheetWriter(modelContainer: container).allItemIDs(in: catalogueID)
-        }.value
-        #expect(ids == [earlier.persistentModelID, later.persistentModelID])
-    }
-
     @Test("The written file is named for the catalogue, or Filtered")
     func writtenFileName() async throws {
         let f = try makeFixture()

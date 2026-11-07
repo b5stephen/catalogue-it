@@ -57,11 +57,35 @@ final class ItemSelectionState {
 
     // MARK: Background work
 
-    func resolve(container: ModelContainer, current: FilterFingerprint) async -> [PersistentIdentifier] {
-        let selection = selection
+    /// `chosen` defaults to the user's picks.
+    func resolve(
+        _ chosen: ItemSelection? = nil,
+        container: ModelContainer,
+        current: FilterFingerprint
+    ) async -> [PersistentIdentifier] {
+        let selection = chosen ?? selection
         return await run { _ in
             try await selection.resolve(in: container, current: current)
         } ?? []
+    }
+
+    /// The composer's input for `chosen` (default: the picks), `nil` if it comes to no items. The
+    /// IDs are resolved off the main thread; only the first few items are loaded.
+    func prepareExport(
+        _ chosen: ItemSelection? = nil,
+        format: ExportFormat? = nil,
+        filters: ExportFilters? = nil,
+        container: ModelContainer,
+        context: ModelContext,
+        current: FilterFingerprint
+    ) async -> ExportRequest? {
+        let ids = await resolve(chosen, container: container, current: current)
+        guard !ids.isEmpty else { return nil }
+        return ExportRequest(
+            export: ExportItems(ids: ids, in: context),
+            format: format ?? .defaultFormat(forItemCount: ids.count),
+            filters: filters
+        )
     }
 
     func softDelete(_ ids: [PersistentIdentifier], container: ModelContainer) async -> Bool {

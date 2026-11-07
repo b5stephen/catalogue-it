@@ -15,11 +15,16 @@ struct ExportComposerView: View {
     @Environment(\.modelContext) private var modelContext
 
     let catalogue: Catalogue
-    /// The items loaded for the preview and the Message and Card formats.
-    let items: [CatalogueItem]
-    /// What the spreadsheet exports, in row order. A selection or filter can be far larger
-    /// than `items`.
-    let exportIDs: [PersistentIdentifier]
+    /// Set when opened from the toolbar with a filter active, which adds the Items picker.
+    let filters: ExportFilters?
+
+    /// `ids` is what the spreadsheet exports, in row order, and can be far larger than the
+    /// `items` loaded for the preview and the Message and Card formats.
+    @State private var export: ExportItems
+    @State private var scope = ExportScope.filtered
+    @State private var filteredCount: Int
+    @State private var scopeTask: Task<Void, Never>?
+    @State private var showsScopeProgress = false
 
     @State private var format: ExportFormat
     @State private var ticked: Set<ExportColumn>
@@ -46,28 +51,30 @@ struct ExportComposerView: View {
 
     private static let previewRowLimit = 5
 
-    init(
-        catalogue: Catalogue,
-        items: [CatalogueItem],
-        exportIDs: [PersistentIdentifier]? = nil,
-        format: ExportFormat = .message
-    ) {
+    init(catalogue: Catalogue, export: ExportItems, format: ExportFormat, filters: ExportFilters? = nil) {
         self.catalogue = catalogue
-        self.items = items
-        self.exportIDs = exportIDs ?? items.map(\.persistentModelID)
+        self.filters = filters
+        _export = State(initialValue: export)
+        _filteredCount = State(initialValue: export.ids.count)
         _format = State(initialValue: format)
         _ticked = State(initialValue: Set(format.columns(for: catalogue)))
     }
 
+    init(catalogue: Catalogue, request: ExportRequest) {
+        self.init(catalogue: catalogue, export: request.export, format: request.format, filters: request.filters)
+    }
+
+    /// One item, opening on Message.
+    init(catalogue: Catalogue, item: CatalogueItem) {
+        self.init(catalogue: catalogue, export: ExportItems(items: [item]), format: .message)
+    }
+
     // MARK: - Computed
 
-    private var formats: [ExportFormat] {
-        switch exportIDs.count {
-        case 1: ExportFormat.allCases
-        case 2...ExportFormat.messageItemLimit: [.message, .spreadsheet]
-        default: [.spreadsheet]
-        }
-    }
+    private var items: [CatalogueItem] { export.items }
+    private var exportIDs: [PersistentIdentifier] { export.ids }
+
+    private var formats: [ExportFormat] { ExportFormat.available(forItemCount: exportIDs.count) }
 
     private var photos: [ItemPhoto] {
         guard items.count == 1 else { return [] }
@@ -111,7 +118,8 @@ struct ExportComposerView: View {
             catalogueID: catalogue.persistentModelID,
             itemIDs: exportIDs,
             columns: columns.filter(ticked.contains),
-            options: spreadsheetOptions
+            options: spreadsheetOptions,
+            filtered: filters != nil && scope == .filtered
         )
     }
 
@@ -135,9 +143,15 @@ struct ExportComposerView: View {
             }
             .safeAreaInset(edge: .bottom) { actions }
             .onChange(of: format) { old, new in carryTicks(from: old, to: new) }
-            .onDisappear { exportTask?.cancel() }
+            .onChange(of: scope) { _, new in loadScope(new) }
+            .onDisappear {
+                exportTask?.cancel()
+                scopeTask?.cancel()
+            }
             .overlay {
-                if showsExportProgress, let progress = exportProgress {
+                if showsScopeProgress {
+                    ProgressOverlay(current: 0, total: 0, preparingText: "Preparing items…")
+                } else if showsExportProgress, let progress = exportProgress {
                     ProgressOverlay(
                         current: progress.done,
                         total: progress.total,
@@ -180,8 +194,28 @@ struct ExportComposerView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+            if let filters {
+                scopePicker(filters)
+            }
         }
         .padding(.vertical, 12)
+    }
+
+    private func scopePicker(_ filters: ExportFilters) -> some View {
+        HStack {
+            Text("Items")
+                .foregroundStyle(.secondary)
+            Picker("Items", selection: $scope) {
+                Text("Filtered · \(filteredCount)").tag(ExportScope.filtered)
+                Text("All · \(filters.allCount)").tag(ExportScope.all)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .accessibilityLabel("Items")
+            .accessibilityIdentifier("exportScopePicker")
+            .disabled(scopeTask != nil)
+        }
+        .padding(.horizontal)
     }
 
     @ViewBuilder
@@ -229,7 +263,9 @@ struct ExportComposerView: View {
             if !photos.isEmpty {
                 Toggle("Attach first photo", isOn: $attachesPhoto)
             }
-            Toggle("Show field names", isOn: $showsFieldNames)
+            if items.count == 1 {
+                Toggle("Show field names", isOn: $showsFieldNames)
+            }
             Toggle("Leave out blanks and No", isOn: $leavesOutBlanks)
         case .card:
             Picker("Shape", selection: $cardShape) {
@@ -321,6 +357,28 @@ struct ExportComposerView: View {
         .controlSize(.large)
         .padding(.horizontal)
         .padding(.vertical, 8)
+    }
+
+    /// Resolves the new scope's IDs off the main thread. The overlay appears only if that is
+    /// still running after ~500ms.
+    private func loadScope(_ scope: ExportScope) {
+        guard let filters else { return }
+        let container = modelContext.container
+        let context = modelContext
+        scopeTask = Task {
+            let overlayDelay = Task {
+                try? await Task.sleep(for: .milliseconds(500))
+                if !Task.isCancelled { showsScopeProgress = true }
+            }
+            let ids = try? await filters.selection(for: scope).resolve(in: container, current: filters.fingerprint)
+            overlayDelay.cancel()
+            showsScopeProgress = false
+            scopeTask = nil
+            guard !Task.isCancelled, let ids else { return }
+            export = ExportItems(ids: ids, in: context)
+            if scope == .filtered { filteredCount = ids.count }
+            if !formats.contains(format) { format = .spreadsheet }
+        }
     }
 
     private func loadPhoto() async {

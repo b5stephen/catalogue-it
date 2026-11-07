@@ -187,7 +187,7 @@ struct ItemDetailView: View {
             EditItemNotesSheet(item: item)
         }
         .sheet(isPresented: $showingShare) {
-            ExportComposerView(catalogue: catalogue, items: [item])
+            ExportComposerView(catalogue: catalogue, item: item)
         }
     }
 

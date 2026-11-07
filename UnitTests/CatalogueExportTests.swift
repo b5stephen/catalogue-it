@@ -173,7 +173,7 @@ struct CatalogueExportTests {
         }
     }
 
-    @Test("Every Export menu entry hands the share sheet a named, loadable file", arguments: CatalogueExportFormat.allCases)
+    @Test("Every Back Up entry hands the share sheet a named, loadable file", arguments: CatalogueExportFormat.allCases)
     func shareSheetItemProvider(format: CatalogueExportFormat) async throws {
         let container = try makeContainer()
         let ctx = container.mainContext
@@ -184,21 +184,16 @@ struct CatalogueExportTests {
         ctx.insert(photo)
         try ctx.save() // the file's writer reads the catalogue by identifier, from its own context
 
-        let provider = format.itemProvider(for: catalogue, container: container)
-        let type: UTType = format == .csv ? .commaSeparatedText : .json
-        #expect(provider.registeredTypeIdentifiers == [type.identifier])
+        let provider = format.itemProvider(for: catalogue)
+        #expect(provider.registeredTypeIdentifiers == [UTType.json.identifier])
         #expect(provider.suggestedName == format.filename(for: catalogue))
 
-        let data = try await loadData(from: provider, as: type)
-        if format == .csv {
-            #expect(String(decoding: data, as: UTF8.self).hasPrefix("\u{FEFF}Name,Year,Notes,Date Added,Photo Count"))
-        } else {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let file = try decoder.decode(CatalogueExportFile.self, from: data)
-            let photos = try #require(file.catalogues.first?.items.first?.photos)
-            #expect(photos.count == (format == .jsonWithPhotos ? 1 : 0))
-        }
+        let data = try await loadData(from: provider, as: .json)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let file = try decoder.decode(CatalogueExportFile.self, from: data)
+        let photos = try #require(file.catalogues.first?.items.first?.photos)
+        #expect(photos.count == (format == .jsonWithPhotos ? 1 : 0))
         withExtendedLifetime(container) {}
     }
 }

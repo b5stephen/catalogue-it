@@ -35,7 +35,7 @@ struct CatalogueItemsView<Header: View>: View {
     @State private var itemToShare: CatalogueItem?
     /// Offered for undo until the toast times out or another item is deleted.
     @State private var lastDeleted: UndoableDelete?
-    @State private var shareRequest: SelectionShareRequest?
+    @State private var shareRequest: ExportRequest?
     @State private var showingDeleteConfirmation = false
 
     /// Single deletes go through the main context, selections through `ItemTrashActor`.
@@ -159,15 +159,10 @@ struct CatalogueItemsView<Header: View>: View {
             AddEditItemView(catalogue: catalogue, duplicateSource: item)
         }
         .sheet(item: $itemToShare) { item in
-            ExportComposerView(catalogue: catalogue, items: [item])
+            ExportComposerView(catalogue: catalogue, item: item)
         }
         .sheet(item: $shareRequest) { request in
-            ExportComposerView(
-                catalogue: catalogue,
-                items: request.items,
-                exportIDs: request.ids,
-                format: request.ids.count <= SelectionShareRequest.messageDefaultLimit ? .message : .spreadsheet
-            )
+            ExportComposerView(catalogue: catalogue, request: request)
         }
         .toolbar {
             if selection.isSelecting {
@@ -236,25 +231,14 @@ struct CatalogueItemsView<Header: View>: View {
         }
     }
 
-    /// Loads at most `ExportFormat.messageItemLimit` items for the sheet's preview and Message; the
-    /// spreadsheet reads the rest from the IDs.
     private func shareSelection() {
-        let container = modelContext.container
-        let fingerprint = filterFingerprint
         Task {
-            let ids = await selection.resolve(container: container, current: fingerprint)
-            guard !ids.isEmpty else { return }
-            shareRequest = SelectionShareRequest(items: loadItems(Array(ids.prefix(ExportFormat.messageItemLimit))), ids: ids)
+            shareRequest = await selection.prepareExport(
+                container: modelContext.container,
+                context: modelContext,
+                current: filterFingerprint
+            )
         }
-    }
-
-    /// In `ids` order.
-    private func loadItems(_ ids: [PersistentIdentifier]) -> [CatalogueItem] {
-        var descriptor = FetchDescriptor<CatalogueItem>(predicate: #Predicate { ids.contains($0.persistentModelID) })
-        descriptor.relationshipKeyPathsForPrefetching = [\.storedFieldValues]
-        let fetched = (try? modelContext.fetch(descriptor)) ?? []
-        let byID = Dictionary(fetched.map { ($0.persistentModelID, $0) }, uniquingKeysWith: { first, _ in first })
-        return ids.compactMap { byID[$0] }
     }
 
     private func deleteSelection() {
@@ -308,15 +292,4 @@ struct CatalogueItemsView<Header: View>: View {
             Task { await selection.restore(ids, container: container) }
         }
     }
-}
-
-// MARK: - Selection Share Request
-
-private struct SelectionShareRequest: Identifiable {
-    /// Up to this many items open on Message; more start on the spreadsheet.
-    static let messageDefaultLimit = 20
-
-    let id = UUID()
-    let items: [CatalogueItem]
-    let ids: [PersistentIdentifier]
 }

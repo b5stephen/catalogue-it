@@ -44,8 +44,9 @@ struct CatalogueDetailView: View {
     /// A cached fetchCount, so rendering never faults `catalogue.items`.
     @State private var hasRecentlyDeletedItems = false
     @State private var selection = ItemSelectionState()
+    @State private var exportRequest: ExportRequest?
 #if os(iOS)
-    @State private var pendingExport: [NSItemProvider]?
+    @State private var pendingBackup: [NSItemProvider]?
 #endif
 
     private func refreshHasRecentlyDeleted() {
@@ -64,6 +65,24 @@ struct CatalogueDetailView: View {
             activeFlagIDs: Array(activeFlagIDs),
             searchText: appliedSearchText
         )
+    }
+
+    private func exportCatalogue() {
+        let fingerprint = filterFingerprint
+        let filters = ExportFilters(
+            fingerprint: fingerprint,
+            allCount: CatalogueSummary.itemCount(for: catalogue, in: modelContext)
+        )
+        Task {
+            exportRequest = await selection.prepareExport(
+                .matching(fingerprint, excluding: []),
+                format: .spreadsheet,
+                filters: filters,
+                container: modelContext.container,
+                context: modelContext,
+                current: fingerprint
+            )
+        }
     }
 
     private var selectedCount: Int {
@@ -183,9 +202,9 @@ struct CatalogueDetailView: View {
         // Inside the tabs' `safeAreaBar`, so the fade runs under them too.
         .washFadeEdge(sharesGlowWithDetail)
 #if os(iOS)
-        // Under the Export menu (or the overflow holding it), so the popover points at it.
+        // Under the Back Up menu (or the overflow holding it), so the popover points at it.
         .overlay(alignment: .topTrailing) {
-            ShareSheetAnchor(itemProviders: $pendingExport)
+            ShareSheetAnchor(itemProviders: $pendingBackup)
                 .frame(width: 1, height: 1)
                 .padding(.trailing, 28)
                 .accessibilityHidden(true)
@@ -278,6 +297,9 @@ struct CatalogueDetailView: View {
         .sheet(isPresented: $showingAddItem) {
             AddEditItemView(catalogue: catalogue, defaultStatusTab: selectedTab)
         }
+        .sheet(item: $exportRequest) { request in
+            ExportComposerView(catalogue: catalogue, request: request)
+        }
         .sheet(isPresented: $showingStats) {
             CatalogueStatsView(catalogue: catalogue)
         }
@@ -344,8 +366,14 @@ struct CatalogueDetailView: View {
                     SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
                 }
                 ToolbarItem(placement: .secondaryAction) {
-                    ExportMenuItems(catalogue: catalogue) { format in
-                        pendingExport = [format.itemProvider(for: catalogue, container: modelContext.container)]
+                    Button("Export…", systemImage: "square.and.arrow.up") { exportCatalogue() }
+                        .keyboardShortcut("e")
+                        .accessibilityIdentifier("exportButton")
+                        .disabled(displayedCount == 0)
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    BackUpMenuItems(catalogue: catalogue) { format in
+                        pendingBackup = [format.itemProvider(for: catalogue)]
                     }
                 }
                 ToolbarItem(placement: .secondaryAction) {
@@ -378,7 +406,7 @@ struct CatalogueDetailView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu("More", systemImage: "ellipsis.circle") {
-                    ExportMenuItems(catalogue: catalogue)
+                    BackUpMenuItems(catalogue: catalogue)
                     Button {
                         showingStats = true
                     } label: {
@@ -436,44 +464,39 @@ private struct ListHeader: View {
     }
 }
 
-// MARK: - Export Menu Items
+// MARK: - Back Up Menu Items
 
-/// Its own view so export data isn't computed on every search keystroke.
-private struct ExportMenuItems: View {
+/// Its own view so backup data isn't computed on every search keystroke.
+private struct BackUpMenuItems: View {
     let catalogue: Catalogue
 #if os(iOS)
     /// Not `ShareLink`: in the bar's overflow the share sheet has nothing to anchor on and
     /// crashes. See `ShareSheetAnchor`.
-    let onExport: (CatalogueExportFormat) -> Void
+    let onBackUp: (CatalogueExportFormat) -> Void
 #endif
 
     var body: some View {
-        Menu("Export", systemImage: "square.and.arrow.up") {
+        Menu("Back Up Catalogue", systemImage: "externaldrive") {
             ForEach(CatalogueExportFormat.allCases) { format in
 #if os(iOS)
                 Button(format.title, systemImage: format.systemImage) {
-                    onExport(format)
+                    onBackUp(format)
                 }
 #else
-                exportLink(for: format)
+                backUpLink(for: format)
 #endif
             }
         }
     }
 
 #if !os(iOS)
-    @ViewBuilder
-    private func exportLink(for format: CatalogueExportFormat) -> some View {
+    private func backUpLink(for format: CatalogueExportFormat) -> some View {
         let filename = format.filename(for: catalogue)
-        let preview = SharePreview(filename, image: Image(systemName: format.systemImage))
-        switch format {
-        case .csv:
-            ShareLink(format.title, item: CatalogueCSVFile(catalogue: catalogue, filename: filename), preview: preview)
-        case .jsonWithPhotos:
-            ShareLink(format.title, item: CatalogueJSONFile(catalogue: catalogue, includePhotos: true, filename: filename), preview: preview)
-        case .jsonWithoutPhotos:
-            ShareLink(format.title, item: CatalogueJSONFile(catalogue: catalogue, includePhotos: false, filename: filename), preview: preview)
-        }
+        return ShareLink(
+            format.title,
+            item: CatalogueJSONFile(catalogue: catalogue, includePhotos: format == .jsonWithPhotos, filename: filename),
+            preview: SharePreview(filename, image: Image(systemName: format.systemImage))
+        )
     }
 #endif
 }

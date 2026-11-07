@@ -38,15 +38,6 @@ actor SpreadsheetWriter {
         case catalogueMissing
     }
 
-    /// Non-deleted items in `createdDate` order.
-    func allItemIDs(in catalogueID: PersistentIdentifier) throws -> [PersistentIdentifier] {
-        let descriptor = FetchDescriptor<CatalogueItem>(
-            predicate: #Predicate { $0.catalogue?.persistentModelID == catalogueID && $0.deletedDate == nil },
-            sortBy: [SortDescriptor(\.createdDate, order: .forward)]
-        )
-        return try modelContext.fetch(descriptor).map(\.persistentModelID)
-    }
-
     /// A CSV in a fresh temporary directory, UTF-8 with a byte order mark. The directory is
     /// removed again if the write fails or is cancelled.
     func writeCSV(_ request: SpreadsheetRequest, onProgress: Progress = { _, _ in }) throws -> URL {
@@ -147,36 +138,5 @@ struct WrittenSpreadsheetFile: Transferable, Sendable {
             SentTransferredFile(file.url, allowAccessingOriginalFile: false)
         }
         .suggestedFileName { $0.url.lastPathComponent }
-    }
-}
-
-// MARK: - Catalogue CSV File (Transferable)
-
-/// The whole catalogue, written when a share destination asks for it.
-struct CatalogueCSVFile: Transferable, Sendable {
-    let container: ModelContainer
-    let catalogueID: PersistentIdentifier
-    let columns: [ExportColumn]
-    let filename: String
-
-    @MainActor
-    init(catalogue: Catalogue, container: ModelContainer, filename: String) {
-        self.container = container
-        catalogueID = catalogue.persistentModelID
-        columns = ExportFormat.spreadsheet.columns(for: catalogue)
-        self.filename = filename
-    }
-
-    static var transferRepresentation: some TransferRepresentation {
-        FileRepresentation(exportedContentType: .commaSeparatedText) { file in
-            let url = try await Task.detached {
-                let writer = SpreadsheetWriter(modelContainer: file.container)
-                let ids = try await writer.allItemIDs(in: file.catalogueID)
-                return try await writer.writeCSV(SpreadsheetRequest(
-                    catalogueID: file.catalogueID, itemIDs: ids, columns: file.columns))
-            }.value
-            return SentTransferredFile(url, allowAccessingOriginalFile: false)
-        }
-        .suggestedFileName { $0.filename }
     }
 }

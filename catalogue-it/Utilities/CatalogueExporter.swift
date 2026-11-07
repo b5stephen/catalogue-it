@@ -30,8 +30,8 @@ enum CatalogueExporter {
 
 // MARK: - Export Format
 
+/// The "Back Up Catalogue" entries, for moving a catalogue to another device.
 enum CatalogueExportFormat: CaseIterable, Identifiable {
-    case csv
     case jsonWithPhotos
     case jsonWithoutPhotos
 
@@ -39,43 +39,28 @@ enum CatalogueExportFormat: CaseIterable, Identifiable {
 
     var title: LocalizedStringKey {
         switch self {
-        case .csv: "Export as CSV"
-        case .jsonWithPhotos: "Export as JSON (with Photos)"
-        case .jsonWithoutPhotos: "Export as JSON (no Photos)"
+        case .jsonWithPhotos: "With Photos"
+        case .jsonWithoutPhotos: "Without Photos"
         }
     }
 
-    var systemImage: String {
-        self == .csv ? "tablecells" : "doc.text"
-    }
+    var systemImage: String { "doc.text" }
 
-    func filename(for catalogue: Catalogue) -> String {
-        self == .csv ? "\(catalogue.name).csv" : "\(catalogue.name).json"
-    }
+    func filename(for catalogue: Catalogue) -> String { "\(catalogue.name).json" }
 
     /// Builds the file only when a share destination asks, as `ShareLink` would.
-    func itemProvider(for catalogue: Catalogue, container: ModelContainer) -> NSItemProvider {
+    func itemProvider(for catalogue: Catalogue) -> NSItemProvider {
         let provider = NSItemProvider()
-        let filename = filename(for: catalogue)
         // Built outside `register`, whose `@Sendable` autoclosure can't capture the model.
-        switch self {
-        case .csv:
-            let file = CatalogueCSVFile(catalogue: catalogue, container: container, filename: filename)
-            provider.register(file)
-        case .jsonWithPhotos:
-            let file = CatalogueJSONFile(catalogue: catalogue, includePhotos: true, filename: filename)
-            provider.register(file)
-        case .jsonWithoutPhotos:
-            let file = CatalogueJSONFile(catalogue: catalogue, includePhotos: false, filename: filename)
-            provider.register(file)
-        }
+        let file = CatalogueJSONFile(catalogue: catalogue, includePhotos: self == .jsonWithPhotos, filename: filename(for: catalogue))
+        provider.register(file)
         return provider
     }
 }
 
 // MARK: - Catalogue JSON File (Transferable)
 
-// @unchecked Sendable: as CatalogueCSVFile.
+// @unchecked Sendable: the catalogue is read on the main actor when the share destination asks.
 struct CatalogueJSONFile: Transferable, @unchecked Sendable {
     let catalogue: Catalogue
     let includePhotos: Bool

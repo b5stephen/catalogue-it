@@ -197,12 +197,11 @@ struct ItemShareCard: View {
 
 extension ItemShareCard {
 
-    /// `photo` is raw item photo data, downsampled here.
     init(
         item: CatalogueItem,
         in catalogue: Catalogue,
         columns: Set<ExportColumn>,
-        photo: Data?,
+        photo: CGImage?,
         shape: ItemShareCardShape,
         showsCatalogueName: Bool
     ) {
@@ -210,7 +209,7 @@ extension ItemShareCard {
             title: ItemShareText.title(for: item, in: catalogue),
             status: catalogue.statusField.map { item.displayValue(for: $0) },
             rows: ItemShareText.entries(for: item, in: catalogue, columns: columns, leaveOutBlanks: true),
-            photo: photo.flatMap(Self.downsample),
+            photo: photo,
             shape: shape,
             icon: catalogue.icon,
             colorHex: catalogue.colorHex,
@@ -219,7 +218,7 @@ extension ItemShareCard {
     }
 
     /// Fits the photo area at its largest, so a 48-megapixel original isn't held for the render.
-    static func downsample(_ data: Data) -> CGImage? {
+    nonisolated static func downsample(_ data: Data) -> CGImage? {
         guard let thumbnail = makeThumbnailData(from: data, maxDimension: 1600),
               let source = CGImageSourceCreateWithData(thumbnail as CFData, nil) else { return nil }
         return CGImageSourceCreateImageAtIndex(source, 0, nil)

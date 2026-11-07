@@ -44,7 +44,7 @@ struct CatalogueDetailView: View {
     /// A cached fetchCount, so rendering never faults `catalogue.items`.
     @State private var hasRecentlyDeletedItems = false
 #if os(iOS)
-    @State private var pendingExport: NSItemProvider?
+    @State private var pendingExport: [NSItemProvider]?
 #endif
 
     private func refreshHasRecentlyDeleted() {
@@ -151,7 +151,7 @@ struct CatalogueDetailView: View {
 #if os(iOS)
         // Under the Export menu (or the overflow holding it), so the popover points at it.
         .overlay(alignment: .topTrailing) {
-            ShareSheetAnchor(itemProvider: $pendingExport)
+            ShareSheetAnchor(itemProviders: $pendingExport)
                 .frame(width: 1, height: 1)
                 .padding(.trailing, 28)
                 .accessibilityHidden(true)
@@ -294,7 +294,7 @@ struct CatalogueDetailView: View {
             }
             ToolbarItem(placement: .secondaryAction) {
                 ExportMenuItems(catalogue: catalogue) { format in
-                    pendingExport = format.itemProvider(for: catalogue)
+                    pendingExport = [format.itemProvider(for: catalogue)]
                 }
             }
             ToolbarItem(placement: .secondaryAction) {

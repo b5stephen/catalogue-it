@@ -31,6 +31,7 @@ struct CatalogueItemsView<Header: View>: View {
     @State private var scrollAnchorID: PersistentIdentifier?
     @State private var itemToEdit: CatalogueItem?
     @State private var itemToDuplicate: CatalogueItem?
+    @State private var itemToShare: CatalogueItem?
     /// Offered for undo until the toast times out or another item is deleted.
     @State private var lastDeletedItem: CatalogueItem?
 
@@ -145,6 +146,9 @@ struct CatalogueItemsView<Header: View>: View {
         .sheet(item: $itemToDuplicate) { item in
             AddEditItemView(catalogue: catalogue, duplicateSource: item)
         }
+        .sheet(item: $itemToShare) { item in
+            ExportComposerView(catalogue: catalogue, items: [item])
+        }
         .overlay(alignment: .bottom) {
             if lastDeletedItem != nil {
                 ItemDeletedToast { undoDelete() }
@@ -166,6 +170,7 @@ struct CatalogueItemsView<Header: View>: View {
         ItemCardActions(
             edit: { itemToEdit = $0 },
             duplicate: { itemToDuplicate = $0 },
+            share: { itemToShare = $0 },
             delete: { softDelete($0) }
         )
     }

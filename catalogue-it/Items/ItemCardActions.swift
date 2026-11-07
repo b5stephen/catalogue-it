@@ -9,9 +9,10 @@ import SwiftUI
 struct ItemCardActions {
     let edit: (CatalogueItem) -> Void
     let duplicate: (CatalogueItem) -> Void
+    let share: (CatalogueItem) -> Void
     let delete: (CatalogueItem) -> Void
 
-    static let none = ItemCardActions(edit: { _ in }, duplicate: { _ in }, delete: { _ in })
+    static let none = ItemCardActions(edit: { _ in }, duplicate: { _ in }, share: { _ in }, delete: { _ in })
 }
 
 extension View {
@@ -32,6 +33,11 @@ extension View {
                     actions.duplicate(item)
                 } label: {
                     Label("Duplicate", systemImage: "plus.square.on.square")
+                }
+                Button {
+                    actions.share(item)
+                } label: {
+                    Label("Share…", systemImage: "square.and.arrow.up")
                 }
                 Divider()
                 Button(role: .destructive) {

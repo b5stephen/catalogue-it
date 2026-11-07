@@ -1,0 +1,9 @@
+{
+  "id" : "75eae188-a57b-458d-bf08-96bcf446b411",
+  "targets" : [
+    {
+      "id" : "85a760a7-3432-416e-b69c-2fbfa78c5651",
+      "name" : "catalogue-it"
+    }
+  ]
+}

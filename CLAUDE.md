@@ -19,6 +19,15 @@ All code files must be placed in the catalogue-it subfolder. Never place files i
   field), is No everywhere — display, status tabs, sort keys. Read them on an item through
   `CatalogueItem.isOn` / `displayValue(for:)`
 
+## CI and releases
+
+Xcode Cloud builds and tests every pushed branch; on `main`, a passing run archives and ships to
+internal TestFlight. Workflows live in App Store Connect, not the repo. Xcode Cloud stamps each
+archive's build number from its own counter, so `CURRENT_PROJECT_VERSION` is not bumped by hand
+any more. `ci_scripts/` must sit beside the `.xcodeproj` (an Xcode Cloud requirement, outside
+`catalogue-it/`); `ci_post_xcodebuild.sh` writes the TestFlight "What to Test" notes from recent
+commit subjects. A model change still needs the CloudKit schema deploy before it reaches TestFlight.
+
 ## Code Comments
 
 Comments are succinct and only state what the code cannot.

@@ -22,6 +22,7 @@ struct CatalogueItemsView<Header: View>: View {
     let scrollState: BandScrollState
     /// Scrolling past this is of no interest to `scrollState`'s reader; zero stops the reports.
     let trackedScrollRange: CGFloat
+    let selection: ItemSelectionState
     @ViewBuilder let header: Header
 
     @Environment(\.modelContext) private var modelContext
@@ -33,7 +34,15 @@ struct CatalogueItemsView<Header: View>: View {
     @State private var itemToDuplicate: CatalogueItem?
     @State private var itemToShare: CatalogueItem?
     /// Offered for undo until the toast times out or another item is deleted.
-    @State private var lastDeletedItem: CatalogueItem?
+    @State private var lastDeleted: UndoableDelete?
+    @State private var shareRequest: SelectionShareRequest?
+    @State private var showingDeleteConfirmation = false
+
+    /// Single deletes go through the main context, selections through `ItemTrashActor`.
+    private enum UndoableDelete: Equatable {
+        case item(CatalogueItem)
+        case items([PersistentIdentifier])
+    }
 
     private var filterFingerprint: FilterFingerprint {
         FilterFingerprint(
@@ -80,6 +89,7 @@ struct CatalogueItemsView<Header: View>: View {
                         isLoadingMore: pagination.isLoadingMore,
                         onLoadMore: { pagination.loadMore(context: modelContext) },
                         actions: cardActions,
+                        selection: selection,
                         header: { header }
                     )
                 case .list:
@@ -93,6 +103,7 @@ struct CatalogueItemsView<Header: View>: View {
                         isLoadingMore: pagination.isLoadingMore,
                         onLoadMore: { pagination.loadMore(context: modelContext) },
                         actions: cardActions,
+                        selection: selection,
                         header: { header }
                     )
                 }
@@ -128,6 +139,7 @@ struct CatalogueItemsView<Header: View>: View {
             }
         }
         .onChange(of: filterFingerprint) {
+            selection.follow(filterFingerprint)
             scrollAnchorID = nil
             scrollPosition = ScrollPosition(edge: .top)
             // The empty state never scrolls, so it would never report the top back.
@@ -149,18 +161,115 @@ struct CatalogueItemsView<Header: View>: View {
         .sheet(item: $itemToShare) { item in
             ExportComposerView(catalogue: catalogue, items: [item])
         }
+        .sheet(item: $shareRequest) { request in
+            ExportComposerView(
+                catalogue: catalogue,
+                items: request.items,
+                exportIDs: request.ids,
+                format: request.ids.count <= SelectionShareRequest.messageDefaultLimit ? .message : .spreadsheet
+            )
+        }
+        .toolbar {
+            if selection.isSelecting {
+                selectionBar
+            }
+        }
+        .confirmationDialog(
+            deleteTitle,
+            isPresented: $showingDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) { deleteSelection() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("They will be moved to Recently Deleted.")
+        }
+        .overlay {
+            if selection.showsProgress, let progress = selection.progress {
+                ProgressOverlay(
+                    current: progress.done,
+                    total: progress.total,
+                    preparingText: "Preparing…",
+                    processingText: { current, total in "Processing \(current) of \(total) items…" }
+                )
+            }
+        }
         .overlay(alignment: .bottom) {
-            if lastDeletedItem != nil {
+            if lastDeleted != nil {
                 ItemDeletedToast { undoDelete() }
                     .padding(.bottom, 12)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.snappy, value: lastDeletedItem)
-        .task(id: lastDeletedItem) {
-            guard lastDeletedItem != nil else { return }
+        .animation(.snappy, value: lastDeleted)
+        .task(id: lastDeleted) {
+            guard lastDeleted != nil else { return }
             try? await Task.sleep(for: .seconds(5))
-            if !Task.isCancelled { lastDeletedItem = nil }
+            if !Task.isCancelled { lastDeleted = nil }
+        }
+    }
+
+    // MARK: - Selection
+
+    private var selectedCount: Int {
+        selection.count(totalMatching: pagination.totalCount)
+    }
+
+    private var deleteTitle: LocalizedStringKey {
+        selectedCount == 1 ? "Delete 1 Item?" : "Delete \(selectedCount) Items?"
+    }
+
+    /// The search field stays between the buttons, so filtering works while selecting.
+    @ToolbarContentBuilder
+    private var selectionBar: some ToolbarContent {
+        let isDisabled = selectedCount == 0 || selection.isWorking
+        ToolbarItem(placement: .bottomBar) {
+            Button("Share", systemImage: "square.and.arrow.up") { shareSelection() }
+                .accessibilityIdentifier("selectionShareButton")
+                .disabled(isDisabled)
+        }
+        DefaultToolbarItem(kind: .search, placement: .bottomBar)
+        ToolbarItem(placement: .bottomBar) {
+            Button("Delete", systemImage: "trash", role: .destructive) { showingDeleteConfirmation = true }
+                .accessibilityIdentifier("selectionDeleteButton")
+                .disabled(isDisabled)
+        }
+    }
+
+    /// Loads at most `ExportFormat.messageItemLimit` items for the sheet's preview and Message; the
+    /// spreadsheet reads the rest from the IDs.
+    private func shareSelection() {
+        let container = modelContext.container
+        let fingerprint = filterFingerprint
+        Task {
+            let ids = await selection.resolve(container: container, current: fingerprint)
+            guard !ids.isEmpty else { return }
+            shareRequest = SelectionShareRequest(items: loadItems(Array(ids.prefix(ExportFormat.messageItemLimit))), ids: ids)
+        }
+    }
+
+    /// In `ids` order.
+    private func loadItems(_ ids: [PersistentIdentifier]) -> [CatalogueItem] {
+        var descriptor = FetchDescriptor<CatalogueItem>(predicate: #Predicate { ids.contains($0.persistentModelID) })
+        descriptor.relationshipKeyPathsForPrefetching = [\.storedFieldValues]
+        let fetched = (try? modelContext.fetch(descriptor)) ?? []
+        let byID = Dictionary(fetched.map { ($0.persistentModelID, $0) }, uniquingKeysWith: { first, _ in first })
+        return ids.compactMap { byID[$0] }
+    }
+
+    private func deleteSelection() {
+        let container = modelContext.container
+        let fingerprint = filterFingerprint
+        Task {
+            let ids = await selection.resolve(container: container, current: fingerprint)
+            guard !ids.isEmpty else { return }
+            if let current = selectedItem, ids.contains(current.persistentModelID) {
+                selectedItem = nil
+            }
+            if await selection.softDelete(ids, container: container) {
+                lastDeleted = .items(ids)
+                selection.end()
+            }
         }
     }
 
@@ -182,15 +291,32 @@ struct CatalogueItemsView<Header: View>: View {
         }
         item.deletedDate = Date.now
         try? modelContext.save()
-        lastDeletedItem = item
+        lastDeleted = .item(item)
     }
 
     private func undoDelete() {
-        guard let item = lastDeletedItem else { return }
-        lastDeletedItem = nil
-        // Purged from Recently Deleted while the toast was up.
-        guard item.modelContext != nil else { return }
-        item.deletedDate = nil
-        try? modelContext.save()
+        guard let deleted = lastDeleted else { return }
+        lastDeleted = nil
+        switch deleted {
+        case .item(let item):
+            // Purged from Recently Deleted while the toast was up.
+            guard item.modelContext != nil else { return }
+            item.deletedDate = nil
+            try? modelContext.save()
+        case .items(let ids):
+            let container = modelContext.container
+            Task { await selection.restore(ids, container: container) }
+        }
     }
+}
+
+// MARK: - Selection Share Request
+
+private struct SelectionShareRequest: Identifiable {
+    /// Up to this many items open on Message; more start on the spreadsheet.
+    static let messageDefaultLimit = 20
+
+    let id = UUID()
+    let items: [CatalogueItem]
+    let ids: [PersistentIdentifier]
 }

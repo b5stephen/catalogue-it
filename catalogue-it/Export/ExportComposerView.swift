@@ -62,7 +62,11 @@ struct ExportComposerView: View {
     // MARK: - Computed
 
     private var formats: [ExportFormat] {
-        items.count == 1 ? ExportFormat.allCases : [.message, .spreadsheet]
+        switch exportIDs.count {
+        case 1: ExportFormat.allCases
+        case 2...ExportFormat.messageItemLimit: [.message, .spreadsheet]
+        default: [.spreadsheet]
+        }
     }
 
     private var photos: [ItemPhoto] {
@@ -171,6 +175,10 @@ struct ExportComposerView: View {
                 .pickerStyle(.segmented)
                 .accessibilityIdentifier("exportFormatPicker")
                 .padding(.horizontal)
+            } else if exportIDs.count > ExportFormat.messageItemLimit {
+                Text("Messages are limited to \(ExportFormat.messageItemLimit) items.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 12)

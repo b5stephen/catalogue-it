@@ -14,6 +14,9 @@ enum ExportFormat: CaseIterable, Identifiable {
 
     var id: Self { self }
 
+    /// Past this many items a message is too long to be of use.
+    static let messageItemLimit = 50
+
     var title: LocalizedStringKey {
         switch self {
         case .message: "Message"

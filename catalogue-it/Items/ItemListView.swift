@@ -22,6 +22,7 @@ struct ItemListView<Header: View>: View {
     let isLoadingMore: Bool
     let onLoadMore: () -> Void
     let actions: ItemCardActions
+    let selection: ItemSelectionState
     @ViewBuilder let header: Header
 
 #if !os(macOS)
@@ -47,13 +48,7 @@ struct ItemListView<Header: View>: View {
         List {
             headerRow
             ForEach(items) { item in
-                ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip, showPhoto: showPhotos)
-                    .itemCard(in: catalogue, isSelected: hasDetailColumn && selectedItem == item)
-                    .onTapGesture { selectedItem = item }
-                    .itemCardContextMenu(item, actions: actions, shape: cardShape)
-                    .itemCardSwipeActions(item, actions: actions)
-                    .tag(item)
-                    .cardRow()
+                row(item, showPhotos: showPhotos)
             }
             scrollSentinel
         }
@@ -68,6 +63,29 @@ struct ItemListView<Header: View>: View {
         regularList(showPhotos: showPhotos)
 #endif
     }
+
+#if !os(macOS)
+    @ViewBuilder
+    private func row(_ item: CatalogueItem, showPhotos: Bool) -> some View {
+        let isSelecting = selection.isSelecting
+        let isPicked = isSelecting && selection.isSelected(item)
+        HStack(spacing: 12) {
+            if isSelecting {
+                SelectionCheck(isSelected: isPicked)
+            }
+            ItemRowView(item: item, catalogue: catalogue, showStatusChip: showStatusChip, showPhoto: showPhotos)
+        }
+        .itemCard(in: catalogue, isSelected: isSelecting ? isPicked : hasDetailColumn && selectedItem == item)
+        .onTapGesture {
+            if isSelecting { selection.toggle(item) } else { selectedItem = item }
+        }
+        .itemCardContextMenu(item, actions: actions, shape: cardShape, isEnabled: !isSelecting)
+        .itemCardSwipeActions(item, actions: actions, isEnabled: !isSelecting)
+        .accessibilityAddTraits(isPicked ? .isSelected : [])
+        .tag(item)
+        .cardRow()
+    }
+#endif
 
     private func regularList(showPhotos: Bool) -> some View {
         List(selection: $selectedItem) {

@@ -43,6 +43,7 @@ struct CatalogueDetailView: View {
     @State private var bandHeight: CGFloat = 0
     /// A cached fetchCount, so rendering never faults `catalogue.items`.
     @State private var hasRecentlyDeletedItems = false
+    @State private var selection = ItemSelectionState()
 #if os(iOS)
     @State private var pendingExport: [NSItemProvider]?
 #endif
@@ -54,6 +55,23 @@ struct CatalogueDetailView: View {
         )
         descriptor.fetchLimit = 1
         hasRecentlyDeletedItems = ((try? modelContext.fetchCount(descriptor)) ?? 0) > 0
+    }
+
+    private var filterFingerprint: FilterFingerprint {
+        FilterFingerprint(
+            catalogue: catalogue,
+            statusTab: selectedTab,
+            activeFlagIDs: Array(activeFlagIDs),
+            searchText: appliedSearchText
+        )
+    }
+
+    private var selectedCount: Int {
+        selection.count(totalMatching: displayedCount)
+    }
+
+    private var selectionTitle: String {
+        String(localized: "\(selectedCount) Selected")
     }
 
     private var itemCountLabel: String {
@@ -114,6 +132,21 @@ struct CatalogueDetailView: View {
     private var searchPlacement: SearchFieldPlacement {
         drawsOwnSearchButton ? .navigationBarDrawer(displayMode: .automatic) : .automatic
     }
+
+    @ToolbarContentBuilder
+    private var selectionToolbar: some ToolbarContent {
+        let allSelected = displayedCount > 0 && selectedCount >= displayedCount
+        ToolbarItem(placement: .topBarLeading) {
+            Button(allSelected ? "Deselect All" : "Select All") {
+                if allSelected { selection.deselectAll() } else { selection.selectAll(filterFingerprint) }
+            }
+            .accessibilityIdentifier("selectAllButton")
+        }
+        ToolbarItem(placement: .confirmationAction) {
+            Button("Done") { selection.end() }
+                .accessibilityIdentifier("selectDoneButton")
+        }
+    }
 #endif
 
     // MARK: - Body
@@ -130,11 +163,12 @@ struct CatalogueDetailView: View {
             displayedCount: $displayedCount,
             scrollState: bandScroll,
             trackedScrollRange: usesBand ? bandHeight : 0,
+            selection: selection,
             header: {
                 if sharesGlowWithDetail {
                     ListHeader(
                         catalogue: catalogue,
-                        countLabel: itemCountLabel,
+                        countLabel: selection.isSelecting ? selectionTitle : itemCountLabel,
                         statusTabs: statusTabs,
                         selectedTab: $selectedTab
                     )
@@ -197,15 +231,23 @@ struct CatalogueDetailView: View {
         // accessibility and the window title.
         .navigationSubtitle(usesBand || hasDetailColumn ? "" : itemCountLabel)
         .toolbarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(selection.isSelecting)
         .toolbar(removing: hasDetailColumn ? .title : nil)
         .toolbar {
             // Drawn in the band's label colours, since the fill may be light or dark. Not
             // `toolbarColorScheme`, which made the glass buttons look foreign on the fill.
+            // Beside a detail column the title is removed, and `ListHeader` carries the count.
             if usesBand {
                 ToolbarItem(placement: .principal) {
-                    BandBarTitle(catalogue: catalogue, countLabel: itemCountLabel)
-                        .opacity(isBandScrolledAway ? 1 : 0)
-                        .accessibilityHidden(!isBandScrolledAway)
+                    if selection.isSelecting {
+                        Text(selectionTitle)
+                            .font(.headline)
+                            .contentTransition(.numericText())
+                    } else {
+                        BandBarTitle(catalogue: catalogue, countLabel: itemCountLabel)
+                            .opacity(isBandScrolledAway ? 1 : 0)
+                            .accessibilityHidden(!isBandScrolledAway)
+                    }
                 }
                 .sharedBackgroundVisibility(.hidden)
             }
@@ -247,6 +289,7 @@ struct CatalogueDetailView: View {
                 seededCatalogueID = catalogue.persistentModelID
                 selectedTab = catalogue.defaultStatusTab
             }
+            selection.end()
             reconcileFilterSelections()
             PurgeService.purgeExpiredItems(for: catalogue, in: modelContext)
             // Purging can empty the deleted set.
@@ -268,44 +311,53 @@ struct CatalogueDetailView: View {
 #endif
         .toolbar {
 #if os(iOS)
-            // The rest are `.secondaryAction`, kept in the bar while there's room and folded into the
-            // system's overflow when not.
-            ToolbarItem(placement: .primaryAction) {
-                AddItemButton(showingAddItem: $showingAddItem)
-            }
-            // See `drawsOwnSearchButton`.
-            if drawsOwnSearchButton {
+            if selection.isSelecting {
+                selectionToolbar
+            } else {
+                // The rest are `.secondaryAction`, kept in the bar while there's room and folded into the
+                // system's overflow when not.
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Search", systemImage: "magnifyingglass") {
-                        isSearchPresented = true
+                    AddItemButton(showingAddItem: $showingAddItem)
+                }
+                // See `drawsOwnSearchButton`.
+                if drawsOwnSearchButton {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Search", systemImage: "magnifyingglass") {
+                            isSearchPresented = true
+                        }
                     }
                 }
-            }
-            if !flagFields.isEmpty {
-                ToolbarItem(placement: .secondaryAction) {
-                    FlagFilterButton(flagFields: flagFields, activeFlagIDs: $activeFlagIDs)
+                if !flagFields.isEmpty {
+                    ToolbarItem(placement: .secondaryAction) {
+                        FlagFilterButton(flagFields: flagFields, activeFlagIDs: $activeFlagIDs)
+                    }
                 }
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                LayoutToggleButton(layout: $catalogue.itemLayout)
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                ExportMenuItems(catalogue: catalogue) { format in
-                    pendingExport = [format.itemProvider(for: catalogue, container: modelContext.container)]
-                }
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
-            }
-            if hasRecentlyDeletedItems {
                 ToolbarItem(placement: .secondaryAction) {
-                    Button {
-                        showingRecentlyDeleted = true
-                    } label: {
-                        Label("Recently Deleted", systemImage: "trash.circle")
+                    Button("Select", systemImage: "checkmark.circle") { selection.begin() }
+                        .accessibilityIdentifier("selectButton")
+                        .disabled(displayedCount == 0)
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    LayoutToggleButton(layout: $catalogue.itemLayout)
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    ExportMenuItems(catalogue: catalogue) { format in
+                        pendingExport = [format.itemProvider(for: catalogue, container: modelContext.container)]
+                    }
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
+                }
+                if hasRecentlyDeletedItems {
+                    ToolbarItem(placement: .secondaryAction) {
+                        Button {
+                            showingRecentlyDeleted = true
+                        } label: {
+                            Label("Recently Deleted", systemImage: "trash.circle")
+                        }
                     }
                 }
             }

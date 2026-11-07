@@ -16,18 +16,21 @@ struct ItemCardActions {
 }
 
 extension View {
-    /// `shape` is the card's, so the lifted preview keeps its corners.
+    /// `shape` is the card's, so the lifted preview keeps its corners. Off, the menu is empty
+    /// and the system shows none.
     func itemCardContextMenu(
         _ item: CatalogueItem,
         actions: ItemCardActions,
-        shape: RoundedRectangle
+        shape: RoundedRectangle,
+        isEnabled: Bool = true
     ) -> some View {
         contentShape(.contextMenuPreview, shape)
             .contextMenu {
-                Button {
-                    actions.edit(item)
-                } label: {
-                    Label("Edit", systemImage: "pencil")
+                if isEnabled {
+                    Button {
+                        actions.edit(item)
+                    } label: {
+                        Label("Edit", systemImage: "pencil")
                 }
                 Button {
                     actions.duplicate(item)
@@ -45,16 +48,18 @@ extension View {
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
+                }
             }
     }
 
     /// Edit is outermost, so a full swipe edits and never deletes.
-    func itemCardSwipeActions(_ item: CatalogueItem, actions: ItemCardActions) -> some View {
+    func itemCardSwipeActions(_ item: CatalogueItem, actions: ItemCardActions, isEnabled: Bool = true) -> some View {
         swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button {
-                actions.edit(item)
-            } label: {
-                Label("Edit", systemImage: "pencil")
+            if isEnabled {
+                Button {
+                    actions.edit(item)
+                } label: {
+                    Label("Edit", systemImage: "pencil")
             }
             .tint(.blue)
 
@@ -66,6 +71,7 @@ extension View {
                 Label("Delete", systemImage: "trash")
             }
             .tint(.red)
+            }
         }
     }
 }
@@ -86,5 +92,21 @@ struct ItemDeletedToast: View {
         .padding(.vertical, 12)
         .glassEffect(.regular.interactive(), in: .capsule)
         .accessibilityElement(children: .contain)
+    }
+}
+
+// MARK: - Selection Check
+
+/// The mark select mode puts on a card, filled in the catalogue's tint once picked.
+struct SelectionCheck: View {
+    let isSelected: Bool
+
+    var body: some View {
+        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+            .font(.title2)
+            .symbolRenderingMode(isSelected ? .palette : .monochrome)
+            .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary), .tint)
+            .background(.background, in: .circle)
+            .accessibilityHidden(true)
     }
 }

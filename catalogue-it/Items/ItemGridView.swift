@@ -20,6 +20,7 @@ struct ItemGridView<Header: View>: View {
     let isLoadingMore: Bool
     let onLoadMore: () -> Void
     let actions: ItemCardActions
+    let selection: ItemSelectionState
     @ViewBuilder let header: Header
 
     // Pushed, the border would flash for a frame before the push covers it.
@@ -47,15 +48,7 @@ struct ItemGridView<Header: View>: View {
     private var grid: some View {
         LazyVGrid(columns: gridColumns, spacing: 16) {
             ForEach(items) { item in
-                ItemCardView(item: item, showStatusChip: showStatusChip)
-                    .onTapGesture { selectedItem = item }
-                    .itemCardContextMenu(item, actions: actions, shape: RoundedRectangle(cornerRadius: AppConstants.CornerRadius.medium))
-                    .overlay {
-                        if showsSelectionBorder && selectedItem == item {
-                            RoundedRectangle(cornerRadius: AppConstants.CornerRadius.medium)
-                                .strokeBorder(.tint, lineWidth: 2.5)
-                        }
-                    }
+                card(item)
             }
             if hasMore {
                 Color.clear
@@ -71,6 +64,29 @@ struct ItemGridView<Header: View>: View {
         }
         .padding(.bottom)
         .padding(.horizontal, 16)
+    }
+
+    private func card(_ item: CatalogueItem) -> some View {
+        let isSelecting = selection.isSelecting
+        let isPicked = isSelecting && selection.isSelected(item)
+        let shape = RoundedRectangle(cornerRadius: AppConstants.CornerRadius.medium)
+        return ItemCardView(item: item, showStatusChip: showStatusChip)
+            .onTapGesture {
+                if isSelecting { selection.toggle(item) } else { selectedItem = item }
+            }
+            .itemCardContextMenu(item, actions: actions, shape: shape, isEnabled: !isSelecting)
+            .overlay {
+                if isSelecting ? isPicked : (showsSelectionBorder && selectedItem == item) {
+                    shape.strokeBorder(.tint, lineWidth: 2.5)
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if isSelecting {
+                    SelectionCheck(isSelected: isPicked)
+                        .padding(8)
+                }
+            }
+            .accessibilityAddTraits(isPicked ? .isSelected : [])
     }
 
     // MARK: - Gesture
@@ -139,6 +155,7 @@ struct ItemGridView<Header: View>: View {
         isLoadingMore: false,
         onLoadMore: {},
         actions: .none,
+        selection: ItemSelectionState(),
         header: { Text("Model Planes").font(.title2.bold()).padding() }
     )
     .modelContainer(container)

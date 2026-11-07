@@ -99,7 +99,7 @@ struct PhotoPickerView: View {
                 Text("Photos")
                 Spacer()
                 if !photos.isEmpty {
-                    Button(isEditingPhotos ? "Done" : "Edit") {
+                    Button(isEditingPhotos ? "Done" : "Edit Photos") {
                         withAnimation(.spring(duration: 0.2)) {
                             isEditingPhotos.toggle()
                         }

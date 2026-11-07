@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 
 // MARK: - Catalogue Export Tests
 
-/// Tests CSV generation and JSON export (including a full export → import round trip).
+/// Tests JSON export (including a full export → import round trip) and the share sheet providers.
 @MainActor
 struct CatalogueExportTests {
 
@@ -52,84 +52,6 @@ struct CatalogueExportTests {
         ctx.insert(year)
 
         return (catalogue, nameField, yearField)
-    }
-
-    // MARK: - CSV
-
-    @Test("CSV header lists fields by priority, Notes, and Photo Count")
-    func csvHeaderOrder() throws {
-        let container = try makeContainer()
-        let (catalogue, _, _) = makeSampleCatalogue(in: container.mainContext)
-
-        let csv = CatalogueExporter.csvString(for: catalogue)
-        let header = try #require(csv.components(separatedBy: "\n").first)
-        #expect(header == "Name,Year,Notes,Photo Count")
-    }
-
-    @Test("CSV data row contains tab, field values, notes, and photo count")
-    func csvDataRow() throws {
-        let container = try makeContainer()
-        let (catalogue, _, _) = makeSampleCatalogue(in: container.mainContext)
-
-        let rows = CatalogueExporter.csvString(for: catalogue).components(separatedBy: "\n")
-        try #require(rows.count == 2)
-        #expect(rows[1] == "Spitfire,1936,First build,0")
-    }
-
-    @Test("CSV escapes cells containing commas, quotes, and newlines")
-    func csvEscaping() throws {
-        let container = try makeContainer()
-        let ctx = container.mainContext
-        let (catalogue, nameField, _) = makeSampleCatalogue(in: ctx)
-
-        let item = CatalogueItem(notes: "line one\nline two")
-        item.createdDate = Date.now.addingTimeInterval(60) // sorts after the sample item
-        item.catalogue = catalogue
-        ctx.insert(item)
-
-        let fv = FieldValue(fieldDefinition: nameField, fieldType: .text)
-        fv.textValue = #"Hawker "Hurricane", MkI"#
-        fv.item = item
-        ctx.insert(fv)
-
-        let csv = CatalogueExporter.csvString(for: catalogue)
-        #expect(csv.contains(#""Hawker ""Hurricane"", MkI""#), "Quotes doubled and cell wrapped in quotes")
-        #expect(csv.contains("\"line one\nline two\""), "Newline cell wrapped in quotes")
-    }
-
-    @Test("CSV excludes soft-deleted items")
-    func csvExcludesSoftDeleted() throws {
-        let container = try makeContainer()
-        let ctx = container.mainContext
-        let (catalogue, _, _) = makeSampleCatalogue(in: ctx)
-
-        let deleted = CatalogueItem(notes: "gone")
-        deleted.deletedDate = Date.now
-        deleted.catalogue = catalogue
-        ctx.insert(deleted)
-
-        let csv = CatalogueExporter.csvString(for: catalogue)
-        #expect(csv.components(separatedBy: "\n").count == 2, "Header plus one active item")
-        #expect(csv.contains("gone") == false)
-    }
-
-    @Test("CSV numbers are exported without grouping separators")
-    func csvNumberNoGrouping() throws {
-        let container = try makeContainer()
-        let ctx = container.mainContext
-        let (catalogue, _, yearField) = makeSampleCatalogue(in: ctx)
-
-        let item = CatalogueItem()
-        item.createdDate = Date.now.addingTimeInterval(60)
-        item.catalogue = catalogue
-        ctx.insert(item)
-
-        let fv = FieldValue(fieldDefinition: yearField, fieldType: .number)
-        fv.numberValue = 1_234_567
-        fv.item = item
-        ctx.insert(fv)
-
-        #expect(CatalogueExporter.csvString(for: catalogue).contains("1234567"))
     }
 
     // MARK: - JSON
@@ -251,7 +173,7 @@ struct CatalogueExportTests {
         }
     }
 
-    @Test("Every Export menu entry hands the share sheet a named, loadable file", arguments: CatalogueExportFormat.allCases)
+    @Test("Every Back Up entry hands the share sheet a named, loadable file", arguments: CatalogueExportFormat.allCases)
     func shareSheetItemProvider(format: CatalogueExportFormat) async throws {
         let container = try makeContainer()
         let ctx = container.mainContext
@@ -260,22 +182,18 @@ struct CatalogueExportTests {
         let photo = ItemPhoto(imageData: Data([0xFF, 0xD8, 0xFF]), priority: 0)
         photo.item = item
         ctx.insert(photo)
+        try ctx.save() // the file's writer reads the catalogue by identifier, from its own context
 
         let provider = format.itemProvider(for: catalogue)
-        let type: UTType = format == .csv ? .commaSeparatedText : .json
-        #expect(provider.registeredTypeIdentifiers == [type.identifier])
+        #expect(provider.registeredTypeIdentifiers == [UTType.json.identifier])
         #expect(provider.suggestedName == format.filename(for: catalogue))
 
-        let data = try await loadData(from: provider, as: type)
-        if format == .csv {
-            #expect(String(decoding: data, as: UTF8.self).hasPrefix("Name,Year,Notes,Photo Count"))
-        } else {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let file = try decoder.decode(CatalogueExportFile.self, from: data)
-            let photos = try #require(file.catalogues.first?.items.first?.photos)
-            #expect(photos.count == (format == .jsonWithPhotos ? 1 : 0))
-        }
+        let data = try await loadData(from: provider, as: .json)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let file = try decoder.decode(CatalogueExportFile.self, from: data)
+        let photos = try #require(file.catalogues.first?.items.first?.photos)
+        #expect(photos.count == (format == .jsonWithPhotos ? 1 : 0))
         withExtendedLifetime(container) {}
     }
 }

@@ -13,63 +13,6 @@ import UniformTypeIdentifiers
 // MARK: - Catalogue Exporter
 
 enum CatalogueExporter {
-    /// Columns: custom fields by priority, Notes, Photo Count.
-    static func csvString(for catalogue: Catalogue) -> String {
-        let fields = catalogue.sortedFieldDefinitions
-        var rows: [String] = []
-
-        var headers = fields.map(\.name)
-        headers.append(contentsOf: ["Notes", "Photo Count"])
-        rows.append(headers.map(csvEscape).joined(separator: ","))
-
-        let allItems = catalogue.items.filter { $0.deletedDate == nil }.sorted { $0.createdDate < $1.createdDate }
-        for item in allItems {
-            var cells: [String] = []
-            for field in fields {
-                let fv = item.value(for: field)
-                let cell: String
-                if let fv {
-                    switch fv.fieldType {
-                    case .text:
-                        cell = fv.textValue ?? ""
-                    case .number:
-                        if let n = fv.numberValue {
-                            cell = n.formatted(.number.grouping(.never))
-                        } else {
-                            cell = ""
-                        }
-                    case .date:
-                        if let d = fv.dateValue {
-                            cell = d.formatted(date: .abbreviated, time: .omitted)
-                        } else {
-                            cell = ""
-                        }
-                    case .boolean:
-                        cell = fv.boolValue == true ? "Yes" : "No"
-                    case .optionList:
-                        cell = fv.textValue ?? ""
-                    }
-                } else {
-                    cell = field.fieldType == .boolean ? "No" : ""
-                }
-                cells.append(cell)
-            }
-            cells.append(item.notes ?? "")
-            cells.append(item.photos.count.formatted())
-            rows.append(cells.map(csvEscape).joined(separator: ","))
-        }
-
-        return rows.joined(separator: "\n")
-    }
-
-    private static func csvEscape(_ value: String) -> String {
-        guard value.contains(",") || value.contains("\"") || value.contains("\n") else {
-            return value
-        }
-        let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
-        return "\"\(escaped)\""
-    }
-
     // MARK: - JSON Export
 
     /// - Parameter includePhotos: `false` omits photos to keep the file small.
@@ -87,8 +30,8 @@ enum CatalogueExporter {
 
 // MARK: - Export Format
 
+/// The "Back Up Catalogue" entries, for moving a catalogue to another device.
 enum CatalogueExportFormat: CaseIterable, Identifiable {
-    case csv
     case jsonWithPhotos
     case jsonWithoutPhotos
 
@@ -96,60 +39,28 @@ enum CatalogueExportFormat: CaseIterable, Identifiable {
 
     var title: LocalizedStringKey {
         switch self {
-        case .csv: "Export as CSV"
-        case .jsonWithPhotos: "Export as JSON (with Photos)"
-        case .jsonWithoutPhotos: "Export as JSON (no Photos)"
+        case .jsonWithPhotos: "With Photos"
+        case .jsonWithoutPhotos: "Without Photos"
         }
     }
 
-    var systemImage: String {
-        self == .csv ? "tablecells" : "doc.text"
-    }
+    var systemImage: String { "doc.text" }
 
-    func filename(for catalogue: Catalogue) -> String {
-        self == .csv ? "\(catalogue.name).csv" : "\(catalogue.name).json"
-    }
+    func filename(for catalogue: Catalogue) -> String { "\(catalogue.name).json" }
 
     /// Builds the file only when a share destination asks, as `ShareLink` would.
     func itemProvider(for catalogue: Catalogue) -> NSItemProvider {
         let provider = NSItemProvider()
-        let filename = filename(for: catalogue)
         // Built outside `register`, whose `@Sendable` autoclosure can't capture the model.
-        switch self {
-        case .csv:
-            let file = CatalogueCSVFile(catalogue: catalogue, filename: filename)
-            provider.register(file)
-        case .jsonWithPhotos:
-            let file = CatalogueJSONFile(catalogue: catalogue, includePhotos: true, filename: filename)
-            provider.register(file)
-        case .jsonWithoutPhotos:
-            let file = CatalogueJSONFile(catalogue: catalogue, includePhotos: false, filename: filename)
-            provider.register(file)
-        }
+        let file = CatalogueJSONFile(catalogue: catalogue, includePhotos: self == .jsonWithPhotos, filename: filename(for: catalogue))
+        provider.register(file)
         return provider
-    }
-}
-
-// MARK: - Catalogue CSV File (Transferable)
-
-// @unchecked Sendable: DataRepresentation calls the closure on the main actor, where the
-// catalogue lives, before the share sheet appears.
-struct CatalogueCSVFile: Transferable, @unchecked Sendable {
-    let catalogue: Catalogue
-    let filename: String
-
-    static var transferRepresentation: some TransferRepresentation {
-        DataRepresentation(exportedContentType: .commaSeparatedText) { file in
-            let csv = await MainActor.run { CatalogueExporter.csvString(for: file.catalogue) }
-            return Data(csv.utf8)
-        }
-        .suggestedFileName { $0.filename }
     }
 }
 
 // MARK: - Catalogue JSON File (Transferable)
 
-// @unchecked Sendable: as CatalogueCSVFile.
+// @unchecked Sendable: the catalogue is read on the main actor when the share destination asks.
 struct CatalogueJSONFile: Transferable, @unchecked Sendable {
     let catalogue: Catalogue
     let includePhotos: Bool

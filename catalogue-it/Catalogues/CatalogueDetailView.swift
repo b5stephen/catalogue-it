@@ -43,8 +43,10 @@ struct CatalogueDetailView: View {
     @State private var bandHeight: CGFloat = 0
     /// A cached fetchCount, so rendering never faults `catalogue.items`.
     @State private var hasRecentlyDeletedItems = false
+    @State private var selection = ItemSelectionState()
+    @State private var exportRequest: ExportRequest?
 #if os(iOS)
-    @State private var pendingExport: NSItemProvider?
+    @State private var pendingBackup: [NSItemProvider]?
 #endif
 
     private func refreshHasRecentlyDeleted() {
@@ -54,6 +56,41 @@ struct CatalogueDetailView: View {
         )
         descriptor.fetchLimit = 1
         hasRecentlyDeletedItems = ((try? modelContext.fetchCount(descriptor)) ?? 0) > 0
+    }
+
+    private var filterFingerprint: FilterFingerprint {
+        FilterFingerprint(
+            catalogue: catalogue,
+            statusTab: selectedTab,
+            activeFlagIDs: Array(activeFlagIDs),
+            searchText: appliedSearchText
+        )
+    }
+
+    private func exportCatalogue() {
+        let fingerprint = filterFingerprint
+        let filters = ExportFilters(
+            fingerprint: fingerprint,
+            allCount: CatalogueSummary.itemCount(for: catalogue, in: modelContext)
+        )
+        Task {
+            exportRequest = await selection.prepareExport(
+                .matching(fingerprint, excluding: []),
+                format: .spreadsheet,
+                filters: filters,
+                container: modelContext.container,
+                context: modelContext,
+                current: fingerprint
+            )
+        }
+    }
+
+    private var selectedCount: Int {
+        selection.count(totalMatching: displayedCount)
+    }
+
+    private var selectionTitle: String {
+        String(localized: "\(selectedCount) Selected")
     }
 
     private var itemCountLabel: String {
@@ -114,6 +151,21 @@ struct CatalogueDetailView: View {
     private var searchPlacement: SearchFieldPlacement {
         drawsOwnSearchButton ? .navigationBarDrawer(displayMode: .automatic) : .automatic
     }
+
+    @ToolbarContentBuilder
+    private var selectionToolbar: some ToolbarContent {
+        let allSelected = displayedCount > 0 && selectedCount >= displayedCount
+        ToolbarItem(placement: .topBarLeading) {
+            Button(allSelected ? "Deselect All" : "Select All") {
+                if allSelected { selection.deselectAll() } else { selection.selectAll(filterFingerprint) }
+            }
+            .accessibilityIdentifier("selectAllButton")
+        }
+        ToolbarItem(placement: .confirmationAction) {
+            Button("Done") { selection.end() }
+                .accessibilityIdentifier("selectDoneButton")
+        }
+    }
 #endif
 
     // MARK: - Body
@@ -130,11 +182,12 @@ struct CatalogueDetailView: View {
             displayedCount: $displayedCount,
             scrollState: bandScroll,
             trackedScrollRange: usesBand ? bandHeight : 0,
+            selection: selection,
             header: {
                 if sharesGlowWithDetail {
                     ListHeader(
                         catalogue: catalogue,
-                        countLabel: itemCountLabel,
+                        countLabel: selection.isSelecting ? selectionTitle : itemCountLabel,
                         statusTabs: statusTabs,
                         selectedTab: $selectedTab
                     )
@@ -149,9 +202,9 @@ struct CatalogueDetailView: View {
         // Inside the tabs' `safeAreaBar`, so the fade runs under them too.
         .washFadeEdge(sharesGlowWithDetail)
 #if os(iOS)
-        // Under the Export menu (or the overflow holding it), so the popover points at it.
+        // Under the Back Up menu (or the overflow holding it), so the popover points at it.
         .overlay(alignment: .topTrailing) {
-            ShareSheetAnchor(itemProvider: $pendingExport)
+            ShareSheetAnchor(itemProviders: $pendingBackup)
                 .frame(width: 1, height: 1)
                 .padding(.trailing, 28)
                 .accessibilityHidden(true)
@@ -197,15 +250,23 @@ struct CatalogueDetailView: View {
         // accessibility and the window title.
         .navigationSubtitle(usesBand || hasDetailColumn ? "" : itemCountLabel)
         .toolbarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(selection.isSelecting)
         .toolbar(removing: hasDetailColumn ? .title : nil)
         .toolbar {
             // Drawn in the band's label colours, since the fill may be light or dark. Not
             // `toolbarColorScheme`, which made the glass buttons look foreign on the fill.
+            // Beside a detail column the title is removed, and `ListHeader` carries the count.
             if usesBand {
                 ToolbarItem(placement: .principal) {
-                    BandBarTitle(catalogue: catalogue, countLabel: itemCountLabel)
-                        .opacity(isBandScrolledAway ? 1 : 0)
-                        .accessibilityHidden(!isBandScrolledAway)
+                    if selection.isSelecting {
+                        Text(selectionTitle)
+                            .font(.headline)
+                            .contentTransition(.numericText())
+                    } else {
+                        BandBarTitle(catalogue: catalogue, countLabel: itemCountLabel)
+                            .opacity(isBandScrolledAway ? 1 : 0)
+                            .accessibilityHidden(!isBandScrolledAway)
+                    }
                 }
                 .sharedBackgroundVisibility(.hidden)
             }
@@ -236,6 +297,9 @@ struct CatalogueDetailView: View {
         .sheet(isPresented: $showingAddItem) {
             AddEditItemView(catalogue: catalogue, defaultStatusTab: selectedTab)
         }
+        .sheet(item: $exportRequest) { request in
+            ExportComposerView(catalogue: catalogue, request: request)
+        }
         .sheet(isPresented: $showingStats) {
             CatalogueStatsView(catalogue: catalogue)
         }
@@ -247,6 +311,7 @@ struct CatalogueDetailView: View {
                 seededCatalogueID = catalogue.persistentModelID
                 selectedTab = catalogue.defaultStatusTab
             }
+            selection.end()
             reconcileFilterSelections()
             PurgeService.purgeExpiredItems(for: catalogue, in: modelContext)
             // Purging can empty the deleted set.
@@ -268,44 +333,59 @@ struct CatalogueDetailView: View {
 #endif
         .toolbar {
 #if os(iOS)
-            // The rest are `.secondaryAction`, kept in the bar while there's room and folded into the
-            // system's overflow when not.
-            ToolbarItem(placement: .primaryAction) {
-                AddItemButton(showingAddItem: $showingAddItem)
-            }
-            // See `drawsOwnSearchButton`.
-            if drawsOwnSearchButton {
+            if selection.isSelecting {
+                selectionToolbar
+            } else {
+                // The rest are `.secondaryAction`, kept in the bar while there's room and folded into the
+                // system's overflow when not.
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Search", systemImage: "magnifyingglass") {
-                        isSearchPresented = true
+                    AddItemButton(showingAddItem: $showingAddItem)
+                }
+                // See `drawsOwnSearchButton`.
+                if drawsOwnSearchButton {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Search", systemImage: "magnifyingglass") {
+                            isSearchPresented = true
+                        }
                     }
                 }
-            }
-            if !flagFields.isEmpty {
-                ToolbarItem(placement: .secondaryAction) {
-                    FlagFilterButton(flagFields: flagFields, activeFlagIDs: $activeFlagIDs)
+                if !flagFields.isEmpty {
+                    ToolbarItem(placement: .secondaryAction) {
+                        FlagFilterButton(flagFields: flagFields, activeFlagIDs: $activeFlagIDs)
+                    }
                 }
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                LayoutToggleButton(layout: $catalogue.itemLayout)
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                ExportMenuItems(catalogue: catalogue) { format in
-                    pendingExport = format.itemProvider(for: catalogue)
-                }
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
-            }
-            if hasRecentlyDeletedItems {
                 ToolbarItem(placement: .secondaryAction) {
-                    Button {
-                        showingRecentlyDeleted = true
-                    } label: {
-                        Label("Recently Deleted", systemImage: "trash.circle")
+                    Button("Select", systemImage: "checkmark.circle") { selection.begin() }
+                        .accessibilityIdentifier("selectButton")
+                        .disabled(displayedCount == 0)
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    LayoutToggleButton(layout: $catalogue.itemLayout)
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button("Export…", systemImage: "square.and.arrow.up") { exportCatalogue() }
+                        .keyboardShortcut("e")
+                        .accessibilityIdentifier("exportButton")
+                        .disabled(displayedCount == 0)
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    BackUpMenuItems(catalogue: catalogue) { format in
+                        pendingBackup = [format.itemProvider(for: catalogue)]
+                    }
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
+                }
+                if hasRecentlyDeletedItems {
+                    ToolbarItem(placement: .secondaryAction) {
+                        Button {
+                            showingRecentlyDeleted = true
+                        } label: {
+                            Label("Recently Deleted", systemImage: "trash.circle")
+                        }
                     }
                 }
             }
@@ -326,7 +406,7 @@ struct CatalogueDetailView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu("More", systemImage: "ellipsis.circle") {
-                    ExportMenuItems(catalogue: catalogue)
+                    BackUpMenuItems(catalogue: catalogue)
                     Button {
                         showingStats = true
                     } label: {
@@ -384,44 +464,39 @@ private struct ListHeader: View {
     }
 }
 
-// MARK: - Export Menu Items
+// MARK: - Back Up Menu Items
 
-/// Its own view so export data isn't computed on every search keystroke.
-private struct ExportMenuItems: View {
+/// Its own view so backup data isn't computed on every search keystroke.
+private struct BackUpMenuItems: View {
     let catalogue: Catalogue
 #if os(iOS)
     /// Not `ShareLink`: in the bar's overflow the share sheet has nothing to anchor on and
     /// crashes. See `ShareSheetAnchor`.
-    let onExport: (CatalogueExportFormat) -> Void
+    let onBackUp: (CatalogueExportFormat) -> Void
 #endif
 
     var body: some View {
-        Menu("Export", systemImage: "square.and.arrow.up") {
+        Menu("Back Up Catalogue", systemImage: "externaldrive") {
             ForEach(CatalogueExportFormat.allCases) { format in
 #if os(iOS)
                 Button(format.title, systemImage: format.systemImage) {
-                    onExport(format)
+                    onBackUp(format)
                 }
 #else
-                exportLink(for: format)
+                backUpLink(for: format)
 #endif
             }
         }
     }
 
 #if !os(iOS)
-    @ViewBuilder
-    private func exportLink(for format: CatalogueExportFormat) -> some View {
+    private func backUpLink(for format: CatalogueExportFormat) -> some View {
         let filename = format.filename(for: catalogue)
-        let preview = SharePreview(filename, image: Image(systemName: format.systemImage))
-        switch format {
-        case .csv:
-            ShareLink(format.title, item: CatalogueCSVFile(catalogue: catalogue, filename: filename), preview: preview)
-        case .jsonWithPhotos:
-            ShareLink(format.title, item: CatalogueJSONFile(catalogue: catalogue, includePhotos: true, filename: filename), preview: preview)
-        case .jsonWithoutPhotos:
-            ShareLink(format.title, item: CatalogueJSONFile(catalogue: catalogue, includePhotos: false, filename: filename), preview: preview)
-        }
+        return ShareLink(
+            format.title,
+            item: CatalogueJSONFile(catalogue: catalogue, includePhotos: format == .jsonWithPhotos, filename: filename),
+            preview: SharePreview(filename, image: Image(systemName: format.systemImage))
+        )
     }
 #endif
 }

@@ -14,7 +14,7 @@ import UIKit
 /// want of a `sourceView`. Place this where it outlives that menu, near the button the popover
 /// should point at.
 struct ShareSheetAnchor: UIViewRepresentable {
-    @Binding var itemProvider: NSItemProvider?
+    @Binding var itemProviders: [NSItemProvider]?
 
     func makeUIView(context: Context) -> UIView {
         let view = UIView()
@@ -23,24 +23,24 @@ struct ShareSheetAnchor: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {
-        guard let provider = itemProvider else { return }
+        guard let providers = itemProviders, !providers.isEmpty else { return }
         // Deferred a turn: state can't be written inside an update. Clearing first means a
         // re-render can't present it twice.
         Task {
-            itemProvider = nil
-            Self.present(provider, from: uiView)
+            itemProviders = nil
+            Self.present(providers, from: uiView)
         }
     }
 
-    private static func present(_ provider: NSItemProvider, from anchor: UIView) {
+    private static func present(_ providers: [NSItemProvider], from anchor: UIView) {
         guard var presenter = anchor.owningViewController else { return }
         while let presented = presenter.presentedViewController, !presented.isBeingDismissed {
             presenter = presented
         }
 
-        let configuration = UIActivityItemsConfiguration(itemProviders: [provider])
-        // The file name as the header, as `ShareLink`'s preview gave it.
-        let title = provider.suggestedName
+        let configuration = UIActivityItemsConfiguration(itemProviders: providers)
+        // The first provider's name as the header, as `ShareLink`'s preview gave it.
+        let title = providers.first?.suggestedName
         configuration.metadataProvider = { key in
             key == .title ? title : nil
         }

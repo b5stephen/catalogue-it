@@ -22,6 +22,7 @@ struct ItemDetailView: View {
     @State private var showingDuplicateItem = false
     @State private var showingDeleteConfirmation = false
     @State private var showingEditNotes = false
+    @State private var showingShare = false
 
     // MARK: - Computed
 
@@ -37,20 +38,6 @@ struct ItemDetailView: View {
 
     private var displayFields: [FieldDefinition] {
         catalogue.sortedFieldDefinitions.filter { !item.displayValue(for: $0).isEmpty }
-    }
-
-    private var shareText: String {
-        var lines: [String] = []
-        for def in catalogue.sortedFieldDefinitions {
-            let text = item.displayValue(for: def)
-            if !text.isEmpty {
-                lines.append("\(def.name): \(text)")
-            }
-        }
-        if let notes = item.notes, !notes.isEmpty {
-            lines.append("Notes: \(notes)")
-        }
-        return lines.joined(separator: "\n")
     }
 
     private var isBesideList: Bool {
@@ -112,8 +99,10 @@ struct ItemDetailView: View {
                 }
             }
             ToolbarItem(placement: .secondaryAction) {
-                ShareLink(item: shareText) {
-                    Label("Export", systemImage: "square.and.arrow.up")
+                Button {
+                    showingShare = true
+                } label: {
+                    Label("Share…", systemImage: "square.and.arrow.up")
                 }
             }
             ToolbarItem(placement: .secondaryAction) {
@@ -146,8 +135,10 @@ struct ItemDetailView: View {
 #else
             ToolbarItem(placement: .primaryAction) {
                 Menu {
-                    ShareLink(item: shareText) {
-                        Label("Export", systemImage: "square.and.arrow.up")
+                    Button {
+                        showingShare = true
+                    } label: {
+                        Label("Share…", systemImage: "square.and.arrow.up")
                     }
                     Button {
                         showingDuplicateItem = true
@@ -194,6 +185,9 @@ struct ItemDetailView: View {
         }
         .sheet(isPresented: $showingEditNotes) {
             EditItemNotesSheet(item: item)
+        }
+        .sheet(isPresented: $showingShare) {
+            ExportComposerView(catalogue: catalogue, item: item)
         }
     }
 

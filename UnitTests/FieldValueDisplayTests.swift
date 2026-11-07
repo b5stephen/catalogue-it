@@ -151,7 +151,8 @@ struct ItemFieldDisplayTests {
 
     @Test("A Yes/No field with no row reads as off, with the field's false label")
     func booleanWithoutRow() throws {
-        let ctx = try makeContainer().mainContext
+        let container = try makeContainer()
+        let ctx = container.mainContext
         let catalogue = Catalogue(name: "Films")
         ctx.insert(catalogue)
         let field = FieldDefinition(name: "Watched", fieldType: .boolean, priority: 0)
@@ -168,7 +169,8 @@ struct ItemFieldDisplayTests {
 
     @Test("A Yes/No row with a nil value reads as off")
     func booleanWithNilValue() throws {
-        let ctx = try makeContainer().mainContext
+        let container = try makeContainer()
+        let ctx = container.mainContext
         let field = FieldDefinition(name: "Watched", fieldType: .boolean, priority: 0)
         ctx.insert(field)
         let item = CatalogueItem()
@@ -187,7 +189,8 @@ struct ItemFieldDisplayTests {
 
     @Test("Other field types with no row stay empty")
     func textWithoutRow() throws {
-        let ctx = try makeContainer().mainContext
+        let container = try makeContainer()
+        let ctx = container.mainContext
         let field = FieldDefinition(name: "Title", fieldType: .text, priority: 0)
         ctx.insert(field)
         let item = CatalogueItem()

@@ -61,11 +61,13 @@ private struct FieldRowView: View {
         }
         .contentShape(Rectangle())
         .contextMenu {
+            // Without this the catalogue's tint colours the menu icon.
             Button {
                 copyToClipboard(value)
             } label: {
                 Label("Copy", systemImage: "doc.on.doc")
             }
+            .tint(nil)
         }
     }
 }
@@ -213,6 +215,7 @@ struct ItemNotesSection: View {
                 } label: {
                     Label("Copy", systemImage: "doc.on.doc")
                 }
+                .tint(nil)
             }
         }
     }

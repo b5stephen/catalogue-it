@@ -17,7 +17,8 @@ struct ItemCardActions {
 
 extension View {
     /// `shape` is the card's, so the lifted preview keeps its corners. Off, the menu is empty
-    /// and the system shows none.
+    /// and the system shows none. The menu drops the catalogue's tint, which would otherwise
+    /// colour every icon and override the destructive red.
     func itemCardContextMenu(
         _ item: CatalogueItem,
         actions: ItemCardActions,
@@ -27,27 +28,30 @@ extension View {
         contentShape(.contextMenuPreview, shape)
             .contextMenu {
                 if isEnabled {
-                    Button {
-                        actions.edit(item)
-                    } label: {
-                        Label("Edit", systemImage: "pencil")
-                }
-                Button {
-                    actions.duplicate(item)
-                } label: {
-                    Label("Duplicate", systemImage: "plus.square.on.square")
-                }
-                Button {
-                    actions.share(item)
-                } label: {
-                    Label("Share…", systemImage: "square.and.arrow.up")
-                }
-                Divider()
-                Button(role: .destructive) {
-                    actions.delete(item)
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                }
+                    Group {
+                        Button {
+                            actions.edit(item)
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        Button {
+                            actions.duplicate(item)
+                        } label: {
+                            Label("Duplicate", systemImage: "plus.square.on.square")
+                        }
+                        Button {
+                            actions.share(item)
+                        } label: {
+                            Label("Share…", systemImage: "square.and.arrow.up")
+                        }
+                        Divider()
+                        Button(role: .destructive) {
+                            actions.delete(item)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                    .tint(nil)
                 }
             }
     }

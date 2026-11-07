@@ -15,7 +15,6 @@ struct CatalogueDetailView: View {
     @Bindable var catalogue: Catalogue
     @Binding var selectedItem: CatalogueItem?
 
-    @Environment(\.colorScheme) private var colorScheme
 #if !os(macOS)
     @Environment(\.hasDetailColumn) private var hasDetailColumn
 #endif
@@ -295,7 +294,7 @@ struct CatalogueDetailView: View {
         }
         .scrollEdgeEffectStyle(.soft, for: .top)
         .catalogueGround(catalogue, glow: !usesBand, inSplitView: sharesGlowWithDetail)
-        .tint(catalogue.palette(for: colorScheme).tint)
+        .catalogueTint(catalogue)
 #if os(macOS)
         .navigationTitle(catalogue.name)
         .navigationSubtitle(itemCountLabel)
@@ -353,15 +352,19 @@ struct CatalogueDetailView: View {
         .onChange(of: flagFields.map(\.fieldID)) { reconcileFilterSelections() }
         .sheet(isPresented: $showingAddItem) {
             AddEditItemView(catalogue: catalogue, defaultStatusTab: selectedTab)
+                .catalogueTint(catalogue)
         }
         .sheet(item: $exportRequest) { request in
             ExportComposerView(catalogue: catalogue, request: request)
+                .catalogueTint(catalogue)
         }
         .sheet(isPresented: $showingStats) {
             CatalogueStatsView(catalogue: catalogue)
+                .catalogueTint(catalogue)
         }
         .sheet(isPresented: $showingRecentlyDeleted) {
             RecentlyDeletedView(catalogue: catalogue)
+                .catalogueTint(catalogue)
         }
         .task(id: catalogue.persistentModelID) {
             if seededCatalogueID != catalogue.persistentModelID {

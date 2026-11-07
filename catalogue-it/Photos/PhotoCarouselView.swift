@@ -101,11 +101,13 @@ struct PhotoCarouselView: View {
         }
         .contentShape(Rectangle())
         .contextMenu {
+            // Without this the catalogue's tint colours the menu icon.
             Button {
                 copyImageToClipboard(photo.imageData)
             } label: {
                 Label("Copy Image", systemImage: "doc.on.doc")
             }
+            .tint(nil)
         }
     }
 }

@@ -11,6 +11,7 @@ import SwiftData
 struct AddEditCatalogueView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     let catalogue: Catalogue?
     let nextPriority: Int
@@ -209,6 +210,8 @@ struct AddEditCatalogueView: View {
                 }
             }
         }
+        // The pick, not the saved colour, so the form follows the colour as it changes.
+        .tint(CataloguePalette(hex: selectedColor.toHex(), scheme: colorScheme, isSelected: false).tint)
     }
 
     // MARK: - Actions

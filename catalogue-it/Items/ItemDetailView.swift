@@ -11,7 +11,6 @@ import SwiftData
 // MARK: - Item Detail View
 
 struct ItemDetailView: View {
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.hasDetailColumn) private var hasDetailColumn
 
     let catalogue: Catalogue
@@ -82,7 +81,7 @@ struct ItemDetailView: View {
         // Matches the list column's fade, so the two tops agree while either scrolls.
         .washFadeEdge(isBesideList)
         .catalogueGround(catalogue, glow: true, inSplitView: isBesideList)
-        .tint(catalogue.palette(for: colorScheme).tint)
+        .catalogueTint(catalogue)
 #if os(iOS)
         // Inline beside the list, so both columns' bars are the same height.
         .toolbarTitleDisplayMode(isBesideList ? .inline : .automatic)
@@ -179,15 +178,19 @@ struct ItemDetailView: View {
         }
         .sheet(isPresented: $showingEditItem) {
             AddEditItemView(catalogue: catalogue, item: item)
+                .catalogueTint(catalogue)
         }
         .sheet(isPresented: $showingDuplicateItem) {
             AddEditItemView(catalogue: catalogue, duplicateSource: item)
+                .catalogueTint(catalogue)
         }
         .sheet(isPresented: $showingEditNotes) {
             EditItemNotesSheet(item: item)
+                .catalogueTint(catalogue)
         }
         .sheet(isPresented: $showingShare) {
             ExportComposerView(catalogue: catalogue, item: item)
+                .catalogueTint(catalogue)
         }
     }
 

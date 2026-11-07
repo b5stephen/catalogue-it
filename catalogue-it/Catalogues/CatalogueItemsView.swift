@@ -159,15 +159,19 @@ struct CatalogueItemsView<Header: View>: View {
         }
         .sheet(item: $itemToEdit) { item in
             AddEditItemView(catalogue: catalogue, item: item)
+                .catalogueTint(catalogue)
         }
         .sheet(item: $itemToDuplicate) { item in
             AddEditItemView(catalogue: catalogue, duplicateSource: item)
+                .catalogueTint(catalogue)
         }
         .sheet(item: $itemToShare) { item in
             ExportComposerView(catalogue: catalogue, item: item)
+                .catalogueTint(catalogue)
         }
         .sheet(item: $shareRequest) { request in
             ExportComposerView(catalogue: catalogue, request: request)
+                .catalogueTint(catalogue)
         }
         .toolbar {
             if selection.isSelecting {

@@ -292,6 +292,25 @@ struct CardFill: ShapeStyle {
     }
 }
 
+// MARK: - Catalogue Tint
+
+/// A sheet takes its environment from where `.sheet` is attached, not from the screen it covers,
+/// so each sheet inside a catalogue applies this to its content.
+struct CatalogueTintModifier: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    let catalogue: Catalogue
+
+    func body(content: Content) -> some View {
+        content.tint(catalogue.palette(for: colorScheme).tint)
+    }
+}
+
+extension View {
+    func catalogueTint(_ catalogue: Catalogue) -> some View {
+        modifier(CatalogueTintModifier(catalogue: catalogue))
+    }
+}
+
 // MARK: - Item Card
 
 /// The item rows' card. A plain grey shadow in light, where a tinted one would double up on the

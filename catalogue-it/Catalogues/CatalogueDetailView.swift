@@ -46,7 +46,7 @@ struct CatalogueDetailView: View {
     @State private var selection = ItemSelectionState()
     @State private var exportRequest: ExportRequest?
 #if os(iOS)
-    @State private var pendingBackup: [NSItemProvider]?
+    @State private var pendingBackup: ShareSheetContent?
 #endif
 
     private func refreshHasRecentlyDeleted() {
@@ -210,7 +210,7 @@ struct CatalogueDetailView: View {
                     .accessibilityIdentifier("exportButton")
                     .disabled(displayedCount == 0)
                 BackUpMenuItems(catalogue: catalogue) { format in
-                    pendingBackup = [format.itemProvider(for: catalogue)]
+                    pendingBackup = .itemProviders([format.itemProvider(for: catalogue)])
                 }
             }
             Section {
@@ -260,7 +260,7 @@ struct CatalogueDetailView: View {
 #if os(iOS)
         // Under the More menu holding Back Up, so the popover points at it.
         .overlay(alignment: .topTrailing) {
-            ShareSheetAnchor(itemProviders: $pendingBackup)
+            ShareSheetAnchor(content: $pendingBackup)
                 .frame(width: 1, height: 1)
                 .padding(.trailing, 28)
                 .accessibilityHidden(true)

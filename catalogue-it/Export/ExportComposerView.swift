@@ -46,7 +46,7 @@ struct ExportComposerView: View {
     /// The photo the current format wants, downsampled once when the choice changes.
     @State private var photoImage: CGImage?
 
-    @State private var pendingShare: [NSItemProvider]?
+    @State private var pendingShare: ShareSheetContent?
     @State private var didCopy = false
 
     private static let previewRowLimit = 5
@@ -350,7 +350,7 @@ struct ExportComposerView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.glassProminent)
-            .background { ShareSheetAnchor(itemProviders: $pendingShare) }
+            .background { ShareSheetAnchor(content: $pendingShare) }
             .accessibilityIdentifier("exportShareButton")
             .disabled(isExporting)
         }
@@ -410,16 +410,11 @@ struct ExportComposerView: View {
         if format == .spreadsheet {
             runExport(
                 { writer, request, progress in try await writer.writeCSV(request, onProgress: progress) },
-                then: { url in
-                    let provider = NSItemProvider()
-                    provider.register(WrittenSpreadsheetFile(url: url))
-                    provider.suggestedName = url.lastPathComponent
-                    pendingShare = [provider]
-                }
+                then: { url in pendingShare = .file(url) }
             )
             return
         }
-        pendingShare = itemProviders(forCopy: false)
+        pendingShare = .itemProviders(itemProviders(forCopy: false))
     }
 
     /// Runs `work` on a `SpreadsheetWriter` off the main thread. The progress overlay appears

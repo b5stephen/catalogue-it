@@ -5,8 +5,6 @@
 
 import Foundation
 import SwiftData
-import CoreTransferable
-import UniformTypeIdentifiers
 
 // MARK: - Spreadsheet Request
 
@@ -124,19 +122,5 @@ actor SpreadsheetWriter {
         let itemID = item.persistentModelID
         return try modelContext.fetchCount(FetchDescriptor<ItemPhoto>(
             predicate: #Predicate { $0.item?.persistentModelID == itemID }))
-    }
-}
-
-// MARK: - Written Spreadsheet (Transferable)
-
-/// A CSV already on disk, handed to the share sheet as the file itself.
-struct WrittenSpreadsheetFile: Transferable, Sendable {
-    let url: URL
-
-    static var transferRepresentation: some TransferRepresentation {
-        FileRepresentation(exportedContentType: .commaSeparatedText) { file in
-            SentTransferredFile(file.url, allowAccessingOriginalFile: false)
-        }
-        .suggestedFileName { $0.url.lastPathComponent }
     }
 }

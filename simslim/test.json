@@ -1,0 +1,4 @@
+{
+  "name": "test",
+  "description": "Unit and UI tests: in-memory SwiftData, cloudKitDatabase .none, no photo picker"
+}

@@ -1,0 +1,5 @@
+{
+  "name": "dev",
+  "description": "Running the app: iCloud sync and schema push, PhotosPicker, document picker Recents",
+  "except": ["icloud", "photos", "search"]
+}

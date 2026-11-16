@@ -28,6 +28,25 @@ any more. `ci_scripts/` must sit beside the `.xcodeproj` (an Xcode Cloud require
 `catalogue-it/`); `ci_post_xcodebuild.sh` writes the TestFlight "What to Test" notes from recent
 commit subjects. A model change still needs the CloudKit schema deploy before it reaches TestFlight.
 
+## Simulators
+
+Local simulators are slimmed with [simslim](https://github.com/MobAI-App/simslim) profiles in
+`simslim/` (beside the `.xcodeproj`, outside `catalogue-it/`). Xcode Cloud's runners are not slimmed.
+
+- `test.json` turns off every optional service. This is safe because tests use in-memory stores
+  with `cloudKitDatabase: .none` and never open the photo picker. Before a test run:
+  `simslim verify <udid> --profile simslim/test.json || simslim on <udid> --profile simslim/test.json`.
+  UI tests may run in parallel, and each per-worker clone starts stock, so run
+  `simslim watch --profile simslim/test.json` alongside.
+- `dev.json` keeps `icloud` (CloudKit sync, iCloud sign-in, the schema push in the
+  `cloudkit-schema-deploy` skill), `photos` (`PhotosPicker` reads the library through `assetsd`)
+  and `search` (without it, `.fileImporter` shows "Content Unavailable" under Recents). Check it with
+  `simslim doctor <udid> --requires icloud,keychain-sync,photos`. If iCloud sign-in still fails, add
+  `store` to its `except`, because the two categories share the Apple Media Services daemons.
+- To get a service back without a reboot, use `simslim enable <udid> <category>`, for example `siri`
+  when working on Genmoji icons, which need Apple Intelligence. Erasing a simulator returns it to
+  stock, so re-run `simslim on` afterwards.
+
 ## Code Comments
 
 Comments are succinct and only state what the code cannot.

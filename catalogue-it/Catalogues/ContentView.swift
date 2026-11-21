@@ -15,8 +15,7 @@ struct ContentView: View {
     @Query(filter: #Predicate<Catalogue> { !$0.pendingDeletion }, sort: \Catalogue.priority)
     private var catalogues: [Catalogue]
     @State private var showingAddCatalogue = false
-    @State private var showingImporter = false
-    @State private var isPastingImport = false
+    @State private var importRequest: ImportRequest?
     @State private var showingSyncDiagnostics = false
     @State private var isBeta = false
     @State private var importProgress: (current: Int, total: Int)?
@@ -56,6 +55,20 @@ struct ContentView: View {
             twoColumnLayout
 #endif
         }
+        // Here, not on the sidebar: a catalogue pushed on the stack takes the stack's environment,
+        // and an alert from the sidebar doesn't show while a catalogue covers it.
+        .modifier(CatalogueImportFlow(request: $importRequest, catalogues: catalogues) { catalogue in
+            selectedCatalogue = catalogue
+        })
+        .environment(\.importAction, ImportAction { importRequest = $0 })
+        // The menu bar suggests the open catalogue, which the sheet can still change.
+        .focusedSceneValue(\.importAction, ImportAction { request in
+            var request = request
+            if request.suggestedDestination == nil, let selectedCatalogue {
+                request.suggestedDestination = .existing(selectedCatalogue.persistentModelID)
+            }
+            importRequest = request
+        })
         .overlay {
             if let progress = importProgress {
                 ProgressOverlay(
@@ -188,14 +201,6 @@ struct ContentView: View {
         }
     }
 
-    /// macOS has the room, and no overflow to speak of.
-    private var rareActionPlacement: ToolbarItemPlacement {
-#if os(macOS)
-        .primaryAction
-#else
-        .secondaryAction
-#endif
-    }
 
     @ViewBuilder
     private var sidebarContent: some View {
@@ -238,6 +243,24 @@ struct ContentView: View {
             }
         }
         .toolbar {
+            // Add first, as on the catalogue screen. All top level: on iOS 27 a narrow bar (an iPad
+            // sidebar in portrait) moves the developer tools into an overflow menu before Add.
+            ToolbarItem(placement: .primaryAction) {
+                Button("Add Catalogue", systemImage: "plus") {
+                    showingAddCatalogue = true
+                }
+            }
+            .overflowsLast()
+            ToolbarItem(placement: .primaryAction) {
+                Menu("Import", systemImage: "square.and.arrow.down") {
+                    Button("Import from File…", systemImage: "doc") {
+                        importRequest = ImportRequest(source: .file)
+                    }
+                    Button("Paste from Spreadsheet", systemImage: "tablecells") {
+                        importRequest = ImportRequest(source: .paste)
+                    }
+                }
+            }
 #if DEBUG
             DebugToolbarItem(
                 onLoadTestData: { showingSeedSheet = true },
@@ -250,30 +273,14 @@ struct ContentView: View {
             // The hammer menu that holds this is DEBUG-only, and a silent failure shows no status bar
             // to tap. App Store builds show nothing.
             if isBeta {
-                ToolbarItem(placement: rareActionPlacement) {
+                ToolbarItem(placement: .primaryAction) {
                     Button("Sync Diagnostics", systemImage: "stethoscope") {
                         showingSyncDiagnostics = true
                     }
                 }
+                .overflowsFirst()
             }
 #endif
-            // Rare, so behind the overflow: on an iPad in portrait the ~300pt bar would drop the title
-            // rather than a button.
-            ToolbarItem(placement: rareActionPlacement) {
-                Menu("Import", systemImage: "square.and.arrow.down") {
-                    Button("Import from File…", systemImage: "doc") {
-                        showingImporter = true
-                    }
-                    Button("Paste from Spreadsheet", systemImage: "tablecells") {
-                        isPastingImport = true
-                    }
-                }
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button("Add Catalogue", systemImage: "plus") {
-                    showingAddCatalogue = true
-                }
-            }
         }
         .sheet(isPresented: $showingAddCatalogue) {
             AddEditCatalogueView(
@@ -288,9 +295,6 @@ struct ContentView: View {
         .sheet(item: $catalogueToEdit) { catalogue in
             AddEditCatalogueView(catalogue: catalogue, nextPriority: catalogues.count)
         }
-        .modifier(CatalogueImportFlow(isPickingFile: $showingImporter, isPasting: $isPastingImport, catalogues: catalogues) { catalogue in
-            selectedCatalogue = catalogue
-        })
 #if DEBUG
         .alert("CloudKit Schema", isPresented: $showingSchemaResult) {
             Button("OK", role: .cancel) {}

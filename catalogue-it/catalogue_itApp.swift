@@ -54,6 +54,7 @@ struct catalogue_itApp: App {
                 }
         }
         .modelContainer(sharedModelContainer)
+        .commands { ImportCommands() }
     }
 
     private func seedUITestDataIfNeeded() {

@@ -25,9 +25,21 @@ struct ImportDestinationSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
-    @State private var destination = ImportDestination.newCatalogue
+    @State private var destination: ImportDestination
     @State private var skipsDuplicates = true
     @State private var duplicateCount = 0
+
+    init(
+        file: CatalogueDTO,
+        catalogues: [Catalogue],
+        initialDestination: ImportDestination? = nil,
+        onImport: @escaping (ImportDestination, _ skippingDuplicates: Bool) -> Void
+    ) {
+        self.file = file
+        self.catalogues = catalogues
+        self.onImport = onImport
+        _destination = State(initialValue: initialDestination ?? .newCatalogue)
+    }
 
     private var target: Catalogue? {
         guard case .existing(let id) = destination else { return nil }

@@ -9,20 +9,22 @@ import UniformTypeIdentifiers
 
 // MARK: - Catalogue Import Flow
 
-/// The import flow: file picker or pasted rows, the destination or column-mapping sheet,
+/// The import flow: file picker, clipboard or a drop, the destination or column-mapping sheet,
 /// progress, then the result. A Data file holding one catalogue asks where it goes when there
 /// are catalogues to import into; a Data file with several is imported as new catalogues
 /// straight away. Anything else is read as a spreadsheet.
 struct CatalogueImportFlow: ViewModifier {
-    @Binding var isPickingFile: Bool
-    /// Set to read the clipboard as spreadsheet rows; set back once read.
-    @Binding var isPasting: Bool
+    /// Set to start an import; cleared once taken.
+    @Binding var request: ImportRequest?
     let catalogues: [Catalogue]
     /// The new catalogue, or the one imported into, to select.
     let onImported: (Catalogue) -> Void
 
     @Environment(\.modelContext) private var modelContext
 
+    @State private var isPickingFile = false
+    /// The request's suggestion, kept while the file picker is open.
+    @State private var suggestedDestination: ImportDestination?
     @State private var pendingFile: PendingFile?
     @State private var pendingTable: PendingTable?
     @State private var progress: (done: Int, total: Int)?
@@ -33,12 +35,14 @@ struct CatalogueImportFlow: ViewModifier {
     struct PendingFile: Identifiable {
         let id = UUID()
         let file: CatalogueExportFile
+        let suggestedDestination: ImportDestination?
     }
 
     struct PendingTable: Identifiable {
         let id = UUID()
         let table: ImportTable
         let sourceName: String
+        let suggestedDestination: ImportDestination?
     }
 
     struct ConfirmedImport {
@@ -47,6 +51,8 @@ struct CatalogueImportFlow: ViewModifier {
         let skippingDuplicates: Bool
         /// Off for a spreadsheet, whose columns the user mapped to fields one by one.
         var matchingFieldsByName = true
+        /// Spreadsheet rows already left out as duplicates, reported with the importer's own.
+        var duplicatesLeftOut = 0
     }
 
     enum Source {
@@ -73,28 +79,34 @@ struct CatalogueImportFlow: ViewModifier {
             ) { result in
                 open(result)
             }
-            .onChange(of: isPasting) {
-                guard isPasting else { return }
-                isPasting = false
-                paste()
+            .onChange(of: request?.id) {
+                guard let request else { return }
+                self.request = nil
+                take(request)
             }
             // Started from onDismiss: an import that finishes while the sheet is still closing
             // loses its result alert.
             .sheet(item: $pendingFile, onDismiss: startConfirmedImport) { pending in
                 if let catalogue = pending.file.catalogues.first {
-                    ImportDestinationSheet(file: catalogue, catalogues: catalogues) { destination, skippingDuplicates in
+                    ImportDestinationSheet(
+                        file: catalogue, catalogues: catalogues, initialDestination: pending.suggestedDestination
+                    ) { destination, skippingDuplicates in
                         confirmedImport = ConfirmedImport(
                             file: pending.file, destination: destination, skippingDuplicates: skippingDuplicates)
                     }
                 }
             }
             .sheet(item: $pendingTable, onDismiss: startConfirmedImport) { pending in
-                TableImportSheet(table: pending.table, sourceName: pending.sourceName, catalogues: catalogues) { catalogue, destination in
+                TableImportSheet(
+                    table: pending.table, sourceName: pending.sourceName, catalogues: catalogues,
+                    initialDestination: pending.suggestedDestination
+                ) { catalogue, destination, duplicatesLeftOut in
                     confirmedImport = ConfirmedImport(
                         file: CatalogueExportFile(exportedAt: .now, catalogues: [catalogue]),
                         destination: destination,
                         skippingDuplicates: false,
-                        matchingFieldsByName: false)
+                        matchingFieldsByName: false,
+                        duplicatesLeftOut: duplicatesLeftOut)
                 }
             }
             .alert(
@@ -124,20 +136,48 @@ struct CatalogueImportFlow: ViewModifier {
 
     // MARK: Steps
 
+    private func take(_ request: ImportRequest) {
+        switch request.source {
+        case .file:
+            suggestedDestination = request.suggestedDestination
+            isPickingFile = true
+        case .paste:
+            paste(into: request.suggestedDestination)
+        case .dropped(let drop):
+            open(name: drop.name, suggesting: request.suggestedDestination) {
+                try Self.source(from: drop.data, isDataFile: drop.isDataFile)
+            }
+        }
+    }
+
     private func open(_ result: Result<[URL], Error>) {
+        let suggestion = suggestedDestination
+        suggestedDestination = nil
+        guard case .success(let urls) = result, let url = urls.first else {
+            if case .failure(let error) = result { errorMessage = error.localizedDescription }
+            return
+        }
+        open(name: url.deletingPathExtension().lastPathComponent, suggesting: suggestion) {
+            let isScoped = url.startAccessingSecurityScopedResource()
+            defer { if isScoped { url.stopAccessingSecurityScopedResource() } }
+            return try Self.source(from: Data(contentsOf: url), isDataFile: url.pathExtension.lowercased() == "json")
+        }
+    }
+
+    /// `read` runs off the main actor: a Data file with photos takes a while to decode.
+    private func open(name: String, suggesting suggestion: ImportDestination?, read: @escaping @Sendable () throws -> Source) {
         Task {
             do {
-                guard let url = try result.get().first else { return }
                 progress = (done: 0, total: 0)
-                switch try await Task.detached(operation: { try Self.read(url) }).value {
+                switch try await Task.detached(operation: read).value {
                 case .dataFile(let file) where file.catalogues.count == 1 && !catalogues.isEmpty:
                     progress = nil
-                    pendingFile = PendingFile(file: file)
+                    pendingFile = PendingFile(file: file, suggestedDestination: suggestion)
                 case .dataFile(let file):
                     await run(ConfirmedImport(file: file, destination: .newCatalogue, skippingDuplicates: false))
                 case .table(let table):
                     progress = nil
-                    pendingTable = PendingTable(table: table, sourceName: url.deletingPathExtension().lastPathComponent)
+                    pendingTable = PendingTable(table: table, sourceName: name, suggestedDestination: suggestion)
                 }
             } catch {
                 progress = nil
@@ -153,18 +193,15 @@ struct CatalogueImportFlow: ViewModifier {
     }
 
     /// A Data file is JSON, whatever its name; everything else is read as a spreadsheet.
-    nonisolated private static func read(_ url: URL) throws -> Source {
-        let isScoped = url.startAccessingSecurityScopedResource()
-        defer { if isScoped { url.stopAccessingSecurityScopedResource() } }
-        let data = try Data(contentsOf: url)
+    nonisolated private static func source(from data: Data, isDataFile: Bool) throws -> Source {
         let firstByte = data.first { !(Character(UnicodeScalar($0)).isWhitespace) }
-        if url.pathExtension.lowercased() == "json" || firstByte == UInt8(ascii: "{") {
+        if isDataFile || firstByte == UInt8(ascii: "{") {
             return .dataFile(try CatalogueImporter.decode(data))
         }
         return .table(try DelimitedTextParser.parse(data))
     }
 
-    private func paste() {
+    private func paste(into suggestion: ImportDestination?) {
 #if os(macOS)
         let text = NSPasteboard.general.string(forType: .string)
 #else
@@ -174,7 +211,7 @@ struct CatalogueImportFlow: ViewModifier {
             errorMessage = String(localized: "Copy some rows from a spreadsheet first, then paste them here.")
             return
         }
-        pendingTable = PendingTable(table: table, sourceName: String(localized: "Pasted Items"))
+        pendingTable = PendingTable(table: table, sourceName: String(localized: "Pasted Items"), suggestedDestination: suggestion)
     }
 
     private func run(_ confirmed: ConfirmedImport) async {
@@ -208,7 +245,8 @@ struct CatalogueImportFlow: ViewModifier {
         progress = nil
 
         switch result {
-        case .success(let summary):
+        case .success(var summary):
+            summary.skippedDuplicateCount += confirmed.duplicatesLeftOut
             guard let first = summary.catalogueIDs.first.flatMap({ modelContext.model(for: $0) as? Catalogue }) else { return }
             // The catalogue opens once the alert is answered: a navigation push alongside it
             // stops the alert appearing.

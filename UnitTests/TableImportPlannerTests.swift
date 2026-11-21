@@ -127,6 +127,67 @@ struct TableImportPlannerTests {
     }
 }
 
+// MARK: - Duplicates
+
+struct TableImportDuplicateTests {
+
+    private func parser() -> ImportValueParser {
+        ImportValueParser(locale: Locale(identifier: "en_GB"), timeZone: TimeZone(identifier: "Europe/London")!)
+    }
+
+    @Test("Text keys ignore case and accents; number keys compare by value")
+    func keys() {
+        let p = parser()
+        #expect(TableImportPlanner.duplicateKey(" Spitfire ", fieldType: .text, parser: p) == TableImportPlanner.duplicateKey("spitfire", fieldType: .text, parser: p))
+        #expect(TableImportPlanner.duplicateKey("Café", fieldType: .optionList, parser: p) == "cafe")
+        #expect(TableImportPlanner.duplicateKey("1,200", fieldType: .number, parser: p) == "1200")
+        #expect(TableImportPlanner.duplicateKey("1200.0", fieldType: .number, parser: p) == "1200")
+        #expect(TableImportPlanner.duplicateKey("", fieldType: .text, parser: p) == nil)
+        #expect(TableImportPlanner.duplicateKey("2026-01-01", fieldType: .date, parser: p) == nil)
+    }
+
+    @Test("Rows matching an existing key are left out and counted")
+    func skipsMatchingRows() throws {
+        let id = UUID()
+        let name = TargetField(fieldID: id, name: "Name", fieldType: .text)
+        let table = try DelimitedTextParser.parse("Name,Scale\nSPITFIRE,1:48\nTempest,1:48\nHurricane,1:72\n")
+        let check = TableImportPlanner.DuplicateCheck(column: 0, fieldType: .text, existingKeys: ["spitfire", "hurricane"])
+        #expect(TableImportPlanner.duplicateRowCount(table, hasHeaderRow: true, check: check, parser: parser()) == 2)
+
+        let built = TableImportPlanner.build(
+            table,
+            plan: .init(hasHeaderRow: true, targets: [.field(id), .newField(.text)], catalogueName: "", colorHex: "",
+                        duplicateCheck: check),
+            existing: [name], parser: parser())
+        #expect(built.catalogue.items.count == 1)
+        #expect(built.duplicateRowCount == 2)
+        #expect(built.catalogue.items.first?.fieldValues.first?.textValue == "Tempest")
+    }
+
+    @Test("Only text and number fields can identify duplicates")
+    func eligibleTypes() {
+        #expect(FieldType.allCases.filter(TableImportPlanner.canMatchDuplicates) == [.text, .number])
+    }
+
+    @Test("Changing the key column's field clears the check")
+    @MainActor
+    func retargetClearsCheck() throws {
+        let id = UUID()
+        let other = UUID()
+        let table = try DelimitedTextParser.parse("Name,Code\nSpitfire,A1\n")
+        let model = TableImportModel(table: table, sourceName: "x")
+        model.setDestination(.newCatalogue, fields: [
+            TargetField(fieldID: id, name: "Name", fieldType: .text),
+            TargetField(fieldID: other, name: "Code", fieldType: .text),
+        ])
+        model.setDuplicateCheck(column: 0, existingKeys: ["spitfire"])
+        #expect(model.duplicateRowCount == 1)
+        model.setTarget(.newField(.text), forColumn: 0)
+        #expect(model.duplicateCheck == nil)
+        #expect(model.duplicateRowCount == 0)
+    }
+}
+
 // MARK: - Round Trip
 
 /// A catalogue exported by the Spreadsheet format and imported back reproduces its values.

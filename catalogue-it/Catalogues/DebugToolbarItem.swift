@@ -14,13 +14,7 @@ struct DebugToolbarItem: ToolbarContent {
     var onShowSyncDiagnostics: () -> Void
 
     var body: some ToolbarContent {
-        // Overflow on iOS: on an iPad in portrait the ~300pt bar drops its title first.
-#if os(macOS)
-        let placement: ToolbarItemPlacement = .primaryAction
-#else
-        let placement: ToolbarItemPlacement = .secondaryAction
-#endif
-        ToolbarItem(placement: placement) {
+        ToolbarItem(placement: .primaryAction) {
             Menu {
                 Button("Load Test Data", systemImage: "hammer") {
                     onLoadTestData()
@@ -41,10 +35,10 @@ struct DebugToolbarItem: ToolbarContent {
                     onShowSyncDiagnostics()
                 }
             } label: {
-                // In the overflow the image alone reads as "build".
                 Label("Developer", systemImage: "hammer")
             }
         }
+        .overflowsFirst()
     }
 }
 #endif

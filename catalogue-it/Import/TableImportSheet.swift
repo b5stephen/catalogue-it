@@ -12,17 +12,24 @@ import SwiftUI
 /// will be created and which values can't be read.
 struct TableImportSheet: View {
     let catalogues: [Catalogue]
-    let onImport: (CatalogueDTO, ImportDestination) -> Void
+    /// The catalogue to write, where, and how many rows were left out as already there.
+    let onImport: (CatalogueDTO, ImportDestination, Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var model: TableImportModel
     @State private var review: TableImportPlanner.Built?
 
     init(table: ImportTable, sourceName: String, catalogues: [Catalogue],
-         onImport: @escaping (CatalogueDTO, ImportDestination) -> Void) {
+         initialDestination: ImportDestination? = nil,
+         onImport: @escaping (CatalogueDTO, ImportDestination, Int) -> Void) {
         self.catalogues = catalogues
         self.onImport = onImport
-        _model = State(initialValue: TableImportModel(table: table, sourceName: sourceName))
+        let model = TableImportModel(table: table, sourceName: sourceName)
+        if let initialDestination, case .existing(let id) = initialDestination,
+           let catalogue = catalogues.first(where: { $0.persistentModelID == id }) {
+            model.setDestination(initialDestination, fields: catalogue.sortedFieldDefinitions.map(TargetField.init))
+        }
+        _model = State(initialValue: model)
     }
 
     private var target: Catalogue? {
@@ -36,6 +43,9 @@ struct TableImportSheet: View {
                 destinationSection
                 optionsSection
                 columnsSection
+                if let target, !model.duplicateCandidates.isEmpty {
+                    duplicatesSection(for: target)
+                }
             }
             .formStyle(.grouped)
             .navigationTitle("Import Spreadsheet")
@@ -56,7 +66,7 @@ struct TableImportSheet: View {
             .navigationDestination(isPresented: Binding(get: { review != nil }, set: { if !$0 { review = nil } })) {
                 if let built = review {
                     TableImportReview(model: model, built: built, catalogueName: target?.name ?? built.catalogue.name) {
-                        onImport(built.catalogue, model.destination)
+                        onImport(built.catalogue, model.destination, built.duplicateRowCount)
                         dismiss()
                     }
                 }
@@ -109,6 +119,39 @@ struct TableImportSheet: View {
             }
         } footer: {
             Text("\(TableImportPlanner.dataRows(of: model.table, hasHeaderRow: model.hasHeaderRow).count) rows")
+        }
+    }
+
+    private func duplicatesSection(for target: Catalogue) -> some View {
+        Section {
+            Picker("Skip Rows Already Here", selection: Binding(
+                get: { model.duplicateCheck?.column },
+                set: { column in
+                    guard let column, let field = model.duplicateCandidates.first(where: { $0.column == column })?.field,
+                          let definition = target.fieldDefinitions.first(where: { $0.fieldID == field.fieldID }) else {
+                        model.setDuplicateCheck(nil)
+                        return
+                    }
+                    let keys = definition.fieldValues
+                        .filter { $0.item != nil && $0.item?.deletedDate == nil }
+                        .compactMap(TableImportPlanner.duplicateKey)
+                    model.setDuplicateCheck(column: column, existingKeys: Set(keys))
+                }
+            )) {
+                Text("Import Every Row").tag(Int?.none)
+                ForEach(model.duplicateCandidates, id: \.column) { candidate in
+                    Text("Same \(candidate.field.name)").tag(Int?.some(candidate.column))
+                }
+            }
+        } header: {
+            Text("Duplicates")
+        } footer: {
+            if let check = model.duplicateCheck,
+               let name = model.duplicateCandidates.first(where: { $0.column == check.column })?.field.name {
+                Text("^[\(model.duplicateRowCount) row](inflect: true) share a \(name) with an item already in “\(target.name)” and will be left out.")
+            } else {
+                Text("Choose a field that identifies an item, such as a name or number, to leave out rows already in “\(target.name)”.")
+            }
         }
     }
 
@@ -230,6 +273,9 @@ private struct TableImportReview: View {
             Section {
                 LabeledContent("Items", value: built.catalogue.items.count.formatted())
                 LabeledContent(model.destination == .newCatalogue ? "New Catalogue" : "Into", value: catalogueName)
+                if built.duplicateRowCount > 0 {
+                    LabeledContent("Already Here, Skipped", value: built.duplicateRowCount.formatted())
+                }
                 if built.skippedRowCount > 0 {
                     LabeledContent("Empty Rows Skipped", value: built.skippedRowCount.formatted())
                 }

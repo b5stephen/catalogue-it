@@ -226,12 +226,65 @@ nonisolated enum TableImportPlanner {
         /// The catalogue's name, when the import makes a new one.
         var catalogueName: String
         var colorHex: String
+        var duplicateCheck: DuplicateCheck?
     }
 
     struct Built {
         let catalogue: CatalogueDTO
         /// Rows with nothing in any imported column.
         let skippedRowCount: Int
+        /// Rows left out because `Plan.duplicateCheck` found them already in the catalogue.
+        var duplicateRowCount = 0
+    }
+
+    // MARK: Duplicates
+
+    /// Rows whose value in `column` matches one of `existingKeys` (the field's values on the
+    /// catalogue's live items) are already there, and are left out.
+    struct DuplicateCheck: Equatable {
+        let column: Int
+        let fieldType: FieldType
+        let existingKeys: Set<String>
+    }
+
+    /// An option list is a category shared by many items, so it can't tell them apart.
+    static func canMatchDuplicates(on fieldType: FieldType) -> Bool {
+        fieldType == .text || fieldType == .number
+    }
+
+    /// Text compares ignoring case and accents; numbers by value, so `1,200` matches 1200.
+    static func duplicateKey(_ cell: String, fieldType: FieldType, parser: ImportValueParser) -> String? {
+        switch fieldType {
+        case .number:
+            return parser.number(cell).map { SpreadsheetEncoding.plainNumber($0.value) }
+        case .text, .optionList:
+            let key = ImportFieldMatcher.normalised(cell)
+            return key.isEmpty ? nil : key
+        case .date, .boolean:
+            return nil
+        }
+    }
+
+    static func duplicateKey(_ value: FieldValue) -> String? {
+        switch value.fieldType {
+        case .number:
+            return value.numberValue.map(SpreadsheetEncoding.plainNumber)
+        case .text, .optionList:
+            let key = ImportFieldMatcher.normalised(value.textValue ?? "")
+            return key.isEmpty ? nil : key
+        case .date, .boolean:
+            return nil
+        }
+    }
+
+    static func isDuplicate(_ row: [String], check: DuplicateCheck?, parser: ImportValueParser) -> Bool {
+        guard let check else { return false }
+        let cell = row[check.column].trimmingCharacters(in: .whitespacesAndNewlines)
+        return duplicateKey(cell, fieldType: check.fieldType, parser: parser).map(check.existingKeys.contains) ?? false
+    }
+
+    static func duplicateRowCount(_ table: ImportTable, hasHeaderRow: Bool, check: DuplicateCheck, parser: ImportValueParser) -> Int {
+        dataRows(of: table, hasHeaderRow: hasHeaderRow).count { isDuplicate($0, check: check, parser: parser) }
     }
 
     /// Items are dated `start` plus a millisecond per row, so Date Added keeps the sheet's
@@ -274,7 +327,12 @@ nonisolated enum TableImportPlanner {
 
         var items: [CatalogueItemDTO] = []
         var skipped = 0
+        var duplicates = 0
         for (rowIndex, row) in rows.enumerated() {
+            if isDuplicate(row, check: plan.duplicateCheck, parser: parser) {
+                duplicates += 1
+                continue
+            }
             var values: [FieldValueDTO] = []
             var notes: String?
             var dateAdded: Date?
@@ -318,7 +376,7 @@ nonisolated enum TableImportPlanner {
             fieldDefinitions: fieldDTOs,
             items: items
         )
-        return Built(catalogue: catalogue, skippedRowCount: skipped)
+        return Built(catalogue: catalogue, skippedRowCount: skipped, duplicateRowCount: duplicates)
     }
 
     // MARK: Values

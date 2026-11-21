@@ -34,7 +34,7 @@ struct CatalogueSidebar: View {
 
     @ViewBuilder
     private func row(_ catalogue: Catalogue) -> some View {
-        CatalogueCardView(catalogue: catalogue)
+        CatalogueDropRow(catalogue: catalogue)
             .background {
                 NavigationLink(value: catalogue) { EmptyView() }
                     .opacity(0)
@@ -71,6 +71,25 @@ struct CatalogueSidebar: View {
                 }
                 .tint(.red)
             }
+    }
+}
+
+// MARK: - Drop Row
+
+/// A card that takes a spreadsheet or Data file dropped onto it, outlined while one is over it.
+private struct CatalogueDropRow: View {
+    let catalogue: Catalogue
+    @State private var isTargeted = false
+
+    var body: some View {
+        CatalogueCardView(catalogue: catalogue)
+            .overlay {
+                if isTargeted {
+                    RoundedRectangle(cornerRadius: AppConstants.CornerRadius.card, style: .continuous)
+                        .strokeBorder(.tint, lineWidth: 3)
+                }
+            }
+            .importDropTarget(into: .existing(catalogue.persistentModelID), isTargeted: $isTargeted)
     }
 }
 #endif

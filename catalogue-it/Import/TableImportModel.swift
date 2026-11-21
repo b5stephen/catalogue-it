@@ -34,6 +34,8 @@ final class TableImportModel {
     private(set) var existing: [TargetField] = []
     /// Shown only when the sheet has numeric dates whose values don't settle the order.
     private(set) var asksForDateOrder = false
+    private(set) var duplicateCheck: TableImportPlanner.DuplicateCheck?
+    private(set) var duplicateRowCount = 0
 
     init(table: ImportTable, sourceName: String) {
         self.table = table
@@ -46,6 +48,7 @@ final class TableImportModel {
     func setDestination(_ destination: ImportDestination, fields: [TargetField]) {
         self.destination = destination
         existing = fields
+        setDuplicateCheck(nil)
         targets = TableImportPlanner.defaultTargets(for: columns, existing: existing)
         rebuildChecks()
     }
@@ -59,6 +62,34 @@ final class TableImportModel {
         }
         targets[index] = target
         checks[index] = check(column: index)
+        // Its keys are the old field's values.
+        if let check = duplicateCheck, check.column == index || !duplicateCandidates.contains(where: { $0.column == check.column }) {
+            setDuplicateCheck(nil)
+        }
+    }
+
+    /// Columns mapped to an existing field whose values can identify an item already there.
+    var duplicateCandidates: [(column: Int, field: TargetField)] {
+        targets.enumerated().compactMap { index, target in
+            guard case .field(let id) = target,
+                  let field = existing.first(where: { $0.fieldID == id }),
+                  TableImportPlanner.canMatchDuplicates(on: field.fieldType) else { return nil }
+            return (index, field)
+        }
+    }
+
+    /// - Parameter existingKeys: `TableImportPlanner.duplicateKey` of the field's values on the
+    ///   catalogue's live items.
+    func setDuplicateCheck(column: Int, existingKeys: Set<String>) {
+        guard let field = duplicateCandidates.first(where: { $0.column == column })?.field else { return }
+        setDuplicateCheck(.init(column: column, fieldType: field.fieldType, existingKeys: existingKeys))
+    }
+
+    func setDuplicateCheck(_ check: TableImportPlanner.DuplicateCheck?) {
+        duplicateCheck = check
+        duplicateRowCount = check.map {
+            TableImportPlanner.duplicateRowCount(table, hasHeaderRow: hasHeaderRow, check: $0, parser: parser)
+        } ?? 0
     }
 
     var importedColumnCount: Int {
@@ -71,7 +102,8 @@ final class TableImportModel {
             hasHeaderRow: hasHeaderRow,
             targets: targets,
             catalogueName: name.isEmpty ? String(localized: "Imported Catalogue") : name,
-            colorHex: colorHex
+            colorHex: colorHex,
+            duplicateCheck: duplicateCheck
         )
         return TableImportPlanner.build(table, plan: plan, existing: existing, parser: parser)
     }
@@ -87,6 +119,7 @@ final class TableImportModel {
             asksForDateOrder = TableImportPlanner.hasAmbiguousDates(table, hasHeaderRow: hasHeaderRow, parser: parser)
         }
         targets = TableImportPlanner.defaultTargets(for: columns, existing: existing)
+        setDuplicateCheck(nil)
         rebuildChecks()
     }
 

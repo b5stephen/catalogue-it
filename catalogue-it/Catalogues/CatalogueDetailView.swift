@@ -31,6 +31,7 @@ struct CatalogueDetailView: View {
     /// ANDed with each other and with the status tab.
     @State private var activeFlagIDs: Set<UUID> = []
     @State private var showingEditCatalogue = false
+    @Environment(\.importAction) private var importAction
     @State private var showingAddItem = false
     @State private var showingStats = false
     @State private var showingRecentlyDeleted = false
@@ -203,11 +204,22 @@ struct CatalogueDetailView: View {
                 }
                 SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
             }
+            // Items out and in, then the catalogue itself.
             Section {
                 Button("Share…", systemImage: "square.and.arrow.up") { exportCatalogue() }
                     .keyboardShortcut("e")
                     .accessibilityIdentifier("exportButton")
                     .disabled(displayedCount == 0)
+                Menu("Import Items", systemImage: "square.and.arrow.down") {
+                    Button("Import from File…", systemImage: "doc") {
+                        importAction(.file, into: .existing(catalogue.persistentModelID))
+                    }
+                    Button("Paste from Spreadsheet", systemImage: "tablecells") {
+                        importAction(.paste, into: .existing(catalogue.persistentModelID))
+                    }
+                }
+            }
+            Section {
                 CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
                 if hasRecentlyDeletedItems {
                     Button("Recently Deleted", systemImage: "trash.circle") { showingRecentlyDeleted = true }
@@ -333,6 +345,7 @@ struct CatalogueDetailView: View {
         .sheet(isPresented: $showingEditCatalogue) {
             AddEditCatalogueView(catalogue: catalogue)
         }
+        .importDropTarget(into: .existing(catalogue.persistentModelID))
         .onChange(of: statusTabs) { reconcileFilterSelections() }
         .onChange(of: flagFields.map(\.fieldID)) { reconcileFilterSelections() }
         .sheet(isPresented: $showingAddItem) {

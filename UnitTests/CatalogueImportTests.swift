@@ -117,7 +117,7 @@ struct CatalogueImportTests {
         let data = try #require(Self.v1JSON.data(using: .utf8))
         let catalogues = try await CatalogueImporter.importCatalogues(
             from: data,
-            into: container.mainContext,
+            into: container,
             priorityOffset: priorityOffset
         )
         return (container, catalogues)
@@ -198,7 +198,7 @@ struct CatalogueImportTests {
 
         let data = try await DataFileTestSupport.write(catalogue, in: source).data
         let destination = try makeContainer()
-        let imported = try await CatalogueImporter.importCatalogues(from: data, into: destination.mainContext, priorityOffset: 0)
+        let imported = try await CatalogueImporter.importCatalogues(from: data, into: destination, priorityOffset: 0)
 
         let importedItem = try #require(imported.first?.items.first)
         #expect(importedItem.createdDate == Date(timeIntervalSince1970: 1_600_000_000))
@@ -285,7 +285,7 @@ struct CatalogueImportTests {
         """#
         let data = try #require(json.data(using: .utf8))
         let catalogues = try await CatalogueImporter.importCatalogues(
-            from: data, into: container.mainContext, priorityOffset: 0
+            from: data, into: container, priorityOffset: 0
         )
         let catalogue = try #require(catalogues.first)
         let statusField = try #require(catalogue.statusField)
@@ -332,7 +332,7 @@ struct CatalogueImportTests {
         """#
         let data = try #require(json.data(using: .utf8))
         let catalogues = try await CatalogueImporter.importCatalogues(
-            from: data, into: container.mainContext, priorityOffset: 0
+            from: data, into: container, priorityOffset: 0
         )
         let catalogue = try #require(catalogues.first)
         #expect(catalogue.showAllTab == false)
@@ -375,7 +375,7 @@ struct CatalogueImportTests {
         """#
         let data = try #require(json.data(using: .utf8))
         let catalogues = try await CatalogueImporter.importCatalogues(
-            from: data, into: container.mainContext, priorityOffset: 0
+            from: data, into: container, priorityOffset: 0
         )
         let catalogue = try #require(catalogues.first)
         #expect(catalogue.fieldDefinitions.first?.displayRole == DisplayRole.none)
@@ -441,7 +441,7 @@ struct CatalogueImportTests {
         await #expect {
             _ = try await CatalogueImporter.importCatalogues(
                 from: data,
-                into: container.mainContext,
+                into: container,
                 priorityOffset: 0
             )
         } throws: { error in
@@ -478,7 +478,7 @@ struct CatalogueImportTests {
         let data = try #require(json.data(using: .utf8))
         let catalogues = try await CatalogueImporter.importCatalogues(
             from: data,
-            into: container.mainContext,
+            into: container,
             priorityOffset: 0
         )
         let catalogue = try #require(catalogues.first)

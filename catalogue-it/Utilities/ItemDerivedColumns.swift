@@ -11,7 +11,7 @@ import Foundation
 /// differs, so recomputing on save, in a sweep or after a merge never turns an already-correct
 /// item into an export, and the other device's rebuild comes back as a no-op. Never touches
 /// `modifiedDate`, which records the user's last edit.
-enum ItemDerivedColumns {
+nonisolated enum ItemDerivedColumns {
 
     /// - Parameters:
     ///   - fieldValues: One per definition.

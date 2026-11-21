@@ -175,7 +175,7 @@ struct CatalogueExportTests {
         let data = try await DataFileTestSupport.write(original, in: container).data
         let imported = try await CatalogueImporter.importCatalogues(
             from: data,
-            into: ctx,
+            into: container,
             priorityOffset: 1
         )
 

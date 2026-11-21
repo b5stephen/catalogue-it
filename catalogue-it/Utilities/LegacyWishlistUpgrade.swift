@@ -9,7 +9,7 @@ import Foundation
 
 /// v1 export files carried wishlist as an `isWishlist` boolean on every item. Import
 /// synthesises the "Status" option-list field a user would build by hand, with a value per item.
-enum LegacyWishlistUpgrade {
+nonisolated enum LegacyWishlistUpgrade {
 
     static let statusFieldName = "Status"
     static let ownedOption = "Owned"
@@ -60,5 +60,22 @@ enum LegacyWishlistUpgrade {
             suffix += 1
         }
         return "\(statusFieldName) \(suffix)"
+    }
+}
+
+nonisolated extension CatalogueDTO {
+    /// The catalogue with its v1 wishlist flags turned into the status field and its values, or
+    /// unchanged when there are none.
+    func upgradingLegacyWishlist() -> CatalogueDTO {
+        guard let statusField = LegacyWishlistUpgrade.synthesisedStatusField(for: self) else { return self }
+        var upgraded = self
+        upgraded.fieldDefinitions.append(statusField)
+        upgraded.items = items.map { item in
+            var item = item
+            item.fieldValues.append(LegacyWishlistUpgrade.statusFieldValue(for: item, fieldID: statusField.fieldID))
+            item.isWishlist = nil
+            return item
+        }
+        return upgraded
     }
 }

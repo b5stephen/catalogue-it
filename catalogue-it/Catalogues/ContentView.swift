@@ -18,7 +18,6 @@ struct ContentView: View {
     @State private var showingImporter = false
     @State private var showingSyncDiagnostics = false
     @State private var isBeta = false
-    @State private var importErrorMessage: String?
     @State private var importProgress: (current: Int, total: Int)?
 #if os(macOS)
     @State private var selectedCatalogue: Catalogue?
@@ -95,17 +94,6 @@ struct ContentView: View {
             }
         }
 #endif
-        .alert(
-            "Import Failed",
-            isPresented: Binding(
-                get: { importErrorMessage != nil },
-                set: { if !$0 { importErrorMessage = nil } }
-            )
-        ) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(importErrorMessage ?? "")
-        }
         .alert(
             "Delete \"\(catalogueToDelete?.name ?? "")\"?",
             isPresented: Binding(
@@ -294,13 +282,9 @@ struct ContentView: View {
         .sheet(item: $catalogueToEdit) { catalogue in
             AddEditCatalogueView(catalogue: catalogue, nextPriority: catalogues.count)
         }
-        .fileImporter(
-            isPresented: $showingImporter,
-            allowedContentTypes: [.json],
-            allowsMultipleSelection: false
-        ) { result in
-            handleImport(result: result)
-        }
+        .modifier(CatalogueImportFlow(isPickingFile: $showingImporter, catalogues: catalogues) { catalogue in
+            selectedCatalogue = catalogue
+        })
 #if DEBUG
         .alert("CloudKit Schema", isPresented: $showingSchemaResult) {
             Button("OK", role: .cancel) {}
@@ -368,34 +352,6 @@ struct ContentView: View {
         }
     }
 #endif
-
-    private func handleImport(result: Result<[URL], Error>) {
-        Task { @MainActor in
-            do {
-                guard let url = try result.get().first else { return }
-                guard url.startAccessingSecurityScopedResource() else { return }
-                defer { url.stopAccessingSecurityScopedResource() }
-                let data = try Data(contentsOf: url)
-                importProgress = (current: 0, total: 0)
-                let imported = try await CatalogueImporter.importCatalogues(
-                    from: data,
-                    into: modelContext,
-                    priorityOffset: catalogues.count,
-                    onProgress: { current, total in
-                        importProgress = (current: current, total: total)
-                    }
-                )
-                // Permanent identifiers before any view renders the imported models: a temporary one held
-                // by a view crashes if autosave fires.
-                try? modelContext.save()
-                importProgress = nil
-                selectedCatalogue = imported.first
-            } catch {
-                importProgress = nil
-                importErrorMessage = error.localizedDescription
-            }
-        }
-    }
 
     private func requestDelete(_ catalogue: Catalogue) {
         let hasItems = catalogue.items.contains { $0.deletedDate == nil }

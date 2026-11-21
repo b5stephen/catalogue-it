@@ -196,7 +196,7 @@ struct CatalogueImportTests {
         item.modifiedDate = Date(timeIntervalSince1970: 1_650_000_000)
         try ctx.save()
 
-        let data = try CatalogueExporter.jsonData(for: catalogue)
+        let data = try await DataFileTestSupport.write(catalogue, in: source).data
         let destination = try makeContainer()
         let imported = try await CatalogueImporter.importCatalogues(from: data, into: destination.mainContext, priorityOffset: 0)
 
@@ -252,7 +252,7 @@ struct CatalogueImportTests {
         let (container, catalogues) = try await importFixture()
         let catalogue = try #require(catalogues.first)
 
-        let dto = CatalogueDTO(catalogue)
+        let dto = CatalogueDTO(catalogue, items: catalogue.items.map { CatalogueItemDTO($0) })
         // Round-tripping must not re-trigger the upgrade: the status field now describes itself.
         #expect(dto.items.allSatisfy { $0.isWishlist == nil })
         #expect(LegacyWishlistUpgrade.synthesisedStatusField(for: dto) == nil)

@@ -28,6 +28,8 @@ struct ExportComposerView: View {
 
     @State private var format: ExportFormat
     @State private var ticked: Set<ExportColumn>
+    /// The last format with columns, whose ticks a format after Data carries on from.
+    @State private var tickedFormat: ExportFormat
 
     @State private var attachesPhoto = true
     @State private var showsFieldNames = true
@@ -38,6 +40,8 @@ struct ExportComposerView: View {
     @State private var showsCatalogueName = true
 
     @State private var spreadsheetOptions = SpreadsheetEncoding.Options()
+    @State private var includesPhotos = true
+    @State private var photoCount: Int?
     @State private var exportProgress: (done: Int, total: Int)?
     @State private var showsExportProgress = false
     @State private var exportTask: Task<Void, Never>?
@@ -57,6 +61,7 @@ struct ExportComposerView: View {
         _export = State(initialValue: export)
         _filteredCount = State(initialValue: export.ids.count)
         _format = State(initialValue: format)
+        _tickedFormat = State(initialValue: format)
         _ticked = State(initialValue: Set(format.columns(for: catalogue)))
     }
 
@@ -85,7 +90,7 @@ struct ExportComposerView: View {
         switch format {
         case .message: attachesPhoto ? photos.first : nil
         case .card: cardPhotoIndex.flatMap { photos.indices.contains($0) ? photos[$0] : nil }
-        case .spreadsheet: nil
+        case .spreadsheet, .data: nil
         }
     }
 
@@ -142,7 +147,12 @@ struct ExportComposerView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) { actions }
-            .onChange(of: format) { old, new in carryTicks(from: old, to: new) }
+            .onChange(of: format) { _, new in
+                carryTicks(to: new)
+                // A Data export is usually a backup, which a filter in force would quietly cut short.
+                if new == .data, filters != nil { scope = .all }
+            }
+            .task(id: PhotoCountKey(ids: exportIDs, isData: format == .data)) { await countPhotos() }
             .onChange(of: scope) { _, new in loadScope(new) }
             .onDisappear {
                 exportTask?.cancel()
@@ -160,10 +170,10 @@ struct ExportComposerView: View {
                     )
                 }
             }
-            .alert("Export Failed", isPresented: $exportFailed) {
+            .alert("Couldn't Create File", isPresented: $exportFailed) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text("The spreadsheet couldn't be created. Try again.")
+                Text(format == .data ? "The file couldn't be created. Try again." : "The spreadsheet couldn't be created. Try again.")
             }
             .task(id: wantedPhoto?.persistentModelID) { await loadPhoto() }
             .task(id: didCopy) {
@@ -182,14 +192,13 @@ struct ExportComposerView: View {
             preview
                 .frame(height: 240)
                 .frame(maxWidth: .infinity)
-            if formats.count > 1 {
-                Picker("Format", selection: $format) {
-                    ForEach(formats) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .accessibilityIdentifier("exportFormatPicker")
-                .padding(.horizontal)
-            } else if exportIDs.count > ExportFormat.messageItemLimit {
+            Picker("Format", selection: $format) {
+                ForEach(formats) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("exportFormatPicker")
+            .padding(.horizontal)
+            if exportIDs.count > ExportFormat.messageItemLimit {
                 Text("Messages are limited to \(ExportFormat.messageItemLimit) items.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -227,6 +236,12 @@ struct ExportComposerView: View {
             spreadsheetPreview
         case .card:
             if let card { ExportCardPreview(card: card) }
+        case .data:
+            ExportDataPreview(
+                catalogueName: catalogue.name,
+                itemCount: exportIDs.count,
+                photoCount: includesPhotos ? photoCount : nil
+            )
         }
     }
 
@@ -248,10 +263,18 @@ struct ExportComposerView: View {
 
     private var form: some View {
         Form {
-            Section("Options") { options }
-            fieldsSection
-            Section("Item info") {
-                ForEach(columns.filter(\.isItemInfo), id: \.self, content: fieldRow)
+            if format == .data {
+                Section {
+                    Toggle("Include photos", isOn: $includesPhotos)
+                } footer: {
+                    Text("Everything about these items, with the catalogue's fields and settings. Open the file in Catalogue-It to add them as a new catalogue.")
+                }
+            } else {
+                Section("Options") { options }
+                fieldsSection
+                Section("Item info") {
+                    ForEach(columns.filter(\.isItemInfo), id: \.self, content: fieldRow)
+                }
             }
         }
     }
@@ -285,6 +308,8 @@ struct ExportComposerView: View {
                 ForEach(SpreadsheetEncoding.ValueStyle.allCases, id: \.self) { Text($0.title).tag($0) }
             }
             Toggle("Header row", isOn: $spreadsheetOptions.includesHeader)
+        case .data:
+            EmptyView()
         }
     }
 
@@ -333,15 +358,18 @@ struct ExportComposerView: View {
 
     private var actions: some View {
         HStack(spacing: 12) {
-            Button {
-                copy()
-            } label: {
-                Label(didCopy ? "Copied" : "Copy", systemImage: didCopy ? "checkmark" : "doc.on.doc")
-                    .frame(maxWidth: .infinity)
+            // A file of photos is no use on the pasteboard.
+            if format != .data {
+                Button {
+                    copy()
+                } label: {
+                    Label(didCopy ? "Copied" : "Copy", systemImage: didCopy ? "checkmark" : "doc.on.doc")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.glass)
+                .accessibilityIdentifier("exportCopyButton")
+                .disabled(isExporting)
             }
-            .buttonStyle(.glass)
-            .accessibilityIdentifier("exportCopyButton")
-            .disabled(isExporting)
 
             Button {
                 share()
@@ -391,10 +419,24 @@ struct ExportComposerView: View {
         if !Task.isCancelled { photoImage = image }
     }
 
+    private func countPhotos() async {
+        guard format == .data else { return }
+        let ids = exportIDs
+        let container = modelContext.container
+        photoCount = nil
+        let count = try? await Task.detached {
+            try await DataFileWriter(modelContainer: container).photoCount(itemIDs: ids)
+        }.value
+        if !Task.isCancelled { photoCount = count }
+    }
+
     private func copy() {
         if format == .spreadsheet {
+            let request = spreadsheetRequest
             runExport(
-                { writer, request, progress in try await writer.tsv(request, onProgress: progress) },
+                { container, progress in
+                    try await SpreadsheetWriter(modelContainer: container).tsv(request, onProgress: progress)
+                },
                 then: { text in
                     UIPasteboard.general.string = text
                     didCopy = true
@@ -407,23 +449,41 @@ struct ExportComposerView: View {
     }
 
     private func share() {
-        if format == .spreadsheet {
+        switch format {
+        case .spreadsheet:
+            let request = spreadsheetRequest
             runExport(
-                { writer, request, progress in try await writer.writeCSV(request, onProgress: progress) },
+                { container, progress in
+                    try await SpreadsheetWriter(modelContainer: container).writeCSV(request, onProgress: progress)
+                },
                 then: { url in pendingShare = .file(url) }
             )
             return
+        case .data:
+            let request = DataFileRequest(
+                catalogueID: catalogue.persistentModelID,
+                itemIDs: exportIDs,
+                includesPhotos: includesPhotos
+            )
+            runExport(
+                { container, progress in
+                    try await DataFileWriter(modelContainer: container).write(request, onProgress: progress)
+                },
+                then: { url in pendingShare = .file(url) }
+            )
+            return
+        case .message, .card:
+            break
         }
         pendingShare = .itemProviders(itemProviders(forCopy: false))
     }
 
-    /// Runs `work` on a `SpreadsheetWriter` off the main thread. The progress overlay appears
-    /// only if it is still running after ~500ms.
+    /// Runs `work` off the main thread, where it makes its own writer from the container. The
+    /// progress overlay appears only if it is still running after ~500ms.
     private func runExport<Result: Sendable>(
-        _ work: @escaping @Sendable (SpreadsheetWriter, SpreadsheetRequest, @escaping SpreadsheetWriter.Progress) async throws -> Result,
+        _ work: @escaping @Sendable (ModelContainer, @escaping SpreadsheetWriter.Progress) async throws -> Result,
         then finish: @escaping (Result) -> Void
     ) {
-        let request = spreadsheetRequest
         let container = modelContext.container
         exportProgress = (done: 0, total: 0)
         exportTask = Task {
@@ -437,8 +497,7 @@ struct ExportComposerView: View {
             }
 
             let task = Task.detached {
-                let writer = SpreadsheetWriter(modelContainer: container)
-                return try await work(writer, request) { done, total in continuation.yield((done, total)) }
+                try await work(container) { done, total in continuation.yield((done, total)) }
             }
             let result = await withTaskCancellationHandler {
                 await task.result
@@ -460,8 +519,12 @@ struct ExportComposerView: View {
     }
 
     /// Ticks stay for the columns both formats share; columns only the new format offers start
-    /// ticked, as every column does.
-    private func carryTicks(from old: ExportFormat, to new: ExportFormat) {
+    /// ticked, as every column does. Data has no columns, so it carries nothing and the next
+    /// format picks up from the one before it.
+    private func carryTicks(to new: ExportFormat) {
+        guard new != .data else { return }
+        let old = tickedFormat
+        tickedFormat = new
         let oldColumns = Set(old.columns(for: catalogue))
         var carried = Set(new.columns(for: catalogue).filter { ticked.contains($0) || !oldColumns.contains($0) })
         if let locked = new.lockedColumn(for: catalogue) { carried.insert(locked) }
@@ -471,7 +534,7 @@ struct ExportComposerView: View {
     /// Rendered here, on demand, from the same card the preview shows.
     private func itemProviders(forCopy: Bool) -> [NSItemProvider] {
         switch format {
-        case .spreadsheet:
+        case .spreadsheet, .data:
             return []
         case .message:
             var providers = [NSItemProvider(object: messageText as NSString)]
@@ -495,6 +558,13 @@ struct ExportComposerView: View {
     private static func fileName(for title: String) -> String {
         title.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-") + ".png"
     }
+}
+
+// MARK: - Photo Count Key
+
+private struct PhotoCountKey: Equatable {
+    let ids: [PersistentIdentifier]
+    let isData: Bool
 }
 
 // MARK: - Value Style Titles

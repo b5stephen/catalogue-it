@@ -46,7 +46,6 @@ struct CatalogueDetailView: View {
     @State private var selection = ItemSelectionState()
     @State private var exportRequest: ExportRequest?
 #if os(iOS)
-    @State private var pendingBackup: ShareSheetContent?
 #endif
 
     private func refreshHasRecentlyDeleted() {
@@ -205,15 +204,10 @@ struct CatalogueDetailView: View {
                 SortMenuButton(catalogue: catalogue, sortFieldKey: $catalogue.sortFieldKey, sortDirection: $catalogue.sortDirection)
             }
             Section {
-                Button("Export…", systemImage: "square.and.arrow.up") { exportCatalogue() }
+                Button("Share…", systemImage: "square.and.arrow.up") { exportCatalogue() }
                     .keyboardShortcut("e")
                     .accessibilityIdentifier("exportButton")
                     .disabled(displayedCount == 0)
-                BackUpMenuItems(catalogue: catalogue) { format in
-                    pendingBackup = .itemProviders([format.itemProvider(for: catalogue)])
-                }
-            }
-            Section {
                 CatalogueEditButton(showingEditCatalogue: $showingEditCatalogue)
                 if hasRecentlyDeletedItems {
                     Button("Recently Deleted", systemImage: "trash.circle") { showingRecentlyDeleted = true }
@@ -257,15 +251,6 @@ struct CatalogueDetailView: View {
         )
         // Inside the tabs' `safeAreaBar`, so the fade runs under them too.
         .washFadeEdge(sharesGlowWithDetail)
-#if os(iOS)
-        // Under the More menu holding Back Up, so the popover points at it.
-        .overlay(alignment: .topTrailing) {
-            ShareSheetAnchor(content: $pendingBackup)
-                .frame(width: 1, height: 1)
-                .padding(.trailing, 28)
-                .accessibilityHidden(true)
-        }
-#endif
         .overlay(alignment: .top) {
             if usesBand {
                 CatalogueBand(
@@ -434,7 +419,6 @@ struct CatalogueDetailView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu("More", systemImage: "ellipsis.circle") {
-                    BackUpMenuItems(catalogue: catalogue)
                     Button {
                         showingStats = true
                     } label: {
@@ -490,43 +474,6 @@ private struct ListHeader: View {
         .padding(.top, 4)
         .padding(.bottom, 8)
     }
-}
-
-// MARK: - Back Up Menu Items
-
-/// Its own view so backup data isn't computed on every search keystroke.
-private struct BackUpMenuItems: View {
-    let catalogue: Catalogue
-#if os(iOS)
-    /// Not `ShareLink`: in the bar's overflow the share sheet has nothing to anchor on and
-    /// crashes. See `ShareSheetAnchor`.
-    let onBackUp: (CatalogueExportFormat) -> Void
-#endif
-
-    var body: some View {
-        Menu("Back Up Catalogue", systemImage: "externaldrive") {
-            ForEach(CatalogueExportFormat.allCases) { format in
-#if os(iOS)
-                Button(format.title, systemImage: format.systemImage) {
-                    onBackUp(format)
-                }
-#else
-                backUpLink(for: format)
-#endif
-            }
-        }
-    }
-
-#if !os(iOS)
-    private func backUpLink(for format: CatalogueExportFormat) -> some View {
-        let filename = format.filename(for: catalogue)
-        return ShareLink(
-            format.title,
-            item: CatalogueJSONFile(catalogue: catalogue, includePhotos: format == .jsonWithPhotos, filename: filename),
-            preview: SharePreview(filename, image: Image(systemName: format.systemImage))
-        )
-    }
-#endif
 }
 
 // MARK: - Preview

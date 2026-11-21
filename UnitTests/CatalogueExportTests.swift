@@ -6,12 +6,11 @@
 import Testing
 import Foundation
 import SwiftData
-import UniformTypeIdentifiers
 @testable import catalogue_it
 
 // MARK: - Catalogue Export Tests
 
-/// Tests JSON export (including a full export → import round trip) and the share sheet providers.
+/// The Data export file, including a full export → import round trip.
 @MainActor
 struct CatalogueExportTests {
 
@@ -54,17 +53,15 @@ struct CatalogueExportTests {
         return (catalogue, nameField, yearField)
     }
 
-    // MARK: - JSON
+    // MARK: - Data File
 
-    @Test("JSON export decodes as the current version with full catalogue content")
-    func jsonExportStructure() throws {
+    @Test("A Data file decodes as the current version with full catalogue content")
+    func dataFileStructure() async throws {
         let container = try makeContainer()
         let (catalogue, _, _) = makeSampleCatalogue(in: container.mainContext)
 
-        let data = try CatalogueExporter.jsonData(for: catalogue)
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let file = try decoder.decode(CatalogueExportFile.self, from: data)
+        let written = try await DataFileTestSupport.write(catalogue, in: container)
+        let file = try written.decoded()
 
         #expect(file.version == CatalogueExportFile.currentVersion)
         let dto = try #require(file.catalogues.first)
@@ -72,10 +69,11 @@ struct CatalogueExportTests {
         #expect(dto.fieldDefinitions.map(\.name) == ["Name", "Year"])
         #expect(dto.items.count == 1)
         #expect(dto.items.first?.fieldValues.count == 2)
+        #expect(written.fileName == "Planes.json", "The whole catalogue is named for it alone")
     }
 
-    @Test("JSON export with includePhotos false omits photo data")
-    func jsonExportWithoutPhotos() throws {
+    @Test("Leaving photos out omits photo data")
+    func dataFileWithoutPhotos() async throws {
         let container = try makeContainer()
         let ctx = container.mainContext
         let (catalogue, _, _) = makeSampleCatalogue(in: ctx)
@@ -85,24 +83,44 @@ struct CatalogueExportTests {
         photo.item = item
         ctx.insert(photo)
 
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
-        let withPhotos = try decoder.decode(
-            CatalogueExportFile.self,
-            from: CatalogueExporter.jsonData(for: catalogue, includePhotos: true)
-        )
+        let withPhotos = try await DataFileTestSupport.write(catalogue, in: container, includesPhotos: true).decoded()
         #expect(withPhotos.catalogues.first?.items.first?.photos.count == 1)
+        #expect(withPhotos.catalogues.first?.items.first?.photos.first?.caption == "Box art")
 
-        let withoutPhotos = try decoder.decode(
-            CatalogueExportFile.self,
-            from: CatalogueExporter.jsonData(for: catalogue, includePhotos: false)
-        )
+        let withoutPhotos = try await DataFileTestSupport.write(catalogue, in: container, includesPhotos: false).decoded()
         #expect(withoutPhotos.catalogues.first?.items.first?.photos.isEmpty == true)
     }
 
-    @Test("JSON export excludes soft-deleted items")
-    func jsonExportExcludesSoftDeleted() throws {
+    @Test("Some items: the catalogue's whole setup, only those items, in the order given")
+    func dataFileForSomeItems() async throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let (catalogue, nameField, _) = makeSampleCatalogue(in: ctx)
+        var added: [CatalogueItem] = []
+        for name in ["Hurricane", "Mosquito", "Lancaster"] {
+            let item = CatalogueItem()
+            item.catalogue = catalogue
+            ctx.insert(item)
+            let value = FieldValue(fieldDefinition: nameField, fieldType: .text)
+            value.textValue = name
+            value.item = item
+            ctx.insert(value)
+            added.append(item)
+        }
+
+        let chosen = [added[2], added[0]]
+        let written = try await DataFileTestSupport.write(catalogue, in: container, items: chosen)
+        let dto = try #require(written.decoded().catalogues.first)
+        #expect(dto.fieldDefinitions.count == 2)
+        #expect(dto.items.map { $0.fieldValues.first?.textValue } == ["Lancaster", "Hurricane"])
+        #expect(written.fileName == "Planes – 2 items.json")
+
+        let single = try await DataFileTestSupport.write(catalogue, in: container, items: [added[1]])
+        #expect(single.fileName == "Planes – 1 item.json")
+    }
+
+    @Test("Soft-deleted items are left out, even when asked for")
+    func dataFileExcludesSoftDeleted() async throws {
         let container = try makeContainer()
         let ctx = container.mainContext
         let (catalogue, _, _) = makeSampleCatalogue(in: ctx)
@@ -112,13 +130,37 @@ struct CatalogueExportTests {
         deleted.catalogue = catalogue
         ctx.insert(deleted)
 
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let file = try decoder.decode(
-            CatalogueExportFile.self,
-            from: CatalogueExporter.jsonData(for: catalogue)
-        )
+        let file = try await DataFileTestSupport.write(catalogue, in: container, items: catalogue.items).decoded()
         #expect(file.catalogues.first?.items.count == 1)
+    }
+
+    @Test("Text that spells out the items key doesn't confuse where the items go")
+    func dataFileWithAwkwardText() async throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let (catalogue, _, _) = makeSampleCatalogue(in: ctx)
+        catalogue.name = #"Odd "items":[] name"#
+        try #require(catalogue.items.first).notes = #"{"items":[]}"#
+
+        let file = try await DataFileTestSupport.write(catalogue, in: container).decoded()
+        let dto = try #require(file.catalogues.first)
+        #expect(dto.name == #"Odd "items":[] name"#)
+        #expect(dto.items.first?.notes == #"{"items":[]}"#)
+    }
+
+    @Test("More items than one batch all reach the file")
+    func dataFileAcrossBatches() async throws {
+        let container = try makeContainer()
+        let ctx = container.mainContext
+        let (catalogue, _, _) = makeSampleCatalogue(in: ctx)
+        for index in 0..<45 {
+            let item = CatalogueItem(notes: "Item \(index)")
+            item.catalogue = catalogue
+            ctx.insert(item)
+        }
+
+        let file = try await DataFileTestSupport.write(catalogue, in: container).decoded()
+        #expect(file.catalogues.first?.items.count == 46)
     }
 
     // MARK: - Round Trip
@@ -130,7 +172,7 @@ struct CatalogueExportTests {
         let (original, _, _) = makeSampleCatalogue(in: ctx)
         original.icon = .photo(Data([0xFF, 0xD8, 0xFF, 0x01]))
 
-        let data = try CatalogueExporter.jsonData(for: original)
+        let data = try await DataFileTestSupport.write(original, in: container).data
         let imported = try await CatalogueImporter.importCatalogues(
             from: data,
             into: ctx,
@@ -157,43 +199,28 @@ struct CatalogueExportTests {
             "Sort keys are recomputed on import")
     }
 
-    // MARK: - Share Sheet
+    // MARK: - Photo Count
 
-    /// Loads what a share destination would receive: the system asks the provider for data on
-    /// a queue of its own, not the main actor.
-    private func loadData(from provider: NSItemProvider, as type: UTType) async throws -> Data {
-        try await withCheckedThrowingContinuation { continuation in
-            _ = provider.loadDataRepresentation(for: type) { data, error in
-                if let data {
-                    continuation.resume(returning: data)
-                } else {
-                    continuation.resume(throwing: error ?? CocoaError(.fileReadUnknown))
-                }
-            }
-        }
-    }
-
-    @Test("Every Back Up entry hands the share sheet a named, loadable file", arguments: CatalogueExportFormat.allCases)
-    func shareSheetItemProvider(format: CatalogueExportFormat) async throws {
+    @Test("The preview's photo count covers only the chosen items")
+    func photoCountForChosenItems() async throws {
         let container = try makeContainer()
         let ctx = container.mainContext
         let (catalogue, _, _) = makeSampleCatalogue(in: ctx)
-        let item = try #require(catalogue.items.first)
-        let photo = ItemPhoto(imageData: Data([0xFF, 0xD8, 0xFF]), priority: 0)
-        photo.item = item
-        ctx.insert(photo)
-        try ctx.save() // the file's writer reads the catalogue by identifier, from its own context
+        let first = try #require(catalogue.items.first)
+        let second = CatalogueItem()
+        second.catalogue = catalogue
+        ctx.insert(second)
+        for (item, count) in [(first, 2), (second, 3)] {
+            for index in 0..<count {
+                let photo = ItemPhoto(imageData: Data([0xFF]), priority: index)
+                photo.item = item
+                ctx.insert(photo)
+            }
+        }
+        try ctx.save()
 
-        let provider = format.itemProvider(for: catalogue)
-        #expect(provider.registeredTypeIdentifiers == [UTType.json.identifier])
-        #expect(provider.suggestedName == format.filename(for: catalogue))
-
-        let data = try await loadData(from: provider, as: .json)
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let file = try decoder.decode(CatalogueExportFile.self, from: data)
-        let photos = try #require(file.catalogues.first?.items.first?.photos)
-        #expect(photos.count == (format == .jsonWithPhotos ? 1 : 0))
-        withExtendedLifetime(container) {}
+        let writer = DataFileWriter(modelContainer: container)
+        #expect(try await writer.photoCount(itemIDs: [first.persistentModelID]) == 2)
+        #expect(try await writer.photoCount(itemIDs: [first.persistentModelID, second.persistentModelID]) == 5)
     }
 }

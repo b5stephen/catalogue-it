@@ -11,6 +11,8 @@ enum ExportFormat: CaseIterable, Identifiable {
     case message
     case card
     case spreadsheet
+    /// Everything about the items, photos included, for importing back into the app.
+    case data
 
     var id: Self { self }
 
@@ -22,6 +24,7 @@ enum ExportFormat: CaseIterable, Identifiable {
         case .message: "Message"
         case .card: "Card"
         case .spreadsheet: "Spreadsheet"
+        case .data: "Data"
         }
     }
 
@@ -36,13 +39,15 @@ enum ExportFormat: CaseIterable, Identifiable {
     static func available(forItemCount count: Int) -> [ExportFormat] {
         switch count {
         case 1: allCases
-        case 2...messageItemLimit: [.message, .spreadsheet]
-        default: [.spreadsheet]
+        case 2...messageItemLimit: [.message, .spreadsheet, .data]
+        default: [.spreadsheet, .data]
         }
     }
 
-    /// Fields in `sortedFieldDefinitions` order, then the Item info extras.
+    /// Fields in `sortedFieldDefinitions` order, then the Item info extras. Data has none to
+    /// choose: it always holds everything.
     func columns(for catalogue: Catalogue) -> [ExportColumn] {
+        guard self != .data else { return [] }
         var columns = catalogue.sortedFieldDefinitions.map { ExportColumn.field($0.fieldID) }
         columns.append(.notes)
         if self == .spreadsheet {
@@ -52,9 +57,9 @@ enum ExportFormat: CaseIterable, Identifiable {
     }
 
     /// The first field names the item in a message or card, so it can't be left out. A
-    /// spreadsheet has no title.
+    /// spreadsheet has no title, and Data no columns.
     func lockedColumn(for catalogue: Catalogue) -> ExportColumn? {
-        guard self != .spreadsheet, let first = catalogue.sortedFieldDefinitions.first else { return nil }
+        guard self == .message || self == .card, let first = catalogue.sortedFieldDefinitions.first else { return nil }
         return .field(first.fieldID)
     }
 }

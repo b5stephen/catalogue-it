@@ -5,7 +5,7 @@
 
 import XCTest
 
-/// Drives the toolbar's Export… and the Back Up entries through to the share sheet, the one path
+/// Drives the toolbar's Share… through to the share sheet, the one path
 /// unit tests can't reach: the system asks for the data on its own queue.
 @MainActor
 final class ExportTests: XCTestCase {
@@ -24,7 +24,7 @@ final class ExportTests: XCTestCase {
 
     func testExportOpensTheComposerOnSpreadsheetAndShares() throws {
         openCatalogue()
-        openToolbarEntry("Export…")
+        openToolbarEntry("Share…")
 
         let share = app.buttons["exportShareButton"]
         XCTAssertTrue(share.waitForExistence(timeout: 5), "The export composer should open")
@@ -35,24 +35,21 @@ final class ExportTests: XCTestCase {
         assertShareSheet()
     }
 
-    func testBackUpWithPhotos() throws {
-        try backUp(choosing: "With Photos")
-    }
+    func testDataSharesAFile() throws {
+        openCatalogue()
+        openToolbarEntry("Share…")
 
-    func testBackUpWithoutPhotos() throws {
-        try backUp(choosing: "Without Photos")
+        let share = app.buttons["exportShareButton"]
+        XCTAssertTrue(share.waitForExistence(timeout: 5), "The export composer should open")
+        app.buttons["Data"].tap()
+        XCTAssertTrue(app.switches["Include photos"].exists, "Data offers to leave photos out")
+        XCTAssertFalse(app.buttons["exportCopyButton"].exists, "Data has no Copy")
+
+        share.tap()
+        assertShareSheet()
     }
 
     // MARK: - Helpers
-
-    private func backUp(choosing option: String) throws {
-        openCatalogue()
-        openToolbarEntry("Back Up Catalogue")
-        let entry = app.buttons[option]
-        XCTAssertTrue(entry.waitForExistence(timeout: 3), "\(option) should be in the Back Up menu")
-        entry.tap()
-        assertShareSheet()
-    }
 
     private func assertShareSheet() {
         // The share sheet only renders once the data has been handed over; give the

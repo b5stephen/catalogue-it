@@ -45,10 +45,10 @@ struct ExportScopeTests {
 
     @Test("Formats follow the item count")
     func availableFormats() {
-        #expect(ExportFormat.available(forItemCount: 1) == [.message, .card, .spreadsheet])
-        #expect(ExportFormat.available(forItemCount: 2) == [.message, .spreadsheet])
-        #expect(ExportFormat.available(forItemCount: ExportFormat.messageItemLimit) == [.message, .spreadsheet])
-        #expect(ExportFormat.available(forItemCount: ExportFormat.messageItemLimit + 1) == [.spreadsheet])
+        #expect(ExportFormat.available(forItemCount: 1) == [.message, .card, .spreadsheet, .data])
+        #expect(ExportFormat.available(forItemCount: 2) == [.message, .spreadsheet, .data])
+        #expect(ExportFormat.available(forItemCount: ExportFormat.messageItemLimit) == [.message, .spreadsheet, .data])
+        #expect(ExportFormat.available(forItemCount: ExportFormat.messageItemLimit + 1) == [.spreadsheet, .data])
     }
 
     @Test("A selection opens on Message up to 20 items, then Spreadsheet")

@@ -10,8 +10,9 @@ import SwiftData
 
 // MARK: - Export File Wrapper
 
-/// Multi-catalogue even for a single export.
-struct CatalogueExportFile: Codable {
+/// Multi-catalogue even for a single export. A Data export of some items holds the whole
+/// catalogue's setup and only those items.
+nonisolated struct CatalogueExportFile: Codable {
     /// - v1: wishlist was an `isWishlist` boolean on each item.
     /// - v2: wishlist is an ordinary field with `displayRole: .statusTabs`, and catalogues have
     ///   `showAllTab`. v1 still imports — see `LegacyWishlistUpgrade`.
@@ -24,7 +25,7 @@ struct CatalogueExportFile: Codable {
 
 // MARK: - Catalogue DTO
 
-struct CatalogueDTO: Codable {
+nonisolated struct CatalogueDTO: Codable {
     var name: String
     var iconName: String
     /// Optional, and absent from older files: a photo or Genmoji icon, with `iconName` as its
@@ -44,7 +45,7 @@ struct CatalogueDTO: Codable {
 
 // MARK: - Field Definition DTO
 
-struct FieldDefinitionDTO: Codable {
+nonisolated struct FieldDefinitionDTO: Codable {
     /// Preserved so `sortFieldKey` references stay valid after import.
     var fieldID: UUID
     var name: String
@@ -57,7 +58,7 @@ struct FieldDefinitionDTO: Codable {
 
 // MARK: - Catalogue Item DTO
 
-struct CatalogueItemDTO: Codable {
+nonisolated struct CatalogueItemDTO: Codable {
     var createdDate: Date
     /// Optional so older files decode; import falls back to `createdDate`, as the V1 → V2 store
     /// migration does.
@@ -71,7 +72,7 @@ struct CatalogueItemDTO: Codable {
 
 // MARK: - Field Value DTO
 
-struct FieldValueDTO: Codable {
+nonisolated struct FieldValueDTO: Codable {
     /// Re-links values to definitions on import.
     var fieldDefinitionID: UUID
     var fieldType: FieldType
@@ -83,7 +84,7 @@ struct FieldValueDTO: Codable {
 
 // MARK: - Item Photo DTO
 
-struct ItemPhotoDTO: Codable {
+nonisolated struct ItemPhotoDTO: Codable {
     var imageData: Data
     var priority: Int
     var caption: String?
@@ -91,8 +92,8 @@ struct ItemPhotoDTO: Codable {
 
 // MARK: - SwiftData Model → DTO (Export)
 
-extension CatalogueDTO {
-    init(_ catalogue: Catalogue, includePhotos: Bool = true) {
+nonisolated extension CatalogueDTO {
+    init(_ catalogue: Catalogue, items: [CatalogueItemDTO]) {
         name = catalogue.name
         iconName = catalogue.iconName
         iconImageData = catalogue.iconImageData
@@ -105,10 +106,7 @@ extension CatalogueDTO {
         showAllTab = catalogue.showAllTab
         fieldDefinitions = catalogue.sortedFieldDefinitions
             .map(FieldDefinitionDTO.init)
-        items = catalogue.items
-            .filter { $0.deletedDate == nil }
-            .sorted { $0.createdDate < $1.createdDate }
-            .map { CatalogueItemDTO($0, includePhotos: includePhotos) }
+        self.items = items
     }
 }
 
@@ -130,7 +128,7 @@ extension FieldDefinitionDTO {
     }
 }
 
-extension FieldDefinitionDTO {
+nonisolated extension FieldDefinitionDTO {
     init(_ fd: FieldDefinition) {
         fieldID = fd.fieldID
         name = fd.name
@@ -141,7 +139,7 @@ extension FieldDefinitionDTO {
     }
 }
 
-extension CatalogueItemDTO {
+nonisolated extension CatalogueItemDTO {
     init(_ item: CatalogueItem, includePhotos: Bool = true) {
         createdDate = item.createdDate
         modifiedDate = item.modifiedDate
@@ -154,7 +152,7 @@ extension CatalogueItemDTO {
     }
 }
 
-extension FieldValueDTO {
+nonisolated extension FieldValueDTO {
     /// `nil` for an orphaned value.
     init?(_ fv: FieldValue) {
         guard let def = fv.fieldDefinition else { return nil }
@@ -167,7 +165,7 @@ extension FieldValueDTO {
     }
 }
 
-extension ItemPhotoDTO {
+nonisolated extension ItemPhotoDTO {
     init(_ photo: ItemPhoto) {
         imageData = photo.imageData
         priority = photo.priority

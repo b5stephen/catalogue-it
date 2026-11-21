@@ -43,6 +43,11 @@ Local simulators are slimmed with [simslim](https://github.com/MobAI-App/simslim
   and `search` (without it, `.fileImporter` shows "Content Unavailable" under Recents). Check it with
   `simslim doctor <udid> --requires icloud,keychain-sync,photos`. If iCloud sign-in still fails, add
   `store` to its `except`, because the two categories share the Apple Media Services daemons.
+- Match the profile to the job before launching. Running the app needs `dev.json`, including on a
+  simulator last slimmed with `test.json` for tests (whose file picker shows empty Recents) and on
+  one being used for the first time, which boots stock:
+  `simslim verify <udid> --profile simslim/dev.json || simslim on <udid> --profile simslim/dev.json`.
+  `simslim on` reboots the simulator, so run it before installing, not while a launch is in flight.
 - To get a service back without a reboot, use `simslim enable <udid> <category>`, for example `siri`
   when working on Genmoji icons, which need Apple Intelligence. Erasing a simulator returns it to
   stock, so re-run `simslim on` afterwards.

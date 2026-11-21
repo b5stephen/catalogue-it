@@ -103,12 +103,15 @@ actor ItemImporter {
     /// Option-list values the matched field lacks are added to its options. The catalogue's own
     /// settings — name, icon, sort, tabs — are left alone.
     ///
-    /// - Parameter skippingDuplicates: Leaves out items whose `createdDate` matches a live item
-    ///   already in the catalogue: the same item, exported from here or imported before.
+    /// - Parameters:
+    ///   - skippingDuplicates: Leaves out items whose `createdDate` matches a live item already
+    ///     in the catalogue: the same item, exported from here or imported before.
+    ///   - matchingFieldsByName: See `ImportFieldMatcher.match(_:to:byName:)`.
     func importCatalogue(
         _ dto: CatalogueDTO,
         into catalogueID: PersistentIdentifier,
         skippingDuplicates: Bool,
+        matchingFieldsByName: Bool = true,
         onProgress: Progress = { _, _ in }
     ) throws -> ImportSummary {
         guard let catalogue = modelContext.model(for: catalogueID) as? Catalogue else {
@@ -118,7 +121,8 @@ actor ItemImporter {
 
         let existingDefinitions = catalogue.fieldDefinitions
         let existingByID = Dictionary(existingDefinitions.map { ($0.fieldID, $0) }, uniquingKeysWith: { first, _ in first })
-        let entries = ImportFieldMatcher.match(dto.fieldDefinitions, to: existingDefinitions.map(ImportFieldMatcher.ExistingField.init))
+        let entries = ImportFieldMatcher.match(
+            dto.fieldDefinitions, to: existingDefinitions.map(ImportFieldMatcher.ExistingField.init), byName: matchingFieldsByName)
         let fileFields = Dictionary(dto.fieldDefinitions.map { ($0.fieldID, $0) }, uniquingKeysWith: { first, _ in first })
 
         var fieldMap: [UUID: FieldDefinition] = [:]

@@ -36,7 +36,9 @@ nonisolated enum ImportFieldMatcher {
     /// One entry per file field, in the file's field order. A field matches by `fieldID` (the
     /// file came from this catalogue), then by name ignoring case and accents; either way only
     /// a field of the same type, and each existing field takes at most one file field.
-    static func match(_ fileFields: [FieldDefinitionDTO], to existing: [ExistingField]) -> [Entry] {
+    /// - Parameter byName: Off when the user has already chosen each field, as the column
+    ///   mapping does: a column they made a new field must not merge into one of the same name.
+    static func match(_ fileFields: [FieldDefinitionDTO], to existing: [ExistingField], byName: Bool = true) -> [Entry] {
         let ordered = fileFields.sorted {
             $0.priority != $1.priority ? $0.priority < $1.priority : $0.fieldID.uuidString < $1.fieldID.uuidString
         }
@@ -49,7 +51,7 @@ nonisolated enum ImportFieldMatcher {
                 claimed.insert(byID.fieldID)
             }
         }
-        for field in ordered where matches[field.fieldID] == nil {
+        for field in ordered where byName && matches[field.fieldID] == nil {
             let key = normalised(field.name)
             if let byName = existing.first(where: {
                 !claimed.contains($0.fieldID) && $0.fieldType == field.fieldType && normalised($0.name) == key

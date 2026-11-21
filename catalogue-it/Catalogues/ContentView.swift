@@ -16,6 +16,7 @@ struct ContentView: View {
     private var catalogues: [Catalogue]
     @State private var showingAddCatalogue = false
     @State private var showingImporter = false
+    @State private var isPastingImport = false
     @State private var showingSyncDiagnostics = false
     @State private var isBeta = false
     @State private var importProgress: (current: Int, total: Int)?
@@ -259,8 +260,13 @@ struct ContentView: View {
             // Rare, so behind the overflow: on an iPad in portrait the ~300pt bar would drop the title
             // rather than a button.
             ToolbarItem(placement: rareActionPlacement) {
-                Button("Import Catalogue", systemImage: "square.and.arrow.down") {
-                    showingImporter = true
+                Menu("Import", systemImage: "square.and.arrow.down") {
+                    Button("Import from File…", systemImage: "doc") {
+                        showingImporter = true
+                    }
+                    Button("Paste from Spreadsheet", systemImage: "tablecells") {
+                        isPastingImport = true
+                    }
                 }
             }
             ToolbarItem(placement: .primaryAction) {
@@ -282,7 +288,7 @@ struct ContentView: View {
         .sheet(item: $catalogueToEdit) { catalogue in
             AddEditCatalogueView(catalogue: catalogue, nextPriority: catalogues.count)
         }
-        .modifier(CatalogueImportFlow(isPickingFile: $showingImporter, catalogues: catalogues) { catalogue in
+        .modifier(CatalogueImportFlow(isPickingFile: $showingImporter, isPasting: $isPastingImport, catalogues: catalogues) { catalogue in
             selectedCatalogue = catalogue
         })
 #if DEBUG

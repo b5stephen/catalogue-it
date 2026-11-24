@@ -12,7 +12,8 @@ import UniformTypeIdentifiers
 /// The import flow: file picker, clipboard or a drop, the destination or column-mapping sheet,
 /// progress, then the result. A Data file holding one catalogue asks where it goes when there
 /// are catalogues to import into; a Data file with several is imported as new catalogues
-/// straight away. Anything else is read as a spreadsheet.
+/// straight away. Anything else is read as a spreadsheet; an Excel workbook with several sheets
+/// asks which one first.
 struct CatalogueImportFlow: ViewModifier {
     /// Set to start an import; cleared once taken.
     @Binding var request: ImportRequest?
@@ -27,6 +28,7 @@ struct CatalogueImportFlow: ViewModifier {
     @State private var suggestedDestination: ImportDestination?
     @State private var pendingFile: PendingFile?
     @State private var pendingTable: PendingTable?
+    @State private var pendingSheets: PendingSheets?
     @State private var progress: (done: Int, total: Int)?
     @State private var errorMessage: String?
     @State private var completed: CompletedImport?
@@ -45,6 +47,11 @@ struct CatalogueImportFlow: ViewModifier {
         let suggestedDestination: ImportDestination?
     }
 
+    struct PendingSheets {
+        let sheets: [ExcelReader.Sheet]
+        let suggestedDestination: ImportDestination?
+    }
+
     struct ConfirmedImport {
         let file: CatalogueExportFile
         let destination: ImportDestination
@@ -58,6 +65,7 @@ struct CatalogueImportFlow: ViewModifier {
     enum Source {
         case dataFile(CatalogueExportFile)
         case table(ImportTable)
+        case sheets([ExcelReader.Sheet])
     }
 
     struct CompletedImport {
@@ -74,7 +82,7 @@ struct CatalogueImportFlow: ViewModifier {
             }
             .fileImporter(
                 isPresented: $isPickingFile,
-                allowedContentTypes: [.json, .commaSeparatedText, .tabSeparatedText, .delimitedText, .plainText],
+                allowedContentTypes: [.json, .excelWorkbook, .legacyExcelWorkbook, .commaSeparatedText, .tabSeparatedText, .delimitedText, .plainText],
                 allowsMultipleSelection: false
             ) { result in
                 open(result)
@@ -108,6 +116,20 @@ struct CatalogueImportFlow: ViewModifier {
                         matchingFieldsByName: false,
                         duplicatesLeftOut: duplicatesLeftOut)
                 }
+            }
+            .confirmationDialog(
+                "Which sheet do you want to import?",
+                isPresented: Binding(get: { pendingSheets != nil }, set: { if !$0 { pendingSheets = nil } }),
+                titleVisibility: .visible,
+                presenting: pendingSheets
+            ) { pending in
+                ForEach(pending.sheets, id: \.name) { sheet in
+                    Button(sheet.name) {
+                        pendingTable = PendingTable(
+                            table: sheet.table, sourceName: sheet.name, suggestedDestination: pending.suggestedDestination)
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
             }
             .alert(
                 "Import Failed",
@@ -178,6 +200,9 @@ struct CatalogueImportFlow: ViewModifier {
                 case .table(let table):
                     progress = nil
                     pendingTable = PendingTable(table: table, sourceName: name, suggestedDestination: suggestion)
+                case .sheets(let sheets):
+                    progress = nil
+                    pendingSheets = PendingSheets(sheets: sheets, suggestedDestination: suggestion)
                 }
             } catch {
                 progress = nil
@@ -192,11 +217,16 @@ struct CatalogueImportFlow: ViewModifier {
         Task { await run(confirmed) }
     }
 
-    /// A Data file is JSON, whatever its name; everything else is read as a spreadsheet.
+    /// A Data file is JSON and a workbook is a zip, whatever their names; everything else is
+    /// read as delimited text.
     nonisolated private static func source(from data: Data, isDataFile: Bool) throws -> Source {
         let firstByte = data.first { !(Character(UnicodeScalar($0)).isWhitespace) }
         if isDataFile || firstByte == UInt8(ascii: "{") {
             return .dataFile(try CatalogueImporter.decode(data))
+        }
+        if ExcelReader.isWorkbook(data) {
+            let sheets = try ExcelReader.read(data)
+            return sheets.count == 1 ? .table(sheets[0].table) : .sheets(sheets)
         }
         return .table(try DelimitedTextParser.parse(data))
     }

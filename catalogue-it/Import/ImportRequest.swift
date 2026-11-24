@@ -57,6 +57,12 @@ nonisolated struct ImportDrop: Transferable {
         FileRepresentation(importedContentType: .json) { received in
             try ImportDrop(file: received.file, isDataFile: true)
         }
+        FileRepresentation(importedContentType: .excelWorkbook) { received in
+            try ImportDrop(file: received.file, isDataFile: false)
+        }
+        FileRepresentation(importedContentType: .legacyExcelWorkbook) { received in
+            try ImportDrop(file: received.file, isDataFile: false)
+        }
         FileRepresentation(importedContentType: .commaSeparatedText) { received in
             try ImportDrop(file: received.file, isDataFile: false)
         }
@@ -84,10 +90,18 @@ nonisolated struct ImportDrop: Transferable {
     }
 }
 
+// MARK: - Content Types
+
+extension UTType {
+    // Declared by the system; `UTType` has no constants for them.
+    nonisolated static let excelWorkbook = UTType("org.openxmlformats.spreadsheetml.sheet") ?? .spreadsheet
+    nonisolated static let legacyExcelWorkbook = UTType("com.microsoft.excel.xls") ?? .spreadsheet
+}
+
 // MARK: - Drop Target
 
 extension View {
-    /// Accepts a Data file, spreadsheet or text dropped here, importing into `destination`.
+    /// Accepts a Data file, Excel workbook, spreadsheet or text dropped here, importing into `destination`.
     func importDropTarget(into destination: ImportDestination?, isTargeted: Binding<Bool>? = nil) -> some View {
         modifier(ImportDropTarget(destination: destination, isTargeted: isTargeted))
     }

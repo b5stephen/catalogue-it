@@ -12,6 +12,8 @@ struct DataFileRequest: Sendable {
     let catalogueID: PersistentIdentifier
     let itemIDs: [PersistentIdentifier]
     var includesPhotos = true
+    /// Written into the file and its name.
+    var exportedAt = Date.now
 }
 
 // MARK: - Data File Writer
@@ -37,13 +39,14 @@ actor DataFileWriter {
             throw WriterError.catalogueMissing
         }
         let encoder = Self.encoder()
-        let (head, tail) = try Self.envelope(around: catalogue, encoder: encoder)
+        let (head, tail) = try Self.envelope(around: catalogue, exportedAt: request.exportedAt, encoder: encoder)
         let wholeCatalogue = try request.itemIDs.count == liveItemCount(of: catalogue)
 
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
         let url = directory.appending(path: Self.fileName(
             catalogueName: catalogue.name,
-            itemCount: wholeCatalogue ? nil : request.itemIDs.count
+            itemCount: wholeCatalogue ? nil : request.itemIDs.count,
+            exportedAt: request.exportedAt
         ))
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         do {
@@ -96,8 +99,10 @@ actor DataFileWriter {
     /// The file before and after its items: the envelope encoded with no items, split at the
     /// empty array. Not pretty-printed, so the marker has one spelling; a quote inside a string
     /// value is escaped, so only the key itself can match.
-    nonisolated static func envelope(around catalogue: Catalogue, encoder: JSONEncoder) throws -> (head: Data, tail: Data) {
-        let file = CatalogueExportFile(exportedAt: .now, catalogues: [CatalogueDTO(catalogue, items: [])])
+    nonisolated static func envelope(
+        around catalogue: Catalogue, exportedAt: Date, encoder: JSONEncoder
+    ) throws -> (head: Data, tail: Data) {
+        let file = CatalogueExportFile(exportedAt: exportedAt, catalogues: [CatalogueDTO(catalogue, items: [])])
         let encoded = try encoder.encode(file)
         let marker = Data(#""items":[]"#.utf8)
         guard let range = encoded.firstRange(of: marker),
@@ -110,16 +115,22 @@ actor DataFileWriter {
         )
     }
 
-    /// "<Catalogue>.json" for the whole catalogue, otherwise with the item count.
-    nonisolated static func fileName(catalogueName: String, itemCount: Int?) -> String {
-        let name = catalogueName
-            .replacingOccurrences(of: "/", with: "-")
-            .replacingOccurrences(of: ":", with: "-")
-        return switch itemCount {
-        case nil: "\(name).json"
-        case 1: "\(name) – 1 item.json"
-        case let count?: "\(name) – \(count) items.json"
+    /// The item count is named only when the file holds part of the catalogue.
+    nonisolated static func fileName(
+        catalogueName: String, itemCount: Int?, exportedAt: Date, timeZone: TimeZone = .current
+    ) -> String {
+        let qualifier: String? = switch itemCount {
+        case nil: nil
+        case 1: "1 item"
+        case let count?: "\(count) items"
         }
+        return ExportFileName.make(
+            catalogueName: catalogueName,
+            qualifier: qualifier,
+            exportedAt: exportedAt,
+            timeZone: timeZone,
+            pathExtension: "json"
+        )
     }
 
     // MARK: Fetching

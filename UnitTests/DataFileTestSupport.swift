@@ -27,7 +27,8 @@ enum DataFileTestSupport {
         _ catalogue: Catalogue,
         in container: ModelContainer,
         items: [CatalogueItem]? = nil,
-        includesPhotos: Bool = true
+        includesPhotos: Bool = true,
+        exportedAt: Date = .now
     ) async throws -> Written {
         try container.mainContext.save()
         let chosen = items ?? catalogue.items
@@ -36,7 +37,8 @@ enum DataFileTestSupport {
         let request = DataFileRequest(
             catalogueID: catalogue.persistentModelID,
             itemIDs: chosen.map(\.persistentModelID),
-            includesPhotos: includesPhotos
+            includesPhotos: includesPhotos,
+            exportedAt: exportedAt
         )
         let url = try await DataFileWriter(modelContainer: container).write(request)
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }

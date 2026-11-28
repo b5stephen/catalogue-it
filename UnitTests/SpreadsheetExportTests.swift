@@ -177,11 +177,16 @@ struct SpreadsheetExportTests {
         #expect(SpreadsheetEncoding.isoDate(day(2024, 2, 9)) == "2024-02-09")
     }
 
-    @Test("File name is the catalogue's, with Filtered when set, and no path separators")
-    func fileNames() {
-        #expect(SpreadsheetEncoding.fileName(catalogueName: "Planes", filtered: false) == "Planes.csv")
-        #expect(SpreadsheetEncoding.fileName(catalogueName: "Planes", filtered: true) == "Planes – Filtered.csv")
-        #expect(SpreadsheetEncoding.fileName(catalogueName: "A/B: C", filtered: false) == "A-B- C.csv")
+    @Test("File name is the catalogue's, with Filtered when set, the export time, and no path separators")
+    func fileNames() throws {
+        let utc = try #require(TimeZone(identifier: "UTC"))
+        let at = Date(timeIntervalSince1970: 1_700_000_000) // 2023-11-14 22:13 UTC
+        func name(_ catalogue: String, filtered: Bool) -> String {
+            SpreadsheetEncoding.fileName(catalogueName: catalogue, filtered: filtered, exportedAt: at, timeZone: utc)
+        }
+        #expect(name("Planes", filtered: false) == "Planes 2023-11-14 22.13.csv")
+        #expect(name("Planes", filtered: true) == "Planes – Filtered 2023-11-14 22.13.csv")
+        #expect(name("A/B: C", filtered: false) == "A-B- C 2023-11-14 22.13.csv")
     }
 
     // MARK: - Writer
@@ -324,13 +329,16 @@ struct SpreadsheetExportTests {
         #expect(text == "Name\tYear\tNotes\nSpitfire\t1936\tline one line two and more\n")
     }
 
-    @Test("The written file is named for the catalogue, or Filtered")
+    @Test("The written file is named for the catalogue, or Filtered, and the request's time")
     func writtenFileName() async throws {
         let f = try makeFixture()
         let item = addItem(f, name: "Spitfire")
         let container = f.container
-        for (filtered, expected) in [(false, "Planes.csv"), (true, "Planes – Filtered.csv")] {
-            let request = try request(f, items: [item], filtered: filtered)
+        let at = Date(timeIntervalSince1970: 1_700_000_000)
+        let stamp = ExportFileName.stamp(at)
+        for (filtered, expected) in [(false, "Planes \(stamp).csv"), (true, "Planes – Filtered \(stamp).csv")] {
+            var request = try request(f, items: [item], filtered: filtered)
+            request.exportedAt = at
             let url = try await Task.detached {
                 try await SpreadsheetWriter(modelContainer: container).writeCSV(request)
             }.value

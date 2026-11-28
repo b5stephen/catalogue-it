@@ -152,11 +152,15 @@ nonisolated enum SpreadsheetEncoding {
 
     // MARK: File Name
 
-    /// `"<Catalogue>.csv"`, or `"<Catalogue> – Filtered.csv"`.
-    static func fileName(catalogueName: String, filtered: Bool) -> String {
-        let name = catalogueName
-            .replacingOccurrences(of: "/", with: "-")
-            .replacingOccurrences(of: ":", with: "-")
-        return (filtered ? "\(name) – Filtered" : name) + ".csv"
+    static func fileName(
+        catalogueName: String, filtered: Bool, exportedAt: Date, timeZone: TimeZone = .current
+    ) -> String {
+        ExportFileName.make(
+            catalogueName: catalogueName,
+            qualifier: filtered ? "Filtered" : nil,
+            exportedAt: exportedAt,
+            timeZone: timeZone,
+            pathExtension: "csv"
+        )
     }
 }

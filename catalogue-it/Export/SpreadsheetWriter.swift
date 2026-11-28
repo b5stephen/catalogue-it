@@ -16,8 +16,9 @@ struct SpreadsheetRequest: Sendable {
     /// Unticked columns left out; a field that no longer exists is dropped by the writer.
     let columns: [ExportColumn]
     var options = SpreadsheetEncoding.Options()
-    /// Names the file "<Catalogue> – Filtered.csv".
+    /// Adds "Filtered" to the file name.
     var filtered = false
+    var exportedAt = Date.now
 }
 
 // MARK: - Spreadsheet Writer
@@ -42,7 +43,8 @@ actor SpreadsheetWriter {
         let catalogue = try catalogue(request)
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
         let url = directory.appending(
-            path: SpreadsheetEncoding.fileName(catalogueName: catalogue.name, filtered: request.filtered))
+            path: SpreadsheetEncoding.fileName(
+                catalogueName: catalogue.name, filtered: request.filtered, exportedAt: request.exportedAt))
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         do {
             guard FileManager.default.createFile(atPath: url.path, contents: nil) else {

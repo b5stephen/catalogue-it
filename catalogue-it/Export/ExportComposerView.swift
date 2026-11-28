@@ -556,7 +556,7 @@ struct ExportComposerView: View {
     }
 
     private static func fileName(for title: String) -> String {
-        title.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-") + ".png"
+        ExportFileName.safe(title) + ".png"
     }
 }
 

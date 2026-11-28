@@ -60,7 +60,8 @@ struct CatalogueExportTests {
         let container = try makeContainer()
         let (catalogue, _, _) = makeSampleCatalogue(in: container.mainContext)
 
-        let written = try await DataFileTestSupport.write(catalogue, in: container)
+        let at = Date(timeIntervalSince1970: 1_700_000_000)
+        let written = try await DataFileTestSupport.write(catalogue, in: container, exportedAt: at)
         let file = try written.decoded()
 
         #expect(file.version == CatalogueExportFile.currentVersion)
@@ -69,7 +70,11 @@ struct CatalogueExportTests {
         #expect(dto.fieldDefinitions.map(\.name) == ["Name", "Year"])
         #expect(dto.items.count == 1)
         #expect(dto.items.first?.fieldValues.count == 2)
-        #expect(written.fileName == "Planes.json", "The whole catalogue is named for it alone")
+        #expect(file.exportedAt == at, "The file and its name carry the same time")
+        #expect(
+            written.fileName == "Planes \(ExportFileName.stamp(at)).json",
+            "The whole catalogue is named for it alone"
+        )
     }
 
     @Test("Leaving photos out omits photo data")
@@ -109,14 +114,16 @@ struct CatalogueExportTests {
         }
 
         let chosen = [added[2], added[0]]
-        let written = try await DataFileTestSupport.write(catalogue, in: container, items: chosen)
+        let at = Date(timeIntervalSince1970: 1_700_000_000)
+        let stamp = ExportFileName.stamp(at)
+        let written = try await DataFileTestSupport.write(catalogue, in: container, items: chosen, exportedAt: at)
         let dto = try #require(written.decoded().catalogues.first)
         #expect(dto.fieldDefinitions.count == 2)
         #expect(dto.items.map { $0.fieldValues.first?.textValue } == ["Lancaster", "Hurricane"])
-        #expect(written.fileName == "Planes – 2 items.json")
+        #expect(written.fileName == "Planes – 2 items \(stamp).json")
 
-        let single = try await DataFileTestSupport.write(catalogue, in: container, items: [added[1]])
-        #expect(single.fileName == "Planes – 1 item.json")
+        let single = try await DataFileTestSupport.write(catalogue, in: container, items: [added[1]], exportedAt: at)
+        #expect(single.fileName == "Planes – 1 item \(stamp).json")
     }
 
     @Test("Soft-deleted items are left out, even when asked for")

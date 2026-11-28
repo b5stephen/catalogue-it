@@ -146,8 +146,8 @@ struct ContentView: View {
         } content: {
             if let catalogue = selectedCatalogue {
                 CatalogueDetailView(catalogue: catalogue, selectedItem: $selectedItem)
-            } else {
-                ContentUnavailableView("Select a catalogue", systemImage: "square.grid.2x2")
+            } else if !catalogues.isEmpty {
+                ContentUnavailableView("Select a Catalogue", systemImage: "square.grid.2x2")
             }
         } detail: {
             if let catalogue = selectedCatalogue, let item = selectedItem {
@@ -186,11 +186,14 @@ struct ContentView: View {
     }
 #endif
 
-    /// On the catalogue's wash, so the detail side doesn't drop back to plain grey.
+    /// On the catalogue's wash, so the detail side doesn't drop back to plain grey. Blank with no
+    /// catalogues: there is nothing to select, and the welcome beside it says what to do.
     @ViewBuilder
     private var selectAnItemPlaceholder: some View {
-        let placeholder = ContentUnavailableView("Select an item", systemImage: "cube")
-        if let catalogue = selectedCatalogue {
+        let placeholder = ContentUnavailableView("Select an Item", systemImage: "cube")
+        if catalogues.isEmpty {
+            Color.clear
+        } else if let catalogue = selectedCatalogue {
 #if os(macOS)
             placeholder.catalogueGround(catalogue, glow: true, inSplitView: false)
 #else
@@ -234,10 +237,9 @@ struct ContentView: View {
                         Text("Your catalogues will appear here in a moment.")
                     }
                 } else {
-                    ContentUnavailableView(
-                        "No Catalogues",
-                        systemImage: "square.grid.2x2",
-                        description: Text("Create your first catalogue to start organizing your collections")
+                    WelcomeEmptyStateView(
+                        onNewCatalogue: { showingAddCatalogue = true },
+                        onImport: { importRequest = ImportRequest(source: $0) }
                     )
                 }
             }

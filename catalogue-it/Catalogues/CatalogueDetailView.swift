@@ -245,6 +245,7 @@ struct CatalogueDetailView: View {
             scrollState: bandScroll,
             trackedScrollRange: usesBand ? bandHeight : 0,
             selection: selection,
+            onAddItem: { showingAddItem = true },
             header: {
                 if sharesGlowWithDetail {
                     ListHeader(

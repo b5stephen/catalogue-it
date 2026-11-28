@@ -25,6 +25,7 @@ struct CatalogueItemsView<Header: View>: View {
     /// Scrolling past this is of no interest to `scrollState`'s reader; zero stops the reports.
     let trackedScrollRange: CGFloat
     let selection: ItemSelectionState
+    let onAddItem: () -> Void
     @ViewBuilder let header: Header
 
     @Environment(\.modelContext) private var modelContext
@@ -64,7 +65,8 @@ struct CatalogueItemsView<Header: View>: View {
                                 catalogue: catalogue,
                                 statusTab: statusTab,
                                 hasActiveFlags: !activeFlagIDs.isEmpty,
-                                isFiltered: !searchText.isEmpty && pagination.hasAnyItems
+                                isFiltered: !searchText.isEmpty && pagination.hasAnyItems,
+                                onAddItem: onAddItem
                             )
                         }
                         .frame(minHeight: proxy.size.height)
